@@ -1,0 +1,12 @@
+Debug
+
+Release
+/version.aps
+/*.bin
+*.log
+*.pl
+
+/*.user
+/*.vcxproj
+/*.json
+/*.filters
