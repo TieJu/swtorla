@@ -218,11 +218,15 @@ combat_log_entry parse_combat_log_line(const char* from_, const char* to_, strin
         set_pos(from_, to_, id_start + 1);
         e.effect_value_type = register_string(parse_number<decltype( e.effect_value_type )>( from_, to_ ), name_start, name_end, string_map_);
         from_ = find_char(from_, to_, ')');
-        // skip over }]
+        // skip over )
         set_pos(from_, to_, from_ + 1);
     }
 
     skip_spaces(from_, to_);
+
+    // thread block (optional)
+    // format:
+    // '<'<thread value>'>'
     if ( check_char(from_, to_, '<') ) {
         e.effect_thread = parse_number<decltype( e.effect_thread )>( from_, to_ );
         expect_char(from_, to_, '>');
