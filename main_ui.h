@@ -30,7 +30,6 @@ class main_ui : public ui_base {
     virtual void handle_os_events() {
         MSG msg
         {};
-        //while ( PeekMessage(&msg, _wnd->native_window_handle(), 0, 0, PM_REMOVE) ) {
         if ( GetMessageW(&msg, _wnd->native_window_handle(), 0, 0) ) {
             TranslateMessage(&msg);
             DispatchMessage(&msg);

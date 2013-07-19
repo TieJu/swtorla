@@ -10,3 +10,5 @@ Release
 /*.vcxproj
 /*.json
 /*.filters
+
+x64
