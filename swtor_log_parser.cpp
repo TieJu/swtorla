@@ -39,7 +39,7 @@ static const char* find_char(const char* from_, const char* to_, char c_) {
 template<typename Target>
 Target parse_number(const char*& from_, const char* to_) {
     Target t{};
-    for ( ; from_ < to_ && is_number_char(*from_); ++from_, t *= 10 ) {
+    for ( ; from_ != to_ && is_number_char(*from_); ++from_, t *= 10 ) {
         t += *from_ - '0';
     }
     return t / 10;
