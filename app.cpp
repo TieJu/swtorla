@@ -19,6 +19,8 @@
 #define PATCH_FILE_NAME "patch.bin"
 #define WPATCH_FILE_NAME L"patch.bin"
 
+#define CRASH_FILE_NAME "./crash.dump"
+
 struct loaded_patch_data_event {};
 struct loaded_patch_file_event {};
 struct update_done_event {};
@@ -366,6 +368,11 @@ void app::write_config(const char* config_path_) {
 
 }
 
+void app::send_crashreport(const char* path_) {
+    // todo: add crash upload handler here
+    (void)path_;
+}
+
 app::app(const char* caption_, const char* config_path_)
 : _config_path(config_path_)
 , _state(state::update_check) {
@@ -373,6 +380,8 @@ app::app(const char* caption_, const char* config_path_)
                             ,boost::log::keywords::format = "[%TimeStamp%]: %Message%"
                             ,boost::log::keywords::auto_flush = true);
     boost::log::core::get()->add_global_attribute("TimeStamp", boost::log::attributes::local_clock());
+    
+    send_crashreport(CRASH_FILE_NAME);
 
     _version = find_version_info();
 

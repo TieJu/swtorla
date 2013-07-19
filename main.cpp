@@ -47,12 +47,19 @@ void test_parser() {
     }
 }
 
+#include <client/windows/handler/exception_handler.h>
+#include <memory>
+#include <chrono>
+#include <thread>
 
 int APIENTRY WinMain(HINSTANCE /*hInstance*/
                     ,HINSTANCE /*hPrevInstance*/
                     ,LPSTR /*lpCmdLine*/
                     ,int /*nCmdShow*/) {
                         //test_parser();
+    auto exh = std::make_unique<google_breakpad::ExceptionHandler>( L".", nullptr, nullptr, nullptr, google_breakpad::ExceptionHandler::HANDLER_ALL );
+    //int *bad = 0;
+    //*bad = 1;
     //int arg_c;
     //auto arg_v = CommandLineToArgvW(GetCommandLine(), &arg_c);
     auto hMutex = CreateMutexW(nullptr, TRUE, L"swtor_log_analizer_unique");

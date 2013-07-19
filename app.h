@@ -59,6 +59,8 @@ class app : boost::noncopyable {
     void read_config(const char* config_path_);
     void write_config(const char* config_path_);
 
+    void send_crashreport(const char* path_);
+
 public:
     app(const char* caption_, const char* config_path_);
     ~app();
