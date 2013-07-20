@@ -32,16 +32,6 @@ struct program_version {
     int     build;
 };
 
-struct set_log_dir_event {
-    wchar_t*        path;
-};
-
-struct get_log_dir_event {
-    std::wstring*   target;
-};
-
-struct display_log_dir_select_event {};
-
 class app : boost::noncopyable {
     enum class state {
         update_check,

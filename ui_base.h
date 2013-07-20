@@ -1,12 +1,27 @@
 #pragma once
 
+#include "window.h"
+
 #include <vector>
 #include <functional>
+#include <memory>
 #include <inplace_any.h>
 
 #include "resource.h"
 
+#include <Windows.h>
+
 struct quit_event {};
+
+struct set_log_dir_event {
+    wchar_t*        path;
+};
+
+struct get_log_dir_event {
+    std::wstring*   target;
+};
+
+struct display_log_dir_select_event {};
 
 #define APP_EVENT (WM_APP + 1)
 
@@ -84,6 +99,15 @@ protected:
         wc_.smal_icon(::LoadIconW(wc_.source_instance(), MAKEINTRESOURCEW(IDI_ICON1)));
         wc_.mouse_cursor(::LoadCursorW(NULL, IDC_ARROW));
         wc_.background_brush((HBRUSH)GetStockObject(WHITE_BRUSH));
+    }
+
+    template<typename EventType, typename HandlerType>
+    static bool handle_event(const any& v_, HandlerType handler_) {
+        auto e = tj::any_cast<EventType>( &v_ );
+        if ( e ) {
+            handler_(*e);
+        }
+        return e != nullptr;
     }
 
 public:
