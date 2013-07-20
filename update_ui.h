@@ -3,6 +3,7 @@
 #include "ui_base.h"
 #include "window.h"
 
+
 #include <CommCtrl.h>
 
 struct update_progress_event {
@@ -107,7 +108,7 @@ class update_ui : public ui_base {
 public:
     update_ui()
         : _wnd_class(L"swtorla_update_window_class") {
-        _wnd_class.style(_wnd_class.style() | CS_HREDRAW | CS_VREDRAW);
+        setup_default_window_class(_wnd_class);
         _wnd_class.register_class();
         _wnd.reset(new window(0
                                 ,_wnd_class

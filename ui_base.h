@@ -4,6 +4,8 @@
 #include <functional>
 #include <inplace_any.h>
 
+#include "resource.h"
+
 struct quit_event {};
 
 #define APP_EVENT (WM_APP + 1)
@@ -74,6 +76,14 @@ protected:
         } else {
             return ::DefWindowProcW(window_->native_window_handle(), uMsg, wParam, lParam);
         }
+    }
+
+    static void setup_default_window_class(window_class& wc_) {
+        wc_.style(wc_.style() | CS_HREDRAW | CS_VREDRAW);
+        wc_.icon(::LoadIconW(wc_.source_instance(), MAKEINTRESOURCEW(IDI_ICON1)));
+        wc_.smal_icon(::LoadIconW(wc_.source_instance(), MAKEINTRESOURCEW(IDI_ICON1)));
+        wc_.mouse_cursor(::LoadCursorW(NULL, IDC_ARROW));
+        wc_.background_brush((HBRUSH)GetStockObject(WHITE_BRUSH));
     }
 
 public:
