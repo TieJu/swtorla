@@ -9,7 +9,6 @@
 
 #include <boost/array.hpp>
 
-#include "dir_watcher.h"
 #include "update_ui.h"
 #include "main_ui.h"
 
@@ -403,10 +402,6 @@ app::~app() {
 
 
 void app::operator()() {
-    auto path = _config.get<std::wstring>( L"log.path", L"./" );
-    _config.put(L"log.path", path);
-    dir_watcher test_watch(path);
-
     _ui.reset(new update_ui());
     _ui->reciver<quit_event>( [=](quit_event) {
         if ( _state != state::cleanup_update_screen ) {
@@ -504,6 +499,20 @@ void app::operator()() {
         } else if ( state::enter_main_screen == _state ) {
             _ui.reset(new main_ui());
             _ui->reciver<quit_event>( [=](quit_event) { transit_state(state::shutdown); } );
+            _ui->reciver<set_log_dir_event>( [=](set_log_dir_event e_) {
+                std::wstring str(e_.path);
+                BOOST_LOG_TRIVIAL(debug) << L"log path updated to " << str;
+                _config.put(L"log.path", str);
+                _dir_watcher.reset(new dir_watcher(str));
+            });
+            _ui->reciver<get_log_dir_event>( [=](get_log_dir_event e_) {
+                *e_.target = _config.get<std::wstring>( L"log.path", L"" );
+            } );
+
+            auto path = _config.get<std::wstring>( L"log.path", L"" );
+            _dir_watcher.reset(new dir_watcher(path));
+
+            _ui->send(display_log_dir_select_event{});
             transit_state(state::main_screen);
         }
 

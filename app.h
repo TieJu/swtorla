@@ -23,12 +23,24 @@
 
 #include "ui_base.h"
 
+#include "dir_watcher.h"
+
 struct program_version {
     int     major;
     int     minor;
     int     patch;
     int     build;
 };
+
+struct set_log_dir_event {
+    wchar_t*        path;
+};
+
+struct get_log_dir_event {
+    std::wstring*   target;
+};
+
+struct display_log_dir_select_event {};
 
 class app : boost::noncopyable {
     enum class state {
@@ -47,6 +59,7 @@ class app : boost::noncopyable {
     boost::asio::io_service         _io_service;
     std::unique_ptr<ui_base>        _ui;
     program_version                 _version;
+    std::unique_ptr<dir_watcher>    _dir_watcher;
 
     void transit_state(state new_state_);
 

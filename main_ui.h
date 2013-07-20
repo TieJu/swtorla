@@ -4,6 +4,7 @@
 #include "window.h"
 
 #include <CommCtrl.h>
+#include <Shlobj.h>
 
 
 class main_ui : public ui_base {
@@ -12,7 +13,9 @@ class main_ui : public ui_base {
     std::unique_ptr<window> _progress_bar;
     std::unique_ptr<window> _status_text;
 
-
+    void display_log_dir_select(display_log_dir_select_event) {
+        display_dir_select();
+    }
 
     template<typename EventType, typename HandlerType>
     bool handle_event(const any& v_, HandlerType handler_) {
@@ -25,6 +28,9 @@ class main_ui : public ui_base {
     virtual void on_event(const any& v_) {
 #define do_handle_event(type,handler) handle_event<type>(v_,[=](const type& e_) { handler(e_); })
 #define do_handle_event_e(event_) do_handle_event(event_##_event,event_)
+        if ( !do_handle_event_e(display_log_dir_select) ) {
+            post_event(_wnd->native_window_handle(), v_);
+        }
     }
 
     virtual void handle_os_events() {
@@ -36,6 +42,87 @@ class main_ui : public ui_base {
         } else {
             invoke_event_handlers(quit_event());
         }
+    }
+
+    void display_dir_select() {
+#if 0
+        /*
+        OPENFILENAME open;
+
+        if ( GetOpenFileName(&open) ) {
+        }*/
+
+        wchar_t dir[MAX_PATH + 1]{};
+        BROWSEINFOW dir_info
+        { 0//_wnd->native_window_handle()
+        , nullptr/*todo: replace this with a link to last known folder*/
+        , dir
+        , L"Select SW:ToR log path"
+        , BIF_EDITBOX | BIF_VALIDATE | BIF_NEWDIALOGSTYLE | BIF_USENEWUI | BIF_UAHINT
+        , nullptr
+        , 0
+        , 0
+        };
+
+        auto path_res = SHBrowseForFolder(&dir_info);
+
+        if ( !path_res ) {
+            return;
+        }
+
+        invoke_event_handlers(set_log_dir_event{ dir });
+
+        //SHGetPathFromIDList(path_res, dir);
+
+        CoTaskMemFree(path_res);
+#else
+        std::wstring current_path;
+        invoke_event_handlers(get_log_dir_event{ &current_path });
+
+        BROWSEINFO bi{};
+        // todo: this does not realy belongs here, do this if the config string was empty.
+        if ( current_path.empty() ) {
+            wchar_t base_loc[MAX_PATH * 2]{};
+            if ( SHGetSpecialFolderPath(_wnd->native_window_handle(), base_loc, CSIDL_PERSONAL, FALSE) ) {
+                wcscat_s(base_loc, L"\\Star Wars - The Old Republic\\CombatLogs");
+                PIDLIST_ABSOLUTE id{};
+                SHParseDisplayName(base_loc, nullptr, &id, SFGAO_FOLDER, nullptr);
+                bi.pidlRoot = id;
+            }
+        }
+
+        bi.hwndOwner = _wnd->native_window_handle();
+        bi.ulFlags = BIF_RETURNONLYFSDIRS;	// do NOT use BIF_NEWDIALOGSTYLE, 
+        // or BIF_STATUSTEXT        
+        bi.ulFlags |= BIF_EDITBOX;
+        bi.ulFlags |= BIF_NONEWFOLDERBUTTON;
+        //bi.lpfn = BrowseCallbackProc;
+        //bi.lParam = ( LPARAM ) &fp;
+        //bi.pidlRoot
+        bi.lpszTitle = L"Select SW:TOR Log Path";
+
+        BOOL bRet = FALSE;
+
+        auto pidlFolder = SHBrowseForFolder(&bi);
+
+        if ( pidlFolder ) {
+            wchar_t path_buffer[MAX_PATH * 2]{};
+
+            if ( SHGetPathFromIDList(pidlFolder, path_buffer) ) {
+                invoke_event_handlers(set_log_dir_event{ path_buffer });
+            }
+        }
+
+        // free up pidls
+        IMalloc *pMalloc = NULL;
+        if ( SUCCEEDED(SHGetMalloc(&pMalloc)) && pMalloc ) {
+            if ( pidlFolder )
+                pMalloc->Free(pidlFolder);
+            if ( bi.pidlRoot )
+                pMalloc->Free((void*)bi.pidlRoot);
+            pMalloc->Release();
+        }
+#endif
     }
 
 public:
