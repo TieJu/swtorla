@@ -79,11 +79,11 @@ update_ui::update_ui()
               , _wnd_class.source_instance()));
     
     _progress_bar.reset(new window(0, PROGRESS_CLASS, L"", WS_CHILD | WS_VISIBLE, 50, 15, 250, 25, _wnd->native_window_handle(), nullptr, _wnd_class.source_instance()));
+
     update_progress_waiting_event e{ false };
-    
     update_progress_waiting(e);
-    
-    _status_text.reset(new window(0, L"static", L"static", SS_CENTER | WS_CHILD | WS_VISIBLE, 50, 50, 250, 25, _wnd->native_window_handle(), nullptr, _wnd_class.source_instance()));
+
+    _status_text.reset(new window(0, L"static", L"", SS_CENTER | WS_CHILD | WS_VISIBLE, 50, 50, 250, 25, _wnd->native_window_handle(), nullptr, _wnd_class.source_instance()));
     
     _wnd->callback([=](window* window_, UINT uMsg, WPARAM wParam, LPARAM lParam) -> LRESULT {
         return os_callback_handler_default(window_, uMsg, wParam, lParam);

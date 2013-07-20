@@ -203,10 +203,9 @@ combat_log_entry parse_combat_log_line(const char* from_, const char* to_, strin
     // 2) '('<numver>'*'')' -> crit
     // 3) '('<number>' <dmg type name> '{'<dmg type name id>'}')'
     // 4) '('<number>'* <dmg type name> '{'<dmg type name id>'}')' -> crit
-
     expect_char(from_, to_, '(');
     e.effect_value = parse_number<decltype( e.effect_value )>( from_, to_ );
-    if ( check_char(from_,to_,'*') ) {
+    if ( check_char(from_, to_, '*') ) {
         e.was_crit_effect = true;
     }
     if ( !check_char(from_, to_, ')') ) {
