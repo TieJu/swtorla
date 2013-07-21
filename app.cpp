@@ -430,7 +430,7 @@ void app::operator()() {
             update_data = update_result.get();
         } catch ( const std::exception& e ) {
             BOOST_LOG_TRIVIAL(error) << L"update process error: " << e.what();
-            _ui->send(update_progress_error_event{ update_progress_error_event_level::error });
+            _ui->send(update_progress_error_event{ progress_bar::display_state::error });
         }
         if ( !update_data.empty() ) {
             update_result = std::async(std::launch::async, [=]() {
@@ -457,7 +457,7 @@ void app::operator()() {
             update_data = update_result.get();
         } catch ( const std::exception& e ) {
             BOOST_LOG_TRIVIAL(error) << L"update process error: " << e.what();
-            _ui->send(update_progress_error_event{ update_progress_error_event_level::error });
+            _ui->send(update_progress_error_event{ progress_bar::display_state::error });
         }
         if ( !update_data.empty() ) {
             update_result = std::async(std::launch::async, [=]() {

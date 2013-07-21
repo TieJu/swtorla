@@ -5,38 +5,16 @@ void update_ui::update_progress_info(const update_progress_info_event& e_) {
 }
 
 void update_ui::update_progress_error(update_progress_error_event e_) {
-#ifndef PBM_SETSTATE 
-#define PBM_SETSTATE (WM_USER+16)
-#define PBST_NORMAL             0x0001
-#define PBST_ERROR              0x0002
-#define PBST_PAUSED             0x0003
-#endif
-    WPARAM value = 0;
-    switch ( e_.level ) {
-    case update_progress_error_event_level::normal:
-        value = PBST_NORMAL;
-        break;
-    case update_progress_error_event_level::error:
-        value = PBST_ERROR;
-        break;
-    }
-    ::PostMessage(_progress_bar->native_window_handle(), PBM_SETSTATE, value, 0);
+    _progress_bar->state(e_.level);
 }
 
 void update_ui::update_progress_waiting(update_progress_waiting_event e_) {
-    if ( e_.waiting ) {
-        _progress_bar->style(_progress_bar->style() | PBS_MARQUEE);
-        ::PostMessage(_progress_bar->native_window_handle(), PBM_SETRANGE, 0, MAKELPARAM(0, 100));
-        //::PostMessage(_progress_bar->native_window_handle(), PBM_SETPOS, 0, 0);
-        ::PostMessage(_progress_bar->native_window_handle(), PBM_SETMARQUEE, TRUE, 0);
-    } else {
-        _progress_bar->style(_progress_bar->style() & ~PBS_MARQUEE);
-    }
+    _progress_bar->marque(e_.waiting);
 }
 
 void update_ui::update_progress(const update_progress_event& e_) {
-    ::PostMessage(_progress_bar->native_window_handle(), PBM_SETRANGE, 0, MAKELPARAM(e_.range_from, e_.range_to));
-    ::PostMessage(_progress_bar->native_window_handle(), PBM_SETPOS, e_.pos, 0);
+    _progress_bar->range(e_.range_from, e_.range_to);
+    _progress_bar->progress(e_.pos);
 }
 
 void update_ui::on_event(const any& v_) {
@@ -78,10 +56,7 @@ update_ui::update_ui()
               , nullptr
               , _wnd_class.source_instance()));
     
-    _progress_bar.reset(new window(0, PROGRESS_CLASS, L"", WS_CHILD | WS_VISIBLE, 50, 15, 250, 25, _wnd->native_window_handle(), nullptr, _wnd_class.source_instance()));
-
-    update_progress_waiting_event e{ false };
-    update_progress_waiting(e);
+    _progress_bar.reset(new progress_bar(50, 15, 250, 25, _wnd->native_window_handle(), 0, _wnd_class.source_instance()));
 
     _status_text.reset(new window(0, L"static", L"", SS_CENTER | WS_CHILD | WS_VISIBLE, 50, 50, 250, 25, _wnd->native_window_handle(), nullptr, _wnd_class.source_instance()));
     

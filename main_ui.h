@@ -2,7 +2,7 @@
 
 #include "ui_base.h"
 #include "window.h"
-
+#include "progress_bar.h"
 #include "tab_set.h"
 
 class main_ui : public ui_base {

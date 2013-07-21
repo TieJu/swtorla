@@ -90,7 +90,7 @@ void dir_watcher::thread_entry(const std::wstring& name_) {
     };
 
     BOOST_LOG_TRIVIAL(debug) << L"observing path";
-    if ( !ReadDirectoryChangesW(*_file_handle, _buffer[0].data(), _buffer[0].size(), FALSE, filter_mask, nullptr, &state, nullptr) ) {
+    if ( !ReadDirectoryChangesW(*_file_handle, _buffer[0].data(), (DWORD)_buffer[0].size(), FALSE, filter_mask, nullptr, &state, nullptr) ) {
         BOOST_LOG_TRIVIAL(error) << L"observing failed";
         throw std::runtime_error("ReadDirectoryChangesW failed!");
     }
@@ -105,7 +105,7 @@ void dir_watcher::thread_entry(const std::wstring& name_) {
 
             ResetEvent(state.hEvent);
             BOOST_LOG_TRIVIAL(debug) << L"observing path";
-            if ( !ReadDirectoryChangesW(*_file_handle, _buffer[0].data(), _buffer[0].size(), FALSE, filter_mask, nullptr, &state, nullptr) ) {
+            if ( !ReadDirectoryChangesW(*_file_handle, _buffer[0].data(), (DWORD)_buffer[0].size(), FALSE, filter_mask, nullptr, &state, nullptr) ) {
                 if ( !_file_handle.empty() ) {
                     BOOST_LOG_TRIVIAL(error) << L"observing failed";
                     throw std::runtime_error("ReadDirectoryChangesW failed!");

@@ -182,7 +182,7 @@ public:
         return ( DWORD )::GetWindowLongPtrW(_window_handle, GWL_EXSTYLE);
     }
 
-    HWND native_window_handle() {
+    HWND native_window_handle() const {
         return _window_handle;
     }
 

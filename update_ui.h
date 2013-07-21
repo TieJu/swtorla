@@ -2,7 +2,7 @@
 
 #include "ui_base.h"
 #include "window.h"
-
+#include "progress_bar.h"
 
 #include <CommCtrl.h>
 
@@ -16,24 +16,15 @@ struct update_progress_waiting_event {
     bool    waiting;
 };
 
-enum class update_progress_error_event_level {
-    normal,
-    error,
-};
-
-struct update_progress_error_event {
-    update_progress_error_event_level   level;
-};
-
 struct update_progress_info_event {
     std::wstring    msg;
 };
 
 class update_ui : public ui_base {
-    window_class            _wnd_class;
-    std::unique_ptr<window> _wnd;
-    std::unique_ptr<window> _progress_bar;
-    std::unique_ptr<window> _status_text;
+    window_class                    _wnd_class;
+    std::unique_ptr<window>         _wnd;
+    std::unique_ptr<progress_bar>   _progress_bar;
+    std::unique_ptr<window>         _status_text;
 
 
     void update_progress_info(const update_progress_info_event& e_);
