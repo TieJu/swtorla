@@ -1,5 +1,9 @@
 #include "main_ui.h"
 
+#include <CommCtrl.h>
+#include <Shlobj.h>
+#include <Shellapi.h>
+
 void main_ui::display_log_dir_select(display_log_dir_select_event) {
     display_dir_select();
 }
@@ -194,19 +198,9 @@ int CALLBACK main_ui::BrowseCallbackProc(HWND hWnd, UINT uMsg, LPARAM lParam, LP
 
 void main_ui::display_dir_select() {
     std::wstring current_path;
-    invoke_event_handlers(get_log_dir_event
-    { &current_path });
+    invoke_event_handlers(get_log_dir_event{ &current_path });
 
-    BROWSEINFO bi
-    {};
-    // todo: this does not realy belongs here, do this if the config string was empty.
-    if ( current_path.empty() ) {
-        wchar_t base_loc[MAX_PATH * 2]{};
-        if ( SHGetSpecialFolderPath(_wnd->native_window_handle(), base_loc, CSIDL_PERSONAL, FALSE) ) {
-            current_path = base_loc;
-            current_path += L"\\Star Wars - The Old Republic\\CombatLogs";
-        }
-    }
+    BROWSEINFO bi{};
 
     //SHParseDisplayName(current_path.c_str(), nullptr, const_cast<PIDLIST_ABSOLUTE*>(&bi.pidlRoot), SFGAO_FOLDER, nullptr);
 
@@ -239,10 +233,12 @@ void main_ui::display_dir_select() {
     // free up pidls
     IMalloc *pMalloc = NULL;
     if ( SUCCEEDED(SHGetMalloc(&pMalloc)) && pMalloc ) {
-        if ( pidlFolder )
+        if ( pidlFolder ) {
             pMalloc->Free(pidlFolder);
-        if ( bi.pidlRoot )
+        }
+        if ( bi.pidlRoot ) {
             pMalloc->Free(const_cast<PIDLIST_ABSOLUTE>( bi.pidlRoot ));
+        }
         pMalloc->Release();
     }
 }
@@ -262,10 +258,6 @@ main_ui::main_ui()
         , nullptr
         , nullptr
         , _wnd_class.source_instance()));
-
-    _progress_bar.reset(new window(0, PROGRESS_CLASS, L"", WS_CHILD | WS_VISIBLE, 50, 15, 250, 25, _wnd->native_window_handle(), nullptr, _wnd_class.source_instance()));
-
-    _status_text.reset(new window(0, L"static", L"static", SS_CENTER | WS_CHILD | WS_VISIBLE, 50, 50, 250, 25, _wnd->native_window_handle(), nullptr, _wnd_class.source_instance()));
 
     _wnd->callback([=](window* window_, UINT uMsg, WPARAM wParam, LPARAM lParam) -> LRESULT {
         return os_callback_handler_default(window_, uMsg, wParam, lParam);

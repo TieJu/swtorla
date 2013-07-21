@@ -15,6 +15,8 @@
 #include "to_string.h"
 #include "http_state.h"
 
+#include "path_finder.h"
+
 #define PATCH_FILE_NAME "patch.bin"
 #define WPATCH_FILE_NAME L"patch.bin"
 
@@ -507,6 +509,15 @@ void app::operator()() {
             });
             _ui->reciver<get_log_dir_event>( [=](get_log_dir_event e_) {
                 *e_.target = _config.get<std::wstring>( L"log.path", L"" );
+                if ( e_.target->empty() ) {
+                    BOOST_LOG_TRIVIAL(debug) << L"swtor log path is empty, trying to find it";
+                    *e_.target = find_swtor_log_path();
+                    if ( e_.target->empty() ) {
+                        BOOST_LOG_TRIVIAL(debug) << L"unable to locate swtor log path, loging ingame enabled?";
+                    } else {
+                        BOOST_LOG_TRIVIAL(debug) << L"swtor log path located at " << *e_.target;
+                    }
+                }
             } );
 
             auto path = _config.get<std::wstring>( L"log.path", L"" );

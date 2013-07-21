@@ -3,15 +3,9 @@
 #include "ui_base.h"
 #include "window.h"
 
-#include <CommCtrl.h>
-#include <Shlobj.h>
-#include <Shellapi.h>
-
 class main_ui : public ui_base {
     window_class            _wnd_class;
     std::unique_ptr<window> _wnd;
-    std::unique_ptr<window> _progress_bar;
-    std::unique_ptr<window> _status_text;
 
     void display_log_dir_select(display_log_dir_select_event);
     virtual void on_event(const any& v_);
