@@ -1,5 +1,7 @@
 #pragma once
 
+#include "handle_wrap.h"
+
 #include <windows.h>
 #include <chrono>
 #include <thread>
@@ -20,7 +22,7 @@ class dir_watcher {
     enum {
         buffer_size = 1024 * 8
     };
-    HANDLE                                      _file_handle;
+    handle_wrap<HANDLE, INVALID_HANDLE_VALUE>   _file_handle;
     std::thread                                 _handler_thread;
     std::array<std::array<char, buffer_size>, 2>_buffer;
 

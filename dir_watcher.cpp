@@ -1,5 +1,7 @@
 #include "dir_watcher.h"
 
+#include <boost/scope_exit.hpp>
+
 void dir_watcher::on_added_file(const wchar_t* begin_, const wchar_t* end_) {
     BOOST_LOG_TRIVIAL(debug) << L"added file " << std::wstring(begin_, end_);
 }
@@ -50,7 +52,7 @@ void dir_watcher::process_data(DWORD length_) {
 
 void dir_watcher::thread_entry(const std::wstring& name_) {
     BOOST_LOG_TRIVIAL(debug) << L"creating handle to observed directory " << name_;
-    _file_handle = CreateFile(name_.c_str()
+    _file_handle.reset(CreateFile(name_.c_str()
                                 , FILE_LIST_DIRECTORY
                                 , FILE_SHARE_READ
                                 | FILE_SHARE_WRITE
@@ -59,12 +61,18 @@ void dir_watcher::thread_entry(const std::wstring& name_) {
                                 , OPEN_EXISTING
                                 , FILE_FLAG_BACKUP_SEMANTICS
                                 | FILE_FLAG_OVERLAPPED
-                                , NULL);
+                                , NULL)
+                                // wrapper needed, close handle returns BOOL ....
+                                , [](HANDLE h) { CloseHandle(h); });
 
-    if ( INVALID_HANDLE_VALUE == _file_handle ) {
+    if ( _file_handle.empty() ) {
         BOOST_LOG_TRIVIAL(error) << L"unable to create handle to directory";
         throw std::runtime_error("CreateFile failed!");
     }
+    BOOST_SCOPE_EXIT_ALL(= ) {
+        BOOST_LOG_TRIVIAL(debug) << L"releasing directory handle";
+        _file_handle.reset();
+    };
 
     OVERLAPPED state{};
     DWORD read_bytes;
@@ -76,18 +84,19 @@ void dir_watcher::thread_entry(const std::wstring& name_) {
         BOOST_LOG_TRIVIAL(error) << L"unable to create sync event";
         throw std::runtime_error("CreateEvent returned null");
     }
+    BOOST_SCOPE_EXIT_ALL(= ) {
+        BOOST_LOG_TRIVIAL(debug) << L"releasing sync event";
+    };
 
     BOOST_LOG_TRIVIAL(debug) << L"observing path";
-    if ( !ReadDirectoryChangesW(_file_handle, _buffer[0].data(), _buffer[0].size(), FALSE, filter_mask, nullptr, &state, nullptr) ) {
+    if ( !ReadDirectoryChangesW(*_file_handle, _buffer[0].data(), _buffer[0].size(), FALSE, filter_mask, nullptr, &state, nullptr) ) {
         BOOST_LOG_TRIVIAL(error) << L"observing failed";
-        CloseHandle(_file_handle);
-        CloseHandle(state.hEvent);
         throw std::runtime_error("ReadDirectoryChangesW failed!");
     }
 
     for ( ;; ) {
         BOOST_LOG_TRIVIAL(debug) << L"waiting for changes";
-        if ( TRUE == ::GetOverlappedResult(_file_handle, &state, &read_bytes, TRUE) ) {
+        if ( TRUE == ::GetOverlappedResult(*_file_handle, &state, &read_bytes, TRUE) ) {
             if ( read_bytes > 0 ) {
                 BOOST_LOG_TRIVIAL(debug) << read_bytes << L" bytes of change data recived";
                 std::copy(begin(_buffer[0]), begin(_buffer[0]) + read_bytes, begin(_buffer[1]));
@@ -95,8 +104,8 @@ void dir_watcher::thread_entry(const std::wstring& name_) {
 
             ResetEvent(state.hEvent);
             BOOST_LOG_TRIVIAL(debug) << L"observing path";
-            if ( !ReadDirectoryChangesW(_file_handle, _buffer[0].data(), _buffer[0].size(), FALSE, filter_mask, nullptr, &state, nullptr) ) {
-                if ( _file_handle != INVALID_HANDLE_VALUE ) {
+            if ( !ReadDirectoryChangesW(*_file_handle, _buffer[0].data(), _buffer[0].size(), FALSE, filter_mask, nullptr, &state, nullptr) ) {
+                if ( !_file_handle.empty() ) {
                     BOOST_LOG_TRIVIAL(error) << L"observing failed";
                     throw std::runtime_error("ReadDirectoryChangesW failed!");
                 } else {
@@ -111,21 +120,22 @@ void dir_watcher::thread_entry(const std::wstring& name_) {
         }
     }
 
-    BOOST_LOG_TRIVIAL(debug) << L"shutdown phase, releasing handles";
-    if ( _file_handle != INVALID_HANDLE_VALUE ) {
-        CloseHandle(_file_handle);
-    }
-    CloseHandle(state.hEvent);
 }
 
 dir_watcher::dir_watcher(const std::wstring& path)
-    : _file_handle(INVALID_HANDLE_VALUE),
-    _handler_thread([=]() { thread_entry(path); }) {
+    : _file_handle(INVALID_HANDLE_VALUE)
+    , _handler_thread([=]() {
+        try {
+            thread_entry(path);
+        } catch ( const std::runtime_error& e ) {
+            BOOST_LOG_TRIVIAL(error) << L"dir observation failed, because " << e.what() << ", ending observer thread";
+        }
+    }) {
 }
 
 dir_watcher::~dir_watcher() {
-    auto copy = _file_handle;
-    _file_handle = INVALID_HANDLE_VALUE;
-    CloseHandle(copy);
+    //auto copy = _file_handle.release();
+    //CloseHandle(copy);
+    _file_handle.reset();
     _handler_thread.join();
 }
