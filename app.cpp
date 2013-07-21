@@ -391,7 +391,7 @@ app::app(const char* caption_, const char* config_path_)
     read_config(_config_path);
 
     INITCOMMONCONTROLSEX init =
-    { sizeof( INITCOMMONCONTROLSEX ), ICC_PROGRESS_CLASS };
+    { sizeof( INITCOMMONCONTROLSEX ), ICC_PROGRESS_CLASS | ICC_TAB_CLASSES };
     InitCommonControlsEx(&init);
 
     remove_old_file();
@@ -499,7 +499,7 @@ void app::operator()() {
             ui_base::handle_peding_events();
             transit_state(state::enter_main_screen);
         } else if ( state::enter_main_screen == _state ) {
-            _ui.reset(new main_ui());
+            _ui.reset(new main_ui(_config.get<std::wstring>( L"log.path", L"" )));
             _ui->reciver<quit_event>( [=](quit_event) { transit_state(state::shutdown); } );
             _ui->reciver<set_log_dir_event>( [=](set_log_dir_event e_) {
                 std::wstring str(e_.path);
@@ -523,7 +523,7 @@ void app::operator()() {
             auto path = _config.get<std::wstring>( L"log.path", L"" );
             _dir_watcher.reset(new dir_watcher(path));
 
-            _ui->send(display_log_dir_select_event{});
+            //_ui->send(display_log_dir_select_event{});
             transit_state(state::main_screen);
         }
 

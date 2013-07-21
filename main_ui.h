@@ -3,9 +3,19 @@
 #include "ui_base.h"
 #include "window.h"
 
+#include "tab_set.h"
+
 class main_ui : public ui_base {
-    window_class            _wnd_class;
-    std::unique_ptr<window> _wnd;
+    enum {
+        control_path_button,
+        control_path_edit,
+        control_tab,
+    };
+    window_class                            _wnd_class;
+    std::unique_ptr<window>                 _wnd;
+    std::unique_ptr<window>                 _path_button;
+    std::unique_ptr<window>                 _path_edit;
+    std::unique_ptr<tab_set>                _tab;
 
     void display_log_dir_select(display_log_dir_select_event);
     virtual void on_event(const any& v_);
@@ -19,7 +29,9 @@ class main_ui : public ui_base {
     static int CALLBACK BrowseCallbackProc(HWND hWnd, UINT uMsg, LPARAM lParam, LPARAM lpData);
     void display_dir_select();
 
+    LRESULT os_callback_handler(window* window_, UINT uMsg, WPARAM wParam, LPARAM lParam);
+
 public:
-    main_ui();
+    main_ui(const std::wstring& log_path_);
     virtual ~main_ui();
 };

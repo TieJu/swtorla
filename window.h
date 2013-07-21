@@ -119,9 +119,12 @@ public:
         return std::make_tuple(int( r.right - r.left ), int( r.bottom - r.top ));
     }
 
-
     void pos(int x, int y) {
         ::SetWindowPos(_window_handle, NULL, x, y, 0, 0, SWP_NOSIZE | SWP_NOZORDER);
+    }
+
+    void move(int x_, int y_, int width_, int height_, bool repaint_ = true) {
+        ::MoveWindow(_window_handle, x_, y_, width_, height_, repaint_);
     }
 
     std::tuple<int, int> pos() {
@@ -130,13 +133,19 @@ public:
         return std::make_tuple(int( r.left ), int( r.top ));
     }
 
+    RECT get_client_area_rect() {
+        RECT r;
+        ::GetClientRect(_window_handle, &r);
+        return r;
+    }
+
     void caption(const std::wstring& name) {
         ::SetWindowTextW(_window_handle, name.c_str());
     }
 
     std::wstring caption() {
         std::vector<wchar_t> buf;
-        buf.resize(::GetWindowTextLength(_window_handle) + 1);
+        buf.resize(::GetWindowTextLengthW(_window_handle) + 1);
         ::GetWindowTextW(_window_handle, buf.data(), int( buf.size() ));
         return std::wstring(buf.begin(), buf.end());
     }
@@ -149,6 +158,9 @@ public:
     }
     void normal() {
         ShowWindow(_window_handle, SW_SHOW);
+    }
+    void hide() {
+        ShowWindow(_window_handle, SW_HIDE);
     }
     //void Fullscreen();
 

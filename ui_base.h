@@ -97,8 +97,8 @@ protected:
         wc_.style(wc_.style() | CS_HREDRAW | CS_VREDRAW);
         wc_.icon(::LoadIconW(wc_.source_instance(), MAKEINTRESOURCEW(IDI_ICON1)));
         wc_.smal_icon(::LoadIconW(wc_.source_instance(), MAKEINTRESOURCEW(IDI_ICON1)));
-        wc_.mouse_cursor(::LoadCursorW(NULL, IDC_ARROW));
-        wc_.background_brush((HBRUSH)GetStockObject(WHITE_BRUSH));
+        wc_.mouse_cursor(::LoadCursorW(NULL, IDC_ARROW)); 
+        wc_.background_brush(GetSysColorBrush(COLOR_WINDOW));
     }
 
     template<typename EventType, typename HandlerType>

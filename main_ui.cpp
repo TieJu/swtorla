@@ -225,8 +225,8 @@ void main_ui::display_dir_select() {
         wchar_t path_buffer[MAX_PATH * 2]{};
 
         if ( SHGetPathFromIDList(pidlFolder, path_buffer) ) {
-            invoke_event_handlers(set_log_dir_event
-            { path_buffer });
+            invoke_event_handlers(set_log_dir_event{ path_buffer });
+            _path_edit->caption(path_buffer);
         }
     }
 
@@ -243,7 +243,27 @@ void main_ui::display_dir_select() {
     }
 }
 
-main_ui::main_ui()
+LRESULT main_ui::os_callback_handler(window* window_, UINT uMsg, WPARAM wParam, LPARAM lParam) {
+    if ( uMsg == WM_COMMAND ) {
+        auto id = LOWORD(wParam);
+        auto code = HIWORD(wParam);
+        switch ( id ) {
+        case control_path_button:
+            if ( code == BN_CLICKED ) {
+                display_dir_select();
+            }
+            break;
+        case control_path_edit:
+        default:
+            break;
+        }
+    } else if ( uMsg == WM_NOTIFY ) {
+        _tab->handle_event(*reinterpret_cast<LPNMHDR>(lParam));
+    }
+    return os_callback_handler_default(window_, uMsg, wParam, lParam);
+}
+
+main_ui::main_ui(const std::wstring& log_path_)
 : _wnd_class(L"swtorla_main_window_class") {
     setup_default_window_class(_wnd_class);
     _wnd_class.register_class();
@@ -253,14 +273,44 @@ main_ui::main_ui()
         , WS_OVERLAPPEDWINDOW | WS_CLIPCHILDREN | WS_CLIPSIBLINGS | WS_VISIBLE
         , CW_USEDEFAULT
         , CW_USEDEFAULT
-        , 350
-        , 125
+        , 600
+        , 600
         , nullptr
         , nullptr
         , _wnd_class.source_instance()));
 
+    RECT wr{};
+    GetClientRect(_wnd->native_window_handle(), &wr);
+
+    auto char_size_x = LOWORD(GetDialogBaseUnits());
+    auto char_size_y = HIWORD(GetDialogBaseUnits());
+
+    _path_button.reset(new window(0, L"button", L"Browse", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, char_size_x, 2, 8 * char_size_x, 7 * char_size_y / 6, _wnd->native_window_handle(), (HMENU)control_path_button, _wnd_class.source_instance()));
+    _path_edit.reset(new window(0, L"edit", log_path_.c_str(), WS_CHILD | WS_VISIBLE | WS_BORDER | ES_LEFT | ES_AUTOHSCROLL, 9 * char_size_x, 2, 60 * char_size_x, 7 * char_size_y / 6, _wnd->native_window_handle(), (HMENU)control_path_edit, _wnd_class.source_instance()));
+    _tab.reset(new tab_set(2, char_size_y * 2 + 2, wr.right - 2, wr.bottom - 2, _wnd->native_window_handle(), control_tab, _wnd_class.source_instance()));
+
+    std::vector<std::unique_ptr<window>> tab_elements;
+    tab_elements.emplace_back(new window(0, L"static", L"you!", WS_CHILD, 0, 0, 0, 0, _tab->native_window_handle(), nullptr, _wnd_class.source_instance()));
+    auto you_tab = _tab->add_tab(L"You", std::move(tab_elements));
+    tab_elements.emplace_back(new window(0, L"static", L"raid!", WS_CHILD, 0, 0, 0, 0, _tab->native_window_handle(), nullptr, _wnd_class.source_instance()));
+    _tab->add_tab(L"Raid", std::move(tab_elements));
+
+    wr = _tab->get_client_area_rect();
+    _tab->get_client_rect_for_window_rect(wr);
+
+    for ( size_t t = 0; t < _tab->get_tab_element_count(); ++t ) {
+        auto& tab = _tab->get_tab_elements(t);
+
+        for ( auto& element : tab ) {
+            element->move(wr.left, wr.top, wr.right - wr.left, 7 * char_size_y / 6);
+        }
+    }
+
+    _tab->switch_tab(you_tab);
+
+
     _wnd->callback([=](window* window_, UINT uMsg, WPARAM wParam, LPARAM lParam) -> LRESULT {
-        return os_callback_handler_default(window_, uMsg, wParam, lParam);
+        return os_callback_handler(window_, uMsg, wParam, lParam);
     });
     _wnd->update();
 
