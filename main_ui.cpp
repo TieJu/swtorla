@@ -1,5 +1,7 @@
 #include "main_ui.h"
 
+#include <boost/scope_exit.hpp>
+
 #include <CommCtrl.h>
 #include <Shlobj.h>
 #include <Shellapi.h>
@@ -153,10 +155,10 @@ int CALLBACK main_ui::BrowseCallbackProc(HWND hWnd, UINT uMsg, LPARAM lParam, LP
 
             auto pre_select = reinterpret_cast<std::wstring*>( lpData );
             if ( pre_select ) {
-                ::SendMessage(hWnd, BFFM_SETSELECTION, TRUE, (LPARAM)pre_select->c_str());
+                ::SendMessageW(hWnd, BFFM_SETSELECTION, TRUE, (LPARAM)pre_select->c_str());
             }
 
-            ::SetWindowText(hWnd, L"Select Path to SW:TOR Combat Logs");
+            ::SetWindowTextW(hWnd, L"Select Path to SW:TOR Combat Logs");
 #if defined(USE_CUSTOME_SELECTOR)
             SizeBrowseDialog(hWnd);
 #endif
@@ -168,15 +170,18 @@ int CALLBACK main_ui::BrowseCallbackProc(HWND hWnd, UINT uMsg, LPARAM lParam, LP
             wchar_t dir[MAX_PATH * 2]{};
 
             // fail if non-filesystem
-            BOOL bRet = SHGetPathFromIDList((LPITEMIDLIST)lParam, dir);
+            BOOL bRet = SHGetPathFromIDListW((LPITEMIDLIST)lParam, dir);
             if ( bRet ) {
                 // fail if folder not accessible
                 if ( _waccess_s(dir, 00) != 0 ) {
                     bRet = FALSE;
                 } else {
-                    SHFILEINFO sfi;
-                    ::SHGetFileInfo((LPCTSTR)lParam, 0, &sfi, sizeof( sfi ),
-                                    SHGFI_PIDL | SHGFI_ATTRIBUTES);
+                    SHFILEINFOW sfi;
+                    ::SHGetFileInfoW((LPCWSTR)lParam
+                                     , 0
+                                     , &sfi
+                                     , sizeof( sfi )
+                                     , SHGFI_PIDL | SHGFI_ATTRIBUTES);
 
                     // fail if pidl is a link
                     if ( sfi.dwAttributes & SFGAO_LINK ) {
@@ -197,49 +202,31 @@ int CALLBACK main_ui::BrowseCallbackProc(HWND hWnd, UINT uMsg, LPARAM lParam, LP
 }
 
 void main_ui::display_dir_select() {
-    std::wstring current_path;
-    invoke_event_handlers(get_log_dir_event{ &current_path });
+    std::wstring current_path = _path_edit->caption();
 
     BROWSEINFO bi{};
-
-    //SHParseDisplayName(current_path.c_str(), nullptr, const_cast<PIDLIST_ABSOLUTE*>(&bi.pidlRoot), SFGAO_FOLDER, nullptr);
-
-    bi.hwndOwner = _wnd->native_window_handle();
-    bi.ulFlags = BIF_RETURNONLYFSDIRS;
+    bi.hwndOwner    = _wnd->native_window_handle();
+    bi.ulFlags      = BIF_RETURNONLYFSDIRS;
 #if !defined(USE_CUSTOME_SELECTOR)
-    bi.ulFlags |= BIF_NEWDIALOGSTYLE | BIF_STATUSTEXT;	// do NOT use BIF_NEWDIALOGSTYLE, 
+    bi.ulFlags      |= BIF_NEWDIALOGSTYLE | BIF_STATUSTEXT;
 #endif
-    // or BIF_STATUSTEXT        
-    bi.ulFlags |= BIF_EDITBOX;
-    bi.ulFlags |= BIF_NONEWFOLDERBUTTON;
-    bi.lpfn = BrowseCallbackProc;
-    bi.lParam = ( LPARAM ) &current_path;
-    //bi.pidlRoot
-    //bi.lpszTitle = L"Select SW:TOR Log Path";
+    bi.ulFlags      |= BIF_EDITBOX;
+    bi.ulFlags      |= BIF_NONEWFOLDERBUTTON;
+    bi.lpfn         = BrowseCallbackProc;
+    bi.lParam       = ( LPARAM ) &current_path;
 
-    BOOL bRet = FALSE;
-
-    auto pidlFolder = SHBrowseForFolder(&bi);
+    auto pidlFolder = SHBrowseForFolderW(&bi);
+    BOOST_SCOPE_EXIT_ALL(= ) {
+        CoTaskMemFree(pidlFolder);
+    };
 
     if ( pidlFolder ) {
         wchar_t path_buffer[MAX_PATH * 2]{};
 
-        if ( SHGetPathFromIDList(pidlFolder, path_buffer) ) {
+        if ( SHGetPathFromIDListW(pidlFolder, path_buffer) ) {
             invoke_event_handlers(set_log_dir_event{ path_buffer });
             _path_edit->caption(path_buffer);
         }
-    }
-
-    // free up pidls
-    IMalloc *pMalloc = NULL;
-    if ( SUCCEEDED(SHGetMalloc(&pMalloc)) && pMalloc ) {
-        if ( pidlFolder ) {
-            pMalloc->Free(pidlFolder);
-        }
-        if ( bi.pidlRoot ) {
-            pMalloc->Free(const_cast<PIDLIST_ABSOLUTE>( bi.pidlRoot ));
-        }
-        pMalloc->Release();
     }
 }
 
