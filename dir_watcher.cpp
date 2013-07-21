@@ -86,6 +86,7 @@ void dir_watcher::thread_entry(const std::wstring& name_) {
     }
     BOOST_SCOPE_EXIT_ALL(= ) {
         BOOST_LOG_TRIVIAL(debug) << L"releasing sync event";
+        CloseHandle(state.hEvent);
     };
 
     BOOST_LOG_TRIVIAL(debug) << L"observing path";
