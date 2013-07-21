@@ -98,7 +98,7 @@ protected:
         wc_.icon(::LoadIconW(wc_.source_instance(), MAKEINTRESOURCEW(IDI_ICON1)));
         wc_.smal_icon(::LoadIconW(wc_.source_instance(), MAKEINTRESOURCEW(IDI_ICON1)));
         wc_.mouse_cursor(::LoadCursorW(NULL, IDC_ARROW)); 
-        wc_.background_brush(GetSysColorBrush(COLOR_WINDOW));
+        wc_.background_brush(GetSysColorBrush(CTLCOLOR_DLG));
     }
 
     template<typename EventType, typename HandlerType>
@@ -134,9 +134,6 @@ public:
         MSG msg
         {};
         while ( GetMessage(&msg, 0, 0, 0) ) {
-            if ( msg.message == WM_QUIT ) {
-                break;
-            }
             TranslateMessage(&msg);
             DispatchMessage(&msg);
         }
