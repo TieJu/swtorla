@@ -521,7 +521,9 @@ void app::operator()() {
             } );
 
             auto path = _config.get<std::wstring>( L"log.path", L"" );
-            _dir_watcher.reset(new dir_watcher(path));
+            if ( !path.empty() ) {
+                _dir_watcher.reset(new dir_watcher(path));
+            }
 
             _ui->send(display_log_dir_select_event{});
             transit_state(state::main_screen);
