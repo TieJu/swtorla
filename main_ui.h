@@ -12,6 +12,7 @@ class main_ui : public ui_base {
         control_tab,
         control_start_solo_button,
         control_sync_to_raid_button,
+        control_stop_button,
 
         min_width = 600,
         min_height = 600,
@@ -23,6 +24,7 @@ class main_ui : public ui_base {
     std::unique_ptr<tab_set>                _tab;
     std::unique_ptr<window>                 _start_solo_button;
     std::unique_ptr<window>                 _sync_raid_button;
+    std::unique_ptr<window>                 _stop_button;
 
     void display_log_dir_select(display_log_dir_select_event);
     virtual void on_event(const any& v_);

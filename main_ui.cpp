@@ -288,8 +288,11 @@ main_ui::main_ui(const std::wstring& log_path_)
     _path_button.reset(new window(0, L"button", L"Browse", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, char_size_x, 8, 8 * char_size_x, 7 * char_size_y / 6, _wnd->native_window_handle(), (HMENU)control_path_button, _wnd_class.source_instance()));
     _tab.reset(new tab_set(2, char_size_y * 2 + 2, wr.right - 2, wr.bottom - 2, _wnd->native_window_handle(), control_tab, _wnd_class.source_instance()));
 
-    auto pos_left = 600 - char_size_x;;
-    pos_left -= 15 * char_size_x - char_size_x - char_size_x;
+    auto pos_left = 600 - char_size_x * 2;
+    pos_left -= 6 * char_size_x - char_size_x - char_size_x;
+    _stop_button.reset(new window(0, L"button", L"Stop", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, pos_left, 8, 4 * char_size_x, 7 * char_size_y / 6, _wnd->native_window_handle(), (HMENU)control_stop_button, _wnd_class.source_instance()));
+
+    pos_left -= 14 * char_size_x - char_size_x - char_size_x;
     _sync_raid_button.reset(new window(0, L"button", L"Sync to Raid", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, pos_left, 8, 12 * char_size_x, 7 * char_size_y / 6, _wnd->native_window_handle(), (HMENU)control_sync_to_raid_button, _wnd_class.source_instance()));
     // for now you cant sync to raids
     _sync_raid_button->disable();
