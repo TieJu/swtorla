@@ -230,6 +230,10 @@ void main_ui::display_dir_select() {
     }
 }
 
+void main_ui::on_size(window* window_, WPARAM wParam, LPARAM lParam) {
+
+}
+
 LRESULT main_ui::os_callback_handler(window* window_, UINT uMsg, WPARAM wParam, LPARAM lParam) {
     if ( uMsg == WM_COMMAND ) {
         auto id = LOWORD(wParam);
@@ -244,6 +248,15 @@ LRESULT main_ui::os_callback_handler(window* window_, UINT uMsg, WPARAM wParam, 
         default:
             break;
         }
+    } else if ( uMsg == WM_SIZE ) {
+        on_size(window_, wParam, lParam);
+    } else if ( uMsg == WM_GETMINMAXINFO ) {
+        auto info = reinterpret_cast<MINMAXINFO*>( lParam );
+        info->ptMinTrackSize.x = min_width;
+        info->ptMinTrackSize.y = min_height;
+        // currently disable maxing
+        info->ptMaxTrackSize.x = min_width;
+        info->ptMaxTrackSize.y = min_height;
     } else if ( uMsg == WM_NOTIFY ) {
         _tab->handle_event(*reinterpret_cast<LPNMHDR>(lParam));
     }
@@ -272,9 +285,21 @@ main_ui::main_ui(const std::wstring& log_path_)
     auto char_size_x = LOWORD(GetDialogBaseUnits());
     auto char_size_y = HIWORD(GetDialogBaseUnits());
 
-    _path_button.reset(new window(0, L"button", L"Browse", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, char_size_x, 2, 8 * char_size_x, 7 * char_size_y / 6, _wnd->native_window_handle(), (HMENU)control_path_button, _wnd_class.source_instance()));
-    _path_edit.reset(new window(0, L"edit", log_path_.c_str(), WS_CHILD | WS_VISIBLE | WS_BORDER | ES_LEFT | ES_AUTOHSCROLL, 9 * char_size_x, 2, 60 * char_size_x, 7 * char_size_y / 6, _wnd->native_window_handle(), (HMENU)control_path_edit, _wnd_class.source_instance()));
+    _path_button.reset(new window(0, L"button", L"Browse", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, char_size_x, 8, 8 * char_size_x, 7 * char_size_y / 6, _wnd->native_window_handle(), (HMENU)control_path_button, _wnd_class.source_instance()));
     _tab.reset(new tab_set(2, char_size_y * 2 + 2, wr.right - 2, wr.bottom - 2, _wnd->native_window_handle(), control_tab, _wnd_class.source_instance()));
+
+    auto pos_left = 600 - char_size_x;;
+    pos_left -= 15 * char_size_x - char_size_x - char_size_x;
+    _sync_raid_button.reset(new window(0, L"button", L"Sync to Raid", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, pos_left, 8, 12 * char_size_x, 7 * char_size_y / 6, _wnd->native_window_handle(), (HMENU)control_sync_to_raid_button, _wnd_class.source_instance()));
+    // for now you cant sync to raids
+    _sync_raid_button->disable();
+
+    pos_left -= 6 * char_size_x - char_size_x - char_size_x;
+    _start_solo_button.reset(new window(0, L"button", L"Solo", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, pos_left, 8, 4 * char_size_x, 7 * char_size_y / 6, _wnd->native_window_handle(), (HMENU)control_start_solo_button, _wnd_class.source_instance()));
+
+    pos_left -= 11 * char_size_x - char_size_x - char_size_x;
+    _path_edit.reset(new window(0, L"edit", log_path_.c_str(), WS_CHILD | WS_VISIBLE | WS_BORDER | ES_LEFT | ES_AUTOHSCROLL, 9 * char_size_x, 8, pos_left, 7 * char_size_y / 6, _wnd->native_window_handle(), (HMENU)control_path_edit, _wnd_class.source_instance()));
+
 
     std::vector<std::unique_ptr<window>> tab_elements;
     tab_elements.emplace_back(new window(0, L"static", L"you!", WS_CHILD, 0, 0, 0, 0, _tab->native_window_handle(), nullptr, _wnd_class.source_instance()));
@@ -300,6 +325,7 @@ main_ui::main_ui(const std::wstring& log_path_)
         return os_callback_handler(window_, uMsg, wParam, lParam);
     });
     _wnd->update();
+    _wnd->size(600, 600);
 
 }
 

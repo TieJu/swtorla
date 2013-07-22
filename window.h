@@ -162,6 +162,18 @@ public:
     void hide() {
         ShowWindow(_window_handle, SW_HIDE);
     }
+
+    void enable(bool enable_ = true) {
+        ::EnableWindow(_window_handle, enable_);
+    }
+
+    void disable() {
+        enable(false);
+    }
+
+    bool is_enabled() {
+        return TRUE == ::IsWindowEnabled(_window_handle);
+    }
     //void Fullscreen();
 
     void style(DWORD style) {
