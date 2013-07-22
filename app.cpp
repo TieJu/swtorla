@@ -505,8 +505,7 @@ void app::operator()() {
                 std::wstring str(e_.path);
                 BOOST_LOG_TRIVIAL(debug) << L"log path updated to " << str;
                 _config.put(L"log.path", str);
-                _dir_watcher.reset(new dir_watcher(str));
-            });
+            } );
             _ui->reciver<get_log_dir_event>( [=](get_log_dir_event e_) {
                 *e_.target = _config.get<std::wstring>( L"log.path", L"" );
                 if ( e_.target->empty() ) {
@@ -519,11 +518,17 @@ void app::operator()() {
                     }
                 }
             } );
+            _ui->reciver<start_tracking>( [=](start_tracking e_) {
+                *e_.ok = true;
+                auto log_path = _config.get<std::wstring>( L"log.path", L"" );
+                _dir_watcher.reset(new dir_watcher(log_path));
+                auto file = find_path_for_lates_log_file(log_path);
+                // ...
+            } );
+            _ui->reciver<stop_tracking>( [=](stop_tracking) {
+                _dir_watcher.reset();
+            } );
 
-            auto path = _config.get<std::wstring>( L"log.path", L"" );
-            _dir_watcher.reset(new dir_watcher(path));
-
-            //_ui->send(display_log_dir_select_event{});
             transit_state(state::main_screen);
         }
 
