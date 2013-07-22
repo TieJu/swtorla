@@ -23,6 +23,11 @@ struct get_log_dir_event {
 
 struct display_log_dir_select_event {};
 
+struct start_tracking {
+    bool* ok;
+};
+struct stop_tracking {};
+
 #define APP_EVENT (WM_APP + 1)
 
 class ui_base {

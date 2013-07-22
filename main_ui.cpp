@@ -244,6 +244,25 @@ LRESULT main_ui::os_callback_handler(window* window_, UINT uMsg, WPARAM wParam, 
                 display_dir_select();
             }
             break;
+        case control_start_solo_button:
+            if ( code == BN_CLICKED ) {
+                bool ok = false;
+                invoke_event_handlers(start_tracking{&ok} );
+                if ( ok ) {
+                    _start_solo_button->disable();
+                    _sync_raid_button->disable();
+                    _stop_button->enable();
+                }
+            }
+            break;
+        case control_stop_button:
+            if ( code == BN_CLICKED ) {
+                invoke_event_handlers(stop_tracking{});
+                _stop_button->disable();
+                //_sync_raid_button->enable();
+                _start_solo_button->enable();
+            }
+            break;
         case control_path_edit:
         default:
             break;
@@ -291,6 +310,8 @@ main_ui::main_ui(const std::wstring& log_path_)
     auto pos_left = 600 - char_size_x * 2;
     pos_left -= 6 * char_size_x - char_size_x - char_size_x;
     _stop_button.reset(new window(0, L"button", L"Stop", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, pos_left, 8, 4 * char_size_x, 7 * char_size_y / 6, _wnd->native_window_handle(), (HMENU)control_stop_button, _wnd_class.source_instance()));
+    // only active if tracking is enabled
+    _stop_button->disable();
 
     pos_left -= 14 * char_size_x - char_size_x - char_size_x;
     _sync_raid_button.reset(new window(0, L"button", L"Sync to Raid", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, pos_left, 8, 12 * char_size_x, 7 * char_size_y / 6, _wnd->native_window_handle(), (HMENU)control_sync_to_raid_button, _wnd_class.source_instance()));
