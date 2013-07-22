@@ -308,17 +308,17 @@ main_ui::main_ui(const std::wstring& log_path_)
     _tab.reset(new tab_set(2, char_size_y * 2 + 2, wr.right - 2, wr.bottom - 2, _wnd->native_window_handle(), control_tab, _wnd_class.source_instance()));
 
     auto pos_left = 600 - char_size_x * 2;
-    pos_left -= 6 * char_size_x - char_size_x - char_size_x;
+    pos_left -= 8 * char_size_x - char_size_x - char_size_x;
     _stop_button.reset(new window(0, L"button", L"Stop", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, pos_left, 8, 6 * char_size_x, 7 * char_size_y / 6, _wnd->native_window_handle(), (HMENU)control_stop_button, _wnd_class.source_instance()));
     // only active if tracking is enabled
     _stop_button->disable();
 
-    pos_left -= 14 * char_size_x - char_size_x - char_size_x;
+    pos_left -= 16 * char_size_x - char_size_x - char_size_x;
     _sync_raid_button.reset(new window(0, L"button", L"Sync to Raid", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, pos_left, 8, 14 * char_size_x, 7 * char_size_y / 6, _wnd->native_window_handle(), (HMENU)control_sync_to_raid_button, _wnd_class.source_instance()));
     // for now you cant sync to raids
     _sync_raid_button->disable();
 
-    pos_left -= 6 * char_size_x - char_size_x - char_size_x;
+    pos_left -= 8 * char_size_x - char_size_x - char_size_x;
     _start_solo_button.reset(new window(0, L"button", L"Solo", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, pos_left, 8, 6 * char_size_x, 7 * char_size_y / 6, _wnd->native_window_handle(), (HMENU)control_start_solo_button, _wnd_class.source_instance()));
 
     pos_left -= 11 * char_size_x - char_size_x - char_size_x;
