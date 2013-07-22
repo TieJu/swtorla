@@ -246,7 +246,7 @@ LRESULT main_ui::os_callback_handler(window* window_, UINT uMsg, WPARAM wParam, 
             break;
         case control_start_solo_button:
             if ( code == BN_CLICKED ) {
-                bool ok = false;
+                bool ok = true;
                 invoke_event_handlers(start_tracking{&ok} );
                 if ( ok ) {
                     _start_solo_button->disable();
