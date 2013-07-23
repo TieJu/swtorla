@@ -24,6 +24,7 @@
 #include "ui_base.h"
 
 #include "dir_watcher.h"
+#include "log_processor.h"
 
 struct program_version {
     int     major;
@@ -50,6 +51,7 @@ class app : boost::noncopyable {
     std::unique_ptr<ui_base>        _ui;
     program_version                 _version;
     std::unique_ptr<dir_watcher>    _dir_watcher;
+    log_processor                   _log_reader;
 
     void transit_state(state new_state_);
 

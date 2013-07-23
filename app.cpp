@@ -523,7 +523,7 @@ void app::operator()() {
                 auto log_path = _config.get<std::wstring>( L"log.path", L"" );
                 _dir_watcher.reset(new dir_watcher(log_path));
                 auto file = find_path_for_lates_log_file(log_path);
-                // ...
+                _log_reader.start(file);
             } );
             _ui->reciver<stop_tracking>( [=](stop_tracking) {
                 _dir_watcher.reset();

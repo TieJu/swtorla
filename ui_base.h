@@ -1,6 +1,7 @@
 #pragma once
 
 #include "window.h"
+#include "handle_wrap.h"
 
 #include <vector>
 #include <functional>
@@ -42,6 +43,7 @@ protected:
 private:
     std::vector<callback_type>  _callbacks;
     std::vector<any>            _eventlist;
+    handle_wrap<HFONT, nullptr> _window_font;
 
     virtual void on_event(const any& v_) = 0;
 
@@ -98,6 +100,15 @@ protected:
         }
     }
 
+    void load_font(const std::wstring& name) {
+        _window_font.reset(::CreateFontW(0, 0, GM_ADVANCED, 0, FW_NORMAL, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_DONTCARE, name.c_str())
+                          , [](HFONT h_) { DeleteObject(h_); });
+    }
+
+    void set_font_to_window(window& wnd) {
+        ::SendMessageW(wnd.native_window_handle(), WM_SETFONT, ( WPARAM )*_window_font, TRUE);
+    }
+
     static void setup_default_window_class(window_class& wc_) {
         wc_.style(wc_.style() | CS_HREDRAW | CS_VREDRAW);
         wc_.icon(::LoadIconW(wc_.source_instance(), MAKEINTRESOURCEW(IDI_ICON1)));
@@ -116,7 +127,9 @@ protected:
     }
 
 public:
-    ui_base() {}
+    ui_base() {
+        load_font(L"times new roman");
+    }
     virtual ~ui_base() {}
     virtual void handle_os_events() = 0;
 

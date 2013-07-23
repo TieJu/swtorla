@@ -348,6 +348,13 @@ main_ui::main_ui(const std::wstring& log_path_)
     _wnd->callback([=](window* window_, UINT uMsg, WPARAM wParam, LPARAM lParam) -> LRESULT {
         return os_callback_handler(window_, uMsg, wParam, lParam);
     });
+    set_font_to_window(*_wnd);
+    set_font_to_window(*_path_button);
+    set_font_to_window(*_stop_button);
+    set_font_to_window(*_start_solo_button);
+    set_font_to_window(*_sync_raid_button);
+    set_font_to_window(*_path_edit);
+    set_font_to_window(*_tab);
     _wnd->update();
     _wnd->size(600, 600);
 
