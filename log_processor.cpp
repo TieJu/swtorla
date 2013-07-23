@@ -28,10 +28,10 @@
 char* log_processor::process_bytes(char* from_, char* to_) {
     auto start = from_;
     while ( from_ < to_ ) {
-        auto le = std::find(from_, to_, '\r');
+        auto le = std::find(from_, to_, '\n');
 
         if ( le == to_ ) {
-            BOOST_LOG_TRIVIAL(debug) << L"[log_processor] no line end found for : " << std::string(from_, to_);
+            //BOOST_LOG_TRIVIAL(debug) << L"[log_processor] no line end found for : " << std::string(from_, to_);
             return std::copy(from_, to_, start);
         }
 
@@ -70,11 +70,13 @@ char* log_processor::process_bytes(char* from_, char* to_) {
                 DWORD w;
                 WriteConsoleA(h, buf.str().c_str(), buf.str().length(), &w, nullptr);
                 //WriteFile(h,)
-            } catch ( const std::runtime_error &e ) {
-                BOOST_LOG_TRIVIAL(error) << L"[log_processor] line parsing failed, because " << e.what() << "line was: " << std::string(from_, le);
+            } catch ( const std::exception &e ) {
+                BOOST_LOG_TRIVIAL(error) << L"[log_processor] line parsing failed, because " << e.what() << ", line was: " << std::string(from_, le);
+            } catch ( ... ) {
+                BOOST_LOG_TRIVIAL(error) << L"[log_processor] line parsing failed, line was: " << std::string(from_, le);
             }
         }
-        from_ = le + 2; // line end is \r\n
+        from_ = le + 1; // line end is \r\n
     }
     return start;
 }
@@ -85,7 +87,7 @@ void log_processor::thread_entry() {
     DWORD bytes_read;
     char* from = read_buffer.data();
     char* to = from + read_buffer.size();
-    DWORD wait_ms = 100;
+    DWORD wait_ms = overlapped_min_wait_ms;
     for ( ;; ) {
         BOOST_LOG_TRIVIAL(debug) << L"[log_processor] waiting for sync event";
         ::WaitForSingleObject(*_sync_event, INFINITE);
@@ -107,7 +109,7 @@ void log_processor::thread_entry() {
             if ( TRUE == ::GetOverlappedResult(*_file_handle, &_overlapped, &bytes_read, TRUE) ) {
                 BOOST_LOG_TRIVIAL(debug) << L"[log_processor] read compledet, got " << bytes_read << " bytes read";
                 ::ResetEvent(_overlapped.hEvent);
-                wait_ms = std::max<DWORD>( wait_ms >> 1, 50 );
+                wait_ms = std::max<DWORD>( wait_ms >> 1, overlapped_min_wait_ms );
                 if ( bytes_read > 0 ) {
                     LARGE_INTEGER offset;
                     offset.LowPart = _overlapped.Offset;
@@ -131,7 +133,7 @@ void log_processor::thread_entry() {
                 if ( ec == ERROR_HANDLE_EOF ) {
                     BOOST_LOG_TRIVIAL(debug) << L"[log_processor] eof reached, waiting for " << wait_ms << L" ms";
                     ::Sleep(wait_ms);
-                    wait_ms = std::min<DWORD>(wait_ms + wait_ms, 1500);
+                    wait_ms = std::min<DWORD>( wait_ms + wait_ms, overlapped_max_wait_ms );
                     continue;
                 }
                 BOOST_LOG_TRIVIAL(error) << L"[log_processor] read error, stoping";

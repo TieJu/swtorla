@@ -1,12 +1,15 @@
 #include "swtor_log_parser.h"
 
+#include <type_traits>
+
 static void expect_char(const char*& from_, const char* to_,char c_) {
+    auto debug = from_;
     if ( from_ == to_ ) {
         throw std::runtime_error("unexpected end of log line");
     }
 
     if ( *from_++ != c_ ) {
-        throw std::runtime_error("unexpected character found");
+        throw std::runtime_error("unexpected character found, expected " + std::string(1,c_) + " but got " + std::string((from_ - 1),to_));
     }
 }
 
@@ -23,6 +26,18 @@ static bool check_char(const char*& from_, const char* to_, char c_) {
     return false;
 }
 
+template<size_t N>
+static bool check_string(const char*& from_, const char* to_, const char (&str_)[N]) {
+    auto cpy = from_;
+    for ( size_t n = 0; n < N - 1; ++n ) {
+        if ( *from_++ != str_[n] ) {
+            from_ = cpy;
+            return false;
+        }
+    }
+    return true;
+}
+
 static void skip_spaces(const char*& from_, const char* to_) {
     from_ = std::find_if(from_, to_, [](char c_) { return c_ != ' '; });
 }
@@ -37,7 +52,18 @@ static const char* find_char(const char* from_, const char* to_, char c_) {
 }
 
 template<typename Target>
-Target parse_number(const char*& from_, const char* to_) {
+typename std::enable_if<std::is_signed<Target>::value, Target>::type parse_number(const char*& from_, const char* to_) {
+    Target t
+    {};
+    bool negate = check_char(from_, to_, '-');
+    for ( ; from_ != to_ && is_number_char(*from_); ++from_, t *= 10 ) {
+        t += *from_ - '0';
+    }
+    return ( negate ? -t : t ) / 10;
+}
+
+template<typename Target>
+typename std::enable_if<!std::is_signed<Target>::value, Target>::type parse_number(const char*& from_, const char* to_) {
     Target t{};
     for ( ; from_ != to_ && is_number_char(*from_); ++from_, t *= 10 ) {
         t += *from_ - '0';
@@ -47,7 +73,7 @@ Target parse_number(const char*& from_, const char* to_) {
 
 static void set_pos(const char*& from_, const char* to_, const char *new_pos_) {
     if ( new_pos_ > to_ ) {
-        throw std::runtime_error("malformed combat log line");
+        throw std::runtime_error("malformed combat log line, tryed to skip over line end, current pos is: " + std::string(from_,to_));
     }
     from_ = new_pos_;
 }
@@ -73,6 +99,30 @@ static string_id register_name(const char* from_, const char* to_, character_lis
     char_list_.push_back(std::string(from_, to_));
 
     return char_list_.size() - 1;
+}
+
+template<typename CharCheck>
+static string_id read_localized_string(const char*& from_, const char* to_, string_to_id_string_map& string_map_, CharCheck char_check_, char start_char_ = '[', char end_char_ = ']') {
+    expect_char(from_, to_, start_char_);
+    skip_spaces(from_, to_);
+    if ( check_char(from_, to_, end_char_) ) {
+        return string_id(-1);
+    }
+
+    // localized strings can contain [ and ] ....
+    auto start = from_;
+    for ( ; from_ != to_; ++from_ ) {
+        if ( !char_check_(*from_) ) {
+            break;
+        }
+    }
+    expect_char(from_, to_, end_char_);
+
+    auto id_start = find_char(start, from_, '{');
+    expect_char(id_start, from_, '{');
+    auto name_end = id_start - 1;
+    auto id = parse_number<string_id>(id_start, from_);
+    return register_string(id, start, name_end, string_map_);
 }
 
 combat_log_entry parse_combat_log_line(const char* from_, const char* to_, string_to_id_string_map& string_map_, character_list& char_list_) {
@@ -164,44 +214,36 @@ combat_log_entry parse_combat_log_line(const char* from_, const char* to_, strin
     // format:
     // 1) '['<name> '{'<name id>'}'']'
     // 2) '['']'
-    expect_char(from_, to_, '[');
-    end = find_char(from_, to_, ']');
-    if ( end - from_ > 0 ) {
-        auto id_start = find_char(from_, to_, '{');
-        auto name_start = from_;
-        // id_start - 1, because the name follows one space (todo: find a bether way to do it)
-        auto name_end = id_start - 1;
-        set_pos(from_, to_, id_start + 1);
-        e.ability = register_string(parse_number<decltype( e.ability )>( from_, end ), name_start, name_end, string_map_);
-    }
-    // skip over ]
-    set_pos(from_, to_, end + 1);
+    size_t level = 1;
+    e.ability = read_localized_string(from_, to_, string_map_, [&](char c_) {
+        if ( c_ == '[' ) {
+            ++level;
+        } else if ( c_ == ']' ) {
+            --level;
+            return level != 0;
+        }
+        return true;
+    });
 
     skip_spaces(from_, to_);
 
     // effect block
     // format:
     // '['<effect action name> '{'<effect action name id>'}'':' <effect type> '{'<effect type name>'}'']'
-    expect_char(from_, to_, '[');
-    end = find_char(from_, to_, ']');
-    auto id_start = find_char(from_, to_, '{');
-    auto name_start = from_;
-    // id_start - 1, because the name follows one space (todo: find a bether way to do it)
-    auto name_end = id_start - 1;
-    set_pos(from_, to_, id_start + 1);
-    e.effect_action = register_string(parse_number<decltype( e.effect_action )>( from_, end ), name_start, name_end, string_map_);
-
-    from_ = find_char(from_, to_, ':') + 1;
-    skip_spaces(from_, to_);
-
-    id_start = find_char(from_, to_, '{');
-    name_start = from_;
-    // id_start - 1, because the name follows one space (todo: find a bether way to do it)
-    name_end = id_start - 1;
-    set_pos(from_, to_, id_start + 1);
-    e.effect_type = register_string(parse_number<decltype( e.effect_type )>( from_, end ), name_start, name_end, string_map_);
-    // skip over ]
-    set_pos(from_, to_, end + 1);
+    e.effect_action = read_localized_string(from_, to_, string_map_, [](char c_) {
+        return c_ != ':';
+    }, '[', ':');
+    --from_;
+    level = 1;
+    e.effect_type = read_localized_string(from_, to_, string_map_, [&](char c_) {
+        if ( c_ == '[' ) {
+            ++level;
+        } else if ( c_ == ']' ) {
+            --level;
+            return level != 0;
+        }
+        return true;
+    },':');
 
     skip_spaces(from_, to_);
 
@@ -216,12 +258,15 @@ combat_log_entry parse_combat_log_line(const char* from_, const char* to_, strin
     if ( check_char(from_, to_, '*') ) {
         e.was_crit_effect = true;
     }
-    if ( !check_char(from_, to_, ')') ) {
+    skip_spaces(from_, to_);
+    if ( check_string(from_, to_, "-)") ) {
+        // skip over it
+    } else if ( !check_char(from_, to_, ')') ) {
         skip_spaces(from_, to_);
-        id_start = find_char(from_, to_, '{');
-        name_start = from_;
+        auto id_start = find_char(from_, to_, '{');
+        auto name_start = from_;
         // id_start - 1, because the name follows one space (todo: find a bether way to do it)
-        name_end = id_start - 1;
+        auto name_end = id_start - 1;
         set_pos(from_, to_, id_start + 1);
         e.effect_value_type = register_string(parse_number<decltype( e.effect_value_type )>( from_, to_ ), name_start, name_end, string_map_);
         from_ = find_char(from_, to_, ')');

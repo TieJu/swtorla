@@ -24,7 +24,9 @@ struct combat_log_entry_event {
 class log_processor
     : boost::noncopyable {
     enum {
-        buffer_size = 1024 * 8
+        buffer_size = 1024 * 8,
+        overlapped_min_wait_ms = 250,
+        overlapped_max_wait_ms = 2500,
     };
     handle_wrap<HANDLE, INVALID_HANDLE_VALUE>   _file_handle;
     handle_wrap<HANDLE, nullptr>                _sync_event;

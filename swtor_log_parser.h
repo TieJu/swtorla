@@ -25,10 +25,10 @@ struct combat_log_entry {
     string_id                   ability;
     string_id                   effect_action;
     string_id                   effect_type;
-    unsigned int                effect_value;
+    int                         effect_value;
     bool                        was_crit_effect;
     string_id                   effect_value_type;
-    unsigned int                effect_thread;
+    int                         effect_thread;
 };
 
 typedef concurrency::concurrent_unordered_map<string_id, std::string>  string_to_id_string_map;
