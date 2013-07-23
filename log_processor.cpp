@@ -126,6 +126,7 @@ log_processor::~log_processor() {
 }
 
 void log_processor::start(const std::wstring& path) {
+    BOOST_LOG_TRIVIAL(debug) << L"[log_processor] reading file " << path;
     _file_handle.reset(::CreateFileW(path.c_str()
                                     , GENERIC_READ
                                     , FILE_SHARE_READ | FILE_SHARE_WRITE
@@ -136,14 +137,17 @@ void log_processor::start(const std::wstring& path) {
                       , [](HANDLE file_) { ::CloseHandle(file_); });
     _overlapped.Offset = 0;
     _overlapped.OffsetHigh = 0;
+    BOOST_LOG_TRIVIAL(debug) << L"[log_processor] signaling worker thread";
     ::SetEvent(*_sync_event);
     ::ResetEvent(_overlapped.hEvent);
 }
 
 void log_processor::stop() {
+    BOOST_LOG_TRIVIAL(debug) << L"[log_processor] stop requested";
     ::ResetEvent(*_sync_event);
     auto h = *_file_handle;
     _file_handle.reset();
+    BOOST_LOG_TRIVIAL(debug) << L"[log_processor] calceling io and sending signal to worker thread";
     ::CancelIoEx(h, &_overlapped);
     ::SetEvent(_overlapped.hEvent);
 }

@@ -13,6 +13,10 @@
 
 void dir_watcher::on_added_file(const wchar_t* begin_, const wchar_t* end_) {
     BOOST_LOG_TRIVIAL(debug) << L"added file " << std::wstring(begin_, end_);
+    std::wstring name(begin_, end_);
+    for ( auto& clb : _add_callbacks ) {
+        clb(name);
+    }
 }
 void dir_watcher::on_removed_file(const wchar_t* begin_, const wchar_t* end_) {
     BOOST_LOG_TRIVIAL(debug) << L"removed file " << std::wstring(begin_, end_);

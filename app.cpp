@@ -522,6 +522,10 @@ void app::operator()() {
                 *e_.ok = true;
                 auto log_path = _config.get<std::wstring>( L"log.path", L"" );
                 _dir_watcher.reset(new dir_watcher(log_path));
+                _dir_watcher->add_handler([=](const std::wstring& file_) {
+                    _log_reader.stop();
+                    _log_reader.start(log_path + L"\\" + file_);
+                });
                 auto file = find_path_for_lates_log_file(log_path);
                 _log_reader.start(file);
             } );
