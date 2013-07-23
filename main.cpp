@@ -23,7 +23,7 @@ int APIENTRY WinMain(HINSTANCE /*hInstance*/
                     ,LPSTR /*lpCmdLine*/
                     ,int /*nCmdShow*/) {
 
-    auto exh = std::make_unique<google_breakpad::ExceptionHandler>( L".", nullptr, nullptr, nullptr, google_breakpad::ExceptionHandler::HANDLER_ALL );
+    auto exh = std::make_unique<google_breakpad::ExceptionHandler>( L".", nullptr, nullptr, nullptr, google_breakpad::ExceptionHandler::HANDLER_ALL, MiniDumpWithFullMemory, (const wchar_t*)nullptr, nullptr );
     //int arg_c;
     //auto arg_v = CommandLineToArgvW(GetCommandLine(), &arg_c);
     auto hMutex = CreateMutexW(nullptr, TRUE, L"swtor_log_analizer_unique");
