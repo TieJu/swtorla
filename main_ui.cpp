@@ -339,6 +339,7 @@ main_ui::main_ui(const std::wstring& log_path_)
 
         for ( auto& element : tab ) {
             element->move(wr.left, wr.top, wr.right - wr.left, 7 * char_size_y / 6);
+            set_font_to_window(*element);
         }
     }
 

@@ -527,6 +527,7 @@ void app::operator()() {
             } );
             _ui->reciver<stop_tracking>( [=](stop_tracking) {
                 _dir_watcher.reset();
+                _log_reader.stop();
             } );
 
             transit_state(state::main_screen);

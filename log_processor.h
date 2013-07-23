@@ -25,8 +25,9 @@ class log_processor
     handle_wrap<HANDLE, nullptr>                _sync_event;
     std::array<std::array<char, buffer_size>, 2>_buffer;
     std::thread                                 _handler_thread; 
+    OVERLAPPED                                  _overlapped;
 
-    void process_bytes(const char* from_, const char* to_);
+    char* process_bytes(char* from_, char* to_);
     void thread_entry();
 public:
     log_processor();
