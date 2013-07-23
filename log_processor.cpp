@@ -15,6 +15,8 @@
 #include <boost/log/sources/severity_logger.hpp>
 #include <boost/log/sources/record_ostream.hpp>
 
+#include <cstddef>
+
 #ifdef min
 #undef min
 #endif
@@ -70,10 +72,12 @@ void log_processor::thread_entry() {
                 ::ResetEvent(_overlapped.hEvent);
                 wait_ms = std::max<DWORD>( wait_ms >> 1, 50 );
                 if ( bytes_read > 0 ) {
-                    size_t offset = _overlapped.Offset | size_t(_overlapped.OffsetHigh) << 32;
-                    offset += bytes_read;
-                    _overlapped.Offset = offset;
-                    _overlapped.OffsetHigh = offset >> 32;
+                    LARGE_INTEGER offset;
+                    offset.LowPart = _overlapped.Offset;
+                    offset.HighPart = _overlapped.OffsetHigh;
+                    offset.QuadPart += bytes_read;
+                    _overlapped.Offset = offset.LowPart;
+                    _overlapped.OffsetHigh = offset.HighPart;
                     from = process_bytes(read_buffer.data(), from + bytes_read);
                 } else {
                     if ( _file_handle.empty() ) {
@@ -130,6 +134,8 @@ void log_processor::start(const std::wstring& path) {
                                     , FILE_FLAG_OVERLAPPED// | FILE_FLAG_SEQUENTIAL_SCAN
                                     , nullptr)
                       , [](HANDLE file_) { ::CloseHandle(file_); });
+    _overlapped.Offset = 0;
+    _overlapped.OffsetHigh = 0;
     ::SetEvent(*_sync_event);
     ::ResetEvent(_overlapped.hEvent);
 }
