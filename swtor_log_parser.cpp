@@ -70,7 +70,7 @@ static string_id register_name(const char* from_, const char* to_, character_lis
         return std::distance(begin(char_list_), loc);
     }
 
-    char_list_.emplace_back(from_, to_);
+    char_list_.push_back(std::string(from_, to_));
 
     return char_list_.size() - 1;
 }
@@ -103,21 +103,25 @@ combat_log_entry parse_combat_log_line(const char* from_, const char* to_, strin
     // 3) '['<mob name> '{'<mob name id'}'':''{'<mob id>'}'']'
     expect_char(from_, to_, '[');
     auto end = find_char(from_,to_,']');
-    if ( check_char(from_, to_, '@') ) {
-        // todo: handle crew correctly
-        e.src = register_name(from_, end, char_list_);
-    } else {
-        auto id_start = find_char(from_, end,'{');
-        auto name_start = from_;
-        // id_start - 1, because the name follows one space (todo: find a bether way to do it)
-        auto name_end = id_start - 1;
-        set_pos(from_, to_, id_start + 1);
-        e.src = register_string(parse_number<decltype( e.src )>( from_, end ), name_start, name_end, string_map_);
+    if ( end - from_ > 0 ) {
+        if ( check_char(from_, to_, '@') ) {
+            // todo: handle crew correctly
+            e.src = register_name(from_, end, char_list_);
+        } else {
+            auto id_start = find_char(from_, end, '{');
+            auto name_start = from_;
+            // id_start - 1, because the name follows one space (todo: find a bether way to do it)
+            auto name_end = id_start - 1;
+            set_pos(from_, to_, id_start + 1);
+            e.src = register_string(parse_number<decltype( e.src )>( from_, end ), name_start, name_end, string_map_);
 
-        from_ = find_char(from_, to_, ':');
-        set_pos(from_, to_, from_ + 1);
-        skip_spaces(from_, to_);
-        e.src_id = parse_number<decltype( e.src_id )>( from_, end );
+            from_ = find_char(from_, to_, ':');
+            set_pos(from_, to_, from_ + 1);
+            skip_spaces(from_, to_);
+            e.src_id = parse_number<decltype( e.src_id )>( from_, end );
+        }
+    } else {
+        e.src = decltype( e.src )( -1 );
     }
     // skip over ]
     set_pos(from_, to_, end + 1);
@@ -131,21 +135,25 @@ combat_log_entry parse_combat_log_line(const char* from_, const char* to_, strin
     // 3) '['<mob name> '{'<mob name id'}'':''{'<mob id>'}'']'
     expect_char(from_, to_, '[');
     end = find_char(from_, to_, ']');
-    if ( check_char(from_, to_, '@') ) {
-        // todo: handle crew correctly
-        e.dst = register_name(from_, end, char_list_);
-    } else {
-        auto id_start = find_char(from_, end, '{');
-        auto name_start = from_;
-        // id_start - 1, because the name follows one space (todo: find a bether way to do it)
-        auto name_end = id_start - 1;
-        set_pos(from_, to_, id_start + 1);
-        e.dst = register_string(parse_number<decltype( e.dst )>( from_, end ), name_start, name_end, string_map_);
+    if ( end - from_ > 0 ) {
+        if ( check_char(from_, to_, '@') ) {
+            // todo: handle crew correctly
+            e.dst = register_name(from_, end, char_list_);
+        } else {
+            auto id_start = find_char(from_, end, '{');
+            auto name_start = from_;
+            // id_start - 1, because the name follows one space (todo: find a bether way to do it)
+            auto name_end = id_start - 1;
+            set_pos(from_, to_, id_start + 1);
+            e.dst = register_string(parse_number<decltype( e.dst )>( from_, end ), name_start, name_end, string_map_);
 
-        from_ = find_char(from_, to_, ':');
-        set_pos(from_, to_, from_ + 1);
-        skip_spaces(from_, to_);
-        e.dst_id = parse_number<decltype( e.dst_id )>( from_, end );
+            from_ = find_char(from_, to_, ':');
+            set_pos(from_, to_, from_ + 1);
+            skip_spaces(from_, to_);
+            e.dst_id = parse_number<decltype( e.dst_id )>( from_, end );
+        }
+    } else {
+        e.dst = decltype( e.dst )( -1 );
     }
     // skip over ]
     set_pos(from_, to_, end + 1);

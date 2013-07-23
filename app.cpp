@@ -395,6 +395,8 @@ app::app(const char* caption_, const char* config_path_)
     InitCommonControlsEx(&init);
 
     remove_old_file();
+
+    _log_reader.targets(_string_map, _char_list);
 }
 
 

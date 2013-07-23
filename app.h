@@ -52,6 +52,8 @@ class app : boost::noncopyable {
     program_version                 _version;
     std::unique_ptr<dir_watcher>    _dir_watcher;
     log_processor                   _log_reader;
+    string_to_id_string_map         _string_map;
+    character_list                  _char_list;
 
     void transit_state(state new_state_);
 

@@ -15,6 +15,7 @@
 #include <boost/log/sources/record_ostream.hpp>
 
 #include <cstddef>
+#include <sstream>
 
 #ifdef min
 #undef min
@@ -34,13 +35,43 @@ char* log_processor::process_bytes(char* from_, char* to_) {
             return std::copy(from_, to_, start);
         }
 
-        BOOST_LOG_TRIVIAL(debug) << L"[log_processor] parsing line: " << std::string(from_, le);
+        //BOOST_LOG_TRIVIAL(debug) << L"[log_processor] parsing line: " << std::string(from_, le);
 
         if ( _string_map && _char_list ) {
             try {
                 auto entry = parse_combat_log_line(from_, le, *_string_map, *_char_list);
+                auto h = GetStdHandle(STD_OUTPUT_HANDLE);
+                std::stringstream buf;
+                buf << "Entry: "
+                    << entry.time_index.hours
+                    << ":"
+                    << entry.time_index.minutes
+                    << ":"
+                    << entry.time_index.seconds
+                    << "."
+                    << entry.time_index.milseconds
+                    << " src[ ";
+                if ( entry.src <= _char_list->size() ) {
+                    buf << ( *_char_list )[entry.src];
+                } else {
+                    buf << ( *_string_map )[entry.src];
+                }
+                buf << " ] dst[ ";
+                if ( entry.dst <= _char_list->size() ) {
+                    buf << ( *_char_list )[entry.dst];
+                } else {
+                    buf << ( *_string_map )[entry.dst];
+                }
+                buf << " ] spell[ "
+                    << ( *_string_map )[entry.ability]
+                    << " ]";
+
+                buf << "\r\n";
+                DWORD w;
+                WriteConsoleA(h, buf.str().c_str(), buf.str().length(), &w, nullptr);
+                //WriteFile(h,)
             } catch ( const std::runtime_error &e ) {
-                BOOST_LOG_TRIVIAL(debug) << L"[log_processor] line parsing failed, because " << e.what() << "line was: " << std::string(from_, le);
+                BOOST_LOG_TRIVIAL(error) << L"[log_processor] line parsing failed, because " << e.what() << "line was: " << std::string(from_, le);
             }
         }
         from_ = le + 2; // line end is \r\n
@@ -117,10 +148,14 @@ log_processor::log_processor() {
     _handler_thread = std::thread([=]() {
         try {
             thread_entry();
-        } catch ( const std::runtime_error& e ) {
-            BOOST_LOG_TRIVIAL(error) << L"log processing faile, because " << e.what() << ", ending reader thread";
+        } catch ( const std::exception& e ) {
+            BOOST_LOG_TRIVIAL(error) << L"log processing failed, because " << e.what() << ", ending reader thread";
+        } catch ( ... ) {
+            BOOST_LOG_TRIVIAL(error) << L"log processing failed, because unknown, ending reader thread";
         }
     });
+
+    AllocConsole();
 }
 
 log_processor::~log_processor() {
@@ -129,6 +164,8 @@ log_processor::~log_processor() {
     ::SetEvent(_overlapped.hEvent);
     _handler_thread.join();
     CloseHandle(_overlapped.hEvent);
+
+    FreeConsole();
 }
 
 void log_processor::start(const std::wstring& path) {
