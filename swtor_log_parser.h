@@ -5,6 +5,8 @@
 #include <algorithm>
 #include <unordered_map>
 #include <vector>
+#include <concurrent_unordered_map.h>
+#include <concurrent_vector.h>
 
 typedef unsigned long long string_id;
 
@@ -29,7 +31,7 @@ struct combat_log_entry {
     unsigned int                effect_thread;
 };
 
-typedef std::unordered_map<string_id, std::string>  string_to_id_string_map;
-typedef std::vector<std::string>                    character_list;
+typedef concurrency::concurrent_unordered_map<string_id, std::string>  string_to_id_string_map;
+typedef concurrency::concurrent_vector<std::string>                    character_list;
 
 combat_log_entry parse_combat_log_line(const char* from_, const char* to_, string_to_id_string_map& string_map_, character_list& char_list_);

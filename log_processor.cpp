@@ -1,6 +1,5 @@
 #include "log_processor.h"
 
-#include "swtor_log_parser.h"
 
 #include <algorithm>
 
@@ -36,7 +35,14 @@ char* log_processor::process_bytes(char* from_, char* to_) {
         }
 
         BOOST_LOG_TRIVIAL(debug) << L"[log_processor] parsing line: " << std::string(from_, le);
-        //auto entry = parse_combat_log_line(from_, le);
+
+        if ( _string_map && _char_list ) {
+            try {
+                auto entry = parse_combat_log_line(from_, le, *_string_map, *_char_list);
+            } catch ( const std::runtime_error &e ) {
+                BOOST_LOG_TRIVIAL(debug) << L"[log_processor] line parsing failed, because " << e.what() << "line was: " << std::string(from_, le);
+            }
+        }
         from_ = le + 2; // line end is \r\n
     }
     return start;

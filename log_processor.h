@@ -15,6 +15,11 @@
 #include <Windows.h>
 
 #include <boost/noncopyable.hpp>
+#include "swtor_log_parser.h"
+
+struct combat_log_entry_event {
+    combat_log_entry    entry;
+};
 
 class log_processor
     : boost::noncopyable {
@@ -26,12 +31,18 @@ class log_processor
     std::array<std::array<char, buffer_size>, 2>_buffer;
     std::thread                                 _handler_thread; 
     OVERLAPPED                                  _overlapped;
+    string_to_id_string_map*                    _string_map;
+    character_list*                             _char_list;
 
     char* process_bytes(char* from_, char* to_);
     void thread_entry();
 public:
     log_processor();
     ~log_processor();
+    void targets(string_to_id_string_map& string_map_, character_list& char_list_) {
+        _string_map = &string_map_;
+        _char_list = &char_list_;
+    }
     void start(const std::wstring& path);
     void stop();
 };
