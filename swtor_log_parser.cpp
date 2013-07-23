@@ -3,7 +3,6 @@
 #include <type_traits>
 
 static void expect_char(const char*& from_, const char* to_,char c_) {
-    auto debug = from_;
     if ( from_ == to_ ) {
         throw std::runtime_error("unexpected end of log line");
     }
@@ -101,6 +100,46 @@ static string_id register_name(const char* from_, const char* to_, character_lis
     return char_list_.size() - 1;
 }
 
+static std::tuple<string_id, string_id, unsigned long long> read_entity_name(const char*& from_, const char* to_, string_to_id_string_map& string_map_, character_list& char_list_) {
+    expect_char(from_, to_, '[');
+    if ( check_char(from_, to_, ']') ) {
+        return std::make_tuple(string_id(-1), string_id(-1), ( unsigned long long )(-1));
+    }
+    auto start = from_;
+    size_t level = 1;
+    for ( ; from_ != to_ && level; ++from_ ) {
+        if ( *from_ == '[' ) {
+            ++level;
+        } else if ( *from_ == ']' ) {
+            --level;
+        }
+    }
+
+    if ( check_char(start, from_, '@') ) {
+        auto sep = find_char(start, from_, ':');
+        if ( sep != from_ ) {
+            expect_char(sep, from_, ':');
+            auto owner = register_name(start, sep - 1, char_list_);
+            auto id_start = find_char(sep, to_, '{');
+            expect_char(id_start, from_, '{');
+            auto minion = register_string(parse_number<string_id>( id_start, from_ ), sep, id_start - 1, string_map_);
+            return std::make_tuple(owner, minion, ( unsigned long long )( -1 ));
+        } else {
+            auto owner = register_name(start, from_ - 1, char_list_);
+            return std::make_tuple(owner, string_id(-1), ( unsigned long long )( -1 ));
+        }
+    } else {
+        auto id_start = find_char(start, to_, '{');
+        expect_char(id_start, from_, '{');
+        auto mob = register_string(parse_number<string_id>( id_start, from_ ), start, id_start - 2, string_map_);
+        expect_char(id_start, from_, '}');
+        skip_spaces(id_start, from_);
+        expect_char(id_start, from_, ':');
+        auto id = parse_number<unsigned long long>( id_start, from_ );
+        return std::make_tuple(mob, string_id(-1), id);
+    }
+}
+
 template<typename CharCheck>
 static string_id read_localized_string(const char*& from_, const char* to_, string_to_id_string_map& string_map_, CharCheck char_check_, char start_char_ = '[', char end_char_ = ']') {
     expect_char(from_, to_, start_char_);
@@ -151,30 +190,7 @@ combat_log_entry parse_combat_log_line(const char* from_, const char* to_, strin
     // 1) '[''@'<player char name>']'
     // 2) '[''@'<player char name>':'<crew name>'{'<crew name id'}'']'
     // 3) '['<mob name> '{'<mob name id'}'':''{'<mob id>'}'']'
-    expect_char(from_, to_, '[');
-    auto end = find_char(from_,to_,']');
-    if ( end - from_ > 0 ) {
-        if ( check_char(from_, to_, '@') ) {
-            // todo: handle crew correctly
-            e.src = register_name(from_, end, char_list_);
-        } else {
-            auto id_start = find_char(from_, end, '{');
-            auto name_start = from_;
-            // id_start - 1, because the name follows one space (todo: find a bether way to do it)
-            auto name_end = id_start - 1;
-            set_pos(from_, to_, id_start + 1);
-            e.src = register_string(parse_number<decltype( e.src )>( from_, end ), name_start, name_end, string_map_);
-
-            from_ = find_char(from_, to_, ':');
-            set_pos(from_, to_, from_ + 1);
-            skip_spaces(from_, to_);
-            e.src_id = parse_number<decltype( e.src_id )>( from_, end );
-        }
-    } else {
-        e.src = decltype( e.src )( -1 );
-    }
-    // skip over ]
-    set_pos(from_, to_, end + 1);
+    std::tie(e.src, e.src_minion, e.src_id) = read_entity_name(from_, to_, string_map_, char_list_);
 
     skip_spaces(from_, to_);
 
@@ -183,30 +199,7 @@ combat_log_entry parse_combat_log_line(const char* from_, const char* to_, strin
     // 1) '[''@'<player char name>']'
     // 2) '[''@'<player char name>':'<crew name>'{'<crew name id'}'']'
     // 3) '['<mob name> '{'<mob name id'}'':''{'<mob id>'}'']'
-    expect_char(from_, to_, '[');
-    end = find_char(from_, to_, ']');
-    if ( end - from_ > 0 ) {
-        if ( check_char(from_, to_, '@') ) {
-            // todo: handle crew correctly
-            e.dst = register_name(from_, end, char_list_);
-        } else {
-            auto id_start = find_char(from_, end, '{');
-            auto name_start = from_;
-            // id_start - 1, because the name follows one space (todo: find a bether way to do it)
-            auto name_end = id_start - 1;
-            set_pos(from_, to_, id_start + 1);
-            e.dst = register_string(parse_number<decltype( e.dst )>( from_, end ), name_start, name_end, string_map_);
-
-            from_ = find_char(from_, to_, ':');
-            set_pos(from_, to_, from_ + 1);
-            skip_spaces(from_, to_);
-            e.dst_id = parse_number<decltype( e.dst_id )>( from_, end );
-        }
-    } else {
-        e.dst = decltype( e.dst )( -1 );
-    }
-    // skip over ]
-    set_pos(from_, to_, end + 1);
+    std::tie(e.dst, e.dst_minion, e.dst_id) = read_entity_name(from_, to_, string_map_, char_list_);
 
     skip_spaces(from_, to_);
     

@@ -19,8 +19,10 @@ struct combat_log_entry_time_index {
 struct combat_log_entry {
     combat_log_entry_time_index time_index;
     string_id                   src;
+    string_id                   src_minion;
     unsigned long long          src_id;
     string_id                   dst;
+    string_id                   dst_minion;
     unsigned long long          dst_id;
     string_id                   ability;
     string_id                   effect_action;
