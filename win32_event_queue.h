@@ -41,7 +41,7 @@ protected:
         return uMsg == APP_EVENT;
     }
     void dispatch_event(WPARAM wParam, LPARAM /*lParam*/) {
-        invoke_on(static_cast<Derived*>( this )->on_event, wParam);
+        invoke_on([=](const any& a_) { static_cast<Derived*>( this )->on_event(a_); }, wParam);
         free_slot(wParam);
     }
     void peek_events(HWND window_,UINT filter_min_ = 0,UINT filter_max_ = 0) {
@@ -55,9 +55,34 @@ protected:
 
     void get_events(HWND window_, UINT filter_min_ = 0, UINT filter_max_ = 0) {
         MSG msg{};
-        while ( ::GetMessageW(&msg, window_, filter_min_, filter_max_, PM_REMOVE) ) {
+        while ( ::GetMessageW(&msg, window_, filter_min_, filter_max_) ) {
             if ( msg.message == APP_EVENT ) {
                 dispatch_event(msg.wParam, msg.lParam);
+            }
+        }
+    }
+    template<typename U>
+    void peek_events(HWND window_, UINT filter_min_, UINT filter_max_, U v_) {
+        MSG msg{};
+        while ( ::PeekMessageW(&msg, window_, filter_min_, filter_max_, PM_REMOVE) ) {
+            if ( msg.message == APP_EVENT ) {
+                dispatch_event(msg.wParam, msg.lParam);
+            }
+            if ( !v_(msg) ) {
+                break;
+            }
+        }
+    }
+
+    template<typename U>
+    void get_events(HWND window_, UINT filter_min_, UINT filter_max_, U v_) {
+        MSG msg{};
+        while ( ::GetMessageW(&msg, window_, filter_min_, filter_max_) ) {
+            if ( msg.message == APP_EVENT ) {
+                dispatch_event(msg.wParam, msg.lParam);
+            }
+            if ( !v_(msg) ) {
+                break;
             }
         }
     }

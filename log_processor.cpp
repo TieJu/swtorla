@@ -1,6 +1,4 @@
 #include "log_processor.h"
-
-
 #include <algorithm>
 
 #include <boost/scope_exit.hpp>
@@ -24,6 +22,37 @@
 #ifdef max
 #undef max
 #endif
+
+void log_processor::on_stop_thread(stop_thread_event) {
+}
+
+void log_processor::on_open_log(const open_log_event& e_) {
+    BOOST_LOG_TRIVIAL(debug) << L"[log_processor] reading file " << e_.path;
+    _file_handle.reset(::CreateFileW(e_.path.c_str()
+                                    , GENERIC_READ
+                                    , FILE_SHARE_READ | FILE_SHARE_WRITE
+                                    , nullptr
+                                    , OPEN_EXISTING
+                                    , 0//FILE_FLAG_OVERLAPPED// | FILE_FLAG_SEQUENTIAL_SCAN
+                                    , nullptr)
+                      , [](HANDLE file_) { ::CloseHandle(file_); });
+    _stop = false;
+}
+void log_processor::on_close_log(close_log_event) {
+    BOOST_LOG_TRIVIAL(debug) << L"[log_processor] file closed";
+    _stop = true;
+    _file_handle.reset();
+}
+
+void log_processor::handle_event(const any& a_) {
+#define do_handle_event(type_,handler_) do_handle_event<type_>(a_,[=](const type_& e_) { handler_(e_); })
+#define do_handle_event_e(event_) do_handle_event(event_##_event,on_##event_)
+    if ( !do_handle_event_e(close_log)
+      && !do_handle_event_e(open_log)
+      && !do_handle_event_e(stop_thread) ) {
+        on_unhandled_event(a_);
+    }
+}
 
 char* log_processor::process_bytes(char* from_, char* to_) {
     auto start = from_;
@@ -81,118 +110,55 @@ char* log_processor::process_bytes(char* from_, char* to_) {
     return start;
 }
 
-void log_processor::thread_entry() {
-    BOOST_LOG_TRIVIAL(debug) << L"[log_processor] log processor thread started";
+void log_processor::run() {
+    if ( _stop ) {
+        get_events(( HWND ) - 1, 0, 0, [=](const MSG& msg) { return msg.message != APP_EVENT; });
+    } else {
+        peek_events(( HWND ) - 1);
+    }
     std::array<char, 1024 * 4> read_buffer;
     DWORD bytes_read;
     char* from = read_buffer.data();
     char* to = from + read_buffer.size();
     DWORD wait_ms = overlapped_min_wait_ms;
-    for ( ;; ) {
-        BOOST_LOG_TRIVIAL(debug) << L"[log_processor] waiting for sync event";
-        ::WaitForSingleObject(*_sync_event, INFINITE);
-        if ( _file_handle.empty() ) {
-            BOOST_LOG_TRIVIAL(error) << L"[log_processor] file handle is empty, exit condition";
-            break;
-        }
-
-        for ( ;; ) {
-            BOOST_LOG_TRIVIAL(debug) << L"[log_processor] overlapped read submited";
-            if ( FALSE == ::ReadFile(*_file_handle, from, to - from, nullptr, &_overlapped) ) {
-                auto ec = GetLastError();
-                if ( ERROR_OPERATION_ABORTED == ec || ERROR_INVALID_HANDLE == ec ) {
-                    break;
-                }
-            }
-
-            BOOST_LOG_TRIVIAL(debug) << L"[log_processor] waiting for read to complete";
-            if ( TRUE == ::GetOverlappedResult(*_file_handle, &_overlapped, &bytes_read, TRUE) ) {
-                BOOST_LOG_TRIVIAL(debug) << L"[log_processor] read compledet, got " << bytes_read << " bytes read";
-                ::ResetEvent(_overlapped.hEvent);
+    
+    while ( !_stop ) {
+        if ( ::ReadFile(*_file_handle, from, to - from, &bytes_read, nullptr) ) {
+            //BOOST_LOG_TRIVIAL(debug) << L"[log_processor] read compledet, got " << bytes_read << " bytes read";
+            if ( bytes_read > 0 ) {
                 wait_ms = std::max<DWORD>( wait_ms >> 1, overlapped_min_wait_ms );
-                if ( bytes_read > 0 ) {
-                    LARGE_INTEGER offset;
-                    offset.LowPart = _overlapped.Offset;
-                    offset.HighPart = _overlapped.OffsetHigh;
-                    offset.QuadPart += bytes_read;
-                    _overlapped.Offset = offset.LowPart;
-                    _overlapped.OffsetHigh = offset.HighPart;
-                    from = process_bytes(read_buffer.data(), from + bytes_read);
-                } else {
-                    if ( _file_handle.empty() ) {
-                        BOOST_LOG_TRIVIAL(debug) << L"[log_processor] stop reading, file handle is empty";
-                        break;
-                    } else {
-                        BOOST_LOG_TRIVIAL(error) << L"[log_processor] error state, stoping";
-                        throw std::runtime_error("GetOverlappedResult failed");
-                    }
-                }
-
+                from = process_bytes(read_buffer.data(), from + bytes_read);
             } else {
-                auto ec = GetLastError();
-                if ( ec == ERROR_HANDLE_EOF ) {
-                    BOOST_LOG_TRIVIAL(debug) << L"[log_processor] eof reached, waiting for " << wait_ms << L" ms";
-                    ::Sleep(wait_ms);
-                    wait_ms = std::min<DWORD>( wait_ms + wait_ms, overlapped_max_wait_ms );
-                    continue;
-                }
-                BOOST_LOG_TRIVIAL(error) << L"[log_processor] read error, stoping";
+                peek_events(( HWND ) - 1);
+                ::Sleep(wait_ms);
+                wait_ms = std::min<DWORD>( wait_ms + wait_ms, overlapped_max_wait_ms );
+            }
+        } else {
+            if ( ERROR_HANDLE_EOF != GetLastError() ) {
                 break;
             }
         }
+        peek_events(( HWND ) - 1);
     }
+
+    
 }
 
 log_processor::log_processor() {
-    _sync_event.reset(::CreateEventW(nullptr, TRUE, FALSE, nullptr), [](HANDLE h_) {CloseHandle(h_); });
-    _overlapped.hEvent = ::CreateEvent(nullptr, TRUE, FALSE, nullptr);
-
-    _handler_thread = std::thread([=]() {
-        try {
-            thread_entry();
-        } catch ( const std::exception& e ) {
-            BOOST_LOG_TRIVIAL(error) << L"log processing failed, because " << e.what() << ", ending reader thread";
-        } catch ( ... ) {
-            BOOST_LOG_TRIVIAL(error) << L"log processing failed, because unknown, ending reader thread";
-        }
-    });
+    _stop = true;
 
     AllocConsole();
 }
 
 log_processor::~log_processor() {
     stop();
-    ::SetEvent(*_sync_event);
-    ::SetEvent(_overlapped.hEvent);
-    _handler_thread.join();
-    CloseHandle(_overlapped.hEvent);
-
     FreeConsole();
 }
 
 void log_processor::start(const std::wstring& path) {
-    BOOST_LOG_TRIVIAL(debug) << L"[log_processor] reading file " << path;
-    _file_handle.reset(::CreateFileW(path.c_str()
-                                    , GENERIC_READ
-                                    , FILE_SHARE_READ | FILE_SHARE_WRITE
-                                    , nullptr
-                                    , OPEN_EXISTING
-                                    , FILE_FLAG_OVERLAPPED// | FILE_FLAG_SEQUENTIAL_SCAN
-                                    , nullptr)
-                      , [](HANDLE file_) { ::CloseHandle(file_); });
-    _overlapped.Offset = 0;
-    _overlapped.OffsetHigh = 0;
-    BOOST_LOG_TRIVIAL(debug) << L"[log_processor] signaling worker thread";
-    ::SetEvent(*_sync_event);
-    ::ResetEvent(_overlapped.hEvent);
+    post_event(open_log_event{ path });
 }
 
 void log_processor::stop() {
-    BOOST_LOG_TRIVIAL(debug) << L"[log_processor] stop requested";
-    ::ResetEvent(*_sync_event);
-    auto h = *_file_handle;
-    _file_handle.reset();
-    BOOST_LOG_TRIVIAL(debug) << L"[log_processor] calceling io and sending signal to worker thread";
-    ::CancelIoEx(h, &_overlapped);
-    ::SetEvent(_overlapped.hEvent);
+    post_event(close_log_event{});
 }

@@ -12,6 +12,8 @@
 
 #include "win32_event_queue.h"
 
+struct stop_thread_event {};
+
 template<typename Derived>
 class event_thread
 : public win32_event_queue<event_thread<Derived>,sizeof(std::wstring)> {
@@ -28,14 +30,23 @@ class event_thread
     }
 
 protected:
+    template<typename EventType, typename HandlerType>
+    static bool do_handle_event(const any& v_, HandlerType handler_) {
+        auto e = tj::any_cast<EventType>( &v_ );
+        if ( e ) {
+            handler_(*e);
+        }
+        return e != nullptr;
+    }
+
     DWORD post_param() {
         while ( !_thread_id ) {
             std::this_thread::yield();
         }
         return _thread_id;
     }
-    template<typename U>
-    void on_event(U v_) {
+    
+    void on_event(const any& v_) {
         static_cast<Derived*>( this )->handle_event(v_);
     }
     event_thread() : _thread_id(0) {
@@ -47,6 +58,7 @@ protected:
     }
     ~event_thread() {
         _run = false;
+        post_event(stop_thread_event{});
         _thread.join();
     }
 };

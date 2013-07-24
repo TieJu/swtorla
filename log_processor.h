@@ -17,27 +17,45 @@
 #include <boost/noncopyable.hpp>
 #include "swtor_log_parser.h"
 
+#include "event_thread.h"
+
 struct combat_log_entry_event {
     combat_log_entry    entry;
 };
 
+struct open_log_event {
+    std::wstring        path;
+};
+
+struct close_log_event {
+
+};
+
 class log_processor
-    : boost::noncopyable {
+: public event_thread<log_processor> {
     enum {
         buffer_size = 1024 * 8,
         overlapped_min_wait_ms = 250,
-        overlapped_max_wait_ms = 2500,
+        overlapped_max_wait_ms = 5000,
     };
     handle_wrap<HANDLE, INVALID_HANDLE_VALUE>   _file_handle;
-    handle_wrap<HANDLE, nullptr>                _sync_event;
     std::array<std::array<char, buffer_size>, 2>_buffer;
-    std::thread                                 _handler_thread; 
-    OVERLAPPED                                  _overlapped;
     string_to_id_string_map*                    _string_map;
     character_list*                             _char_list;
+    bool                                        _stop;
 
+    friend class event_thread<log_processor>;
+
+    void on_unhandled_event(const any& a_) {}
+    void on_stop_thread(stop_thread_event);
+    void on_open_log(const open_log_event& e_);
+    void on_close_log(close_log_event);
+    void handle_event(const any& a_);
     char* process_bytes(char* from_, char* to_);
-    void thread_entry();
+
+protected:
+    void run();
+
 public:
     log_processor();
     ~log_processor();
@@ -48,73 +66,3 @@ public:
     void start(const std::wstring& path);
     void stop();
 };
-// use the same technique as for dir watcher
-/*
-class log_processor {
-    struct stop_signal {
-    };
-    struct start_signal {
-        std::wstring path;
-    };
-    struct exit_signal {};
-
-    typedef tj::inplace_any<sizeof( start_signal )> any_command;
-    typedef std::array<any_command, 3>              command_buffer;
-
-    std::thread             _worker;
-    std::mutex              _sync;
-    std::condition_variable _sync_signal;
-    command_buffer          _commands;
-    size_t                  _read_index;
-    size_t                  _write_index;
-
-    bool parse_line(std::wifstream& stream_);
-
-    bool check_stop();
-
-    void run_stop();
-    void run_start(const std::string& path_) {
-        std::wifstream file(path_);
-
-        if ( file.is_open() ) {
-            bool run = true;
-            for ( ;; ) {
-                while ( run && parse_line(file) ) {
-                    run = check_stop();
-                }
-                if ( !run ) {
-                    break;
-                }
-                std::this_thread::sleep_for(std::chrono::milliseconds(100));
-            }
-        }
-    }
-
-
-    void run() {
-        for ( ;; ) {
-            std::lock_guard<std::mutex> lock(_sync);
-            while ( !_avail ) {
-                _sync_signal.wait(lock);
-            }
-
-            if ( tj::any_cast<stop_signal>( &_next_command ) ) {
-            } else if ( tj::any_cast<exit_signal>( &_next_command ) ) {
-                break;
-            } else if ( tj::any_cast<start_signal>( &_next_command ) ) {
-                run_start(tj::any_cast<start_signal>( &_next_command )->path);
-            }
-        }
-    }
-
-public:
-    log_processor();
-
-    void stop() {
-    }
-    void start(const std::wstring& log_) {
-        std::lock_guard<std::mutex> lock(_sync);
-        _next_command = start_signal{log_};
-        _sync_signal.notify_one();
-    }
-};*/
