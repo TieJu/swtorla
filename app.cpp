@@ -402,6 +402,14 @@ app::app(const char* caption_, const char* config_path_)
 
 app::~app() {
     write_config(_config_path);
+
+    BOOST_LOG_TRIVIAL(debug) << L"string table:";
+    for ( auto& ent : _string_map ) {
+        if ( ent.second.empty() ) {
+            continue;
+        }
+        BOOST_LOG_TRIVIAL(debug) << L"[" << ent.first << "] = " << ent.second;
+    }
 }
 
 

@@ -30,6 +30,9 @@ struct combat_log_entry {
     int                         effect_value;
     bool                        was_crit_effect;
     string_id                   effect_value_type;
+    int                         effect_value2;
+    bool                        was_crit_effect2;
+    string_id                   effect_value_type2;
     int                         effect_thread;
 };
 

@@ -89,7 +89,11 @@ static void set_pos(const char*& from_, const char* to_, const char *new_pos_) {
 static string_id register_string(string_id id, const char* from_, const char* to_, string_to_id_string_map& string_map_) {
     auto loc = string_map_.find(id);
     if ( loc == end(string_map_) ) {
-        string_map_[id].assign(from_, to_);
+        if ( from_ >= to_ ) {
+            string_map_[id] = "<missing localisation for " + std::to_string(id) + ">";
+        } else {
+            string_map_[id].assign(from_, to_);
+        }
     }
     return id;
 }
@@ -131,7 +135,9 @@ static std::tuple<string_id, string_id, unsigned long long> read_entity_name(con
             auto owner = register_name(start, sep - 1, char_list_);
             auto id_start = find_char(sep, to_, '{');
             expect_char(id_start, from_, '{');
-            auto minion = register_string(parse_number<string_id>( id_start, from_ ), sep, id_start - 1, string_map_);
+            // if this is direclty put as param to register_string, strange things will happen...
+            auto name_end = id_start - 2;
+            auto minion = register_string(parse_number<string_id>( id_start, from_ ), sep, name_end, string_map_);
             return std::make_tuple(owner, minion, ( unsigned long long )( -1 ));
         } else {
             auto owner = register_name(start, from_ - 1, char_list_);
@@ -171,9 +177,66 @@ static string_id read_localized_string(const char*& from_, const char* to_, stri
 
     auto id_start = find_char(start, from_, '{');
     expect_char(id_start, from_, '{');
-    auto name_end = id_start - 1;
+    auto name_end = id_start - 2;
     auto id = parse_number<string_id>(id_start, from_);
     return register_string(id, start, name_end, string_map_);
+}
+
+static std::tuple<int, bool, string_id, int, bool, string_id> parse_effect_value(const char*& from_, const char* to_, string_to_id_string_map& string_map_) {
+    int effect_value = 0, effect_value2 = 0;
+    bool effect_crit = false, effect_crit2 = false;
+    string_id effect_name = 0, effect_name2 = 0;
+    expect_char(from_, to_, '(');
+    if ( check_char(from_, to_, ')') ) {
+        return std::make_tuple(effect_value, effect_crit, effect_name, effect_value2, effect_crit2, effect_name2);
+    }
+
+    effect_value = parse_number<int>( from_, to_ );
+    effect_crit = check_char(from_, to_, '*');
+
+    skip_spaces(from_, to_);
+
+    if ( check_char(from_, to_, ')') || check_string(from_,to_,"-)") ) {
+        return std::make_tuple(effect_value, effect_crit, effect_name, effect_value2, effect_crit2, effect_name2);
+    }
+
+    if ( !check_char(from_, to_, '(') ) {
+        auto id_start = find_char(from_, to_, '{');
+        expect_char(id_start, to_, '{');
+        auto name_end = id_start - 2;
+        effect_name = register_string(parse_number<string_id>( id_start, to_ ), from_, name_end, string_map_);
+        from_ = id_start;
+        expect_char(from_, to_, '}');
+    } else {
+        --from_;
+    }
+
+    skip_spaces(from_, to_);
+
+    if ( check_char(from_, to_, '(') ) {
+        skip_spaces(from_, to_);
+        effect_value2 = parse_number<int>( from_, to_ );
+        effect_crit2 = check_char(from_, to_, '*');
+        skip_spaces(from_, to_);
+        auto id_start = find_char(from_, to_, '{');
+        expect_char(id_start, to_, '{');
+        auto name_end = id_start - 2;
+        effect_name2 = register_string(parse_number<string_id>( id_start, to_ ), from_, name_end, string_map_);
+        from_ = id_start;
+        expect_char(from_, to_, '}');
+        expect_char(from_, to_, ')');
+    } else if ( check_char(from_, to_, '-') ) {
+        skip_spaces(from_, to_);
+        auto id_start = find_char(from_, to_, '{');
+        expect_char(id_start, to_, '{');
+        auto name_end = id_start - 2;
+        effect_name2 = register_string(parse_number<string_id>( id_start, to_ ), from_, name_end, string_map_);
+        from_ = id_start;
+        expect_char(from_, to_, '}');
+    }
+
+    expect_char(from_, to_, ')');
+    return std::make_tuple(effect_value, effect_crit, effect_name, effect_value2, effect_crit2, effect_name2);
 }
 
 combat_log_entry parse_combat_log_line(const char* from_, const char* to_, string_to_id_string_map& string_map_, character_list& char_list_) {
@@ -258,26 +321,27 @@ combat_log_entry parse_combat_log_line(const char* from_, const char* to_, strin
     // 2) '('<numver>'*'')' -> crit
     // 3) '('<number>' <dmg type name> '{'<dmg type name id>'}')'
     // 4) '('<number>'* <dmg type name> '{'<dmg type name id>'}')' -> crit
-    expect_char(from_, to_, '(');
-    e.effect_value = parse_number<decltype( e.effect_value )>( from_, to_ );
-    if ( check_char(from_, to_, '*') ) {
-        e.was_crit_effect = true;
-    }
-    skip_spaces(from_, to_);
-    if ( check_string(from_, to_, "-)") ) {
-        // skip over it
-    } else if ( !check_char(from_, to_, ')') ) {
-        skip_spaces(from_, to_);
-        auto id_start = find_char(from_, to_, '{');
-        auto name_start = from_;
-        // id_start - 1, because the name follows one space (todo: find a bether way to do it)
-        auto name_end = id_start - 1;
-        set_pos(from_, to_, id_start + 1);
-        e.effect_value_type = register_string(parse_number<decltype( e.effect_value_type )>( from_, to_ ), name_start, name_end, string_map_);
-        from_ = find_char(from_, to_, ')');
-        // skip over )
-        set_pos(from_, to_, from_ + 1);
-    }
+    std::tie(e.effect_value, e.was_crit_effect, e.effect_value_type, e.effect_value2, e.was_crit_effect2, e.effect_value_type2) = parse_effect_value(from_, to_, string_map_);
+    //expect_char(from_, to_, '(');
+    //e.effect_value = parse_number<decltype( e.effect_value )>( from_, to_ );
+    //if ( check_char(from_, to_, '*') ) {
+    //    e.was_crit_effect = true;
+    //}
+    //skip_spaces(from_, to_);
+    //if ( check_string(from_, to_, "-)") ) {
+    //    // skip over it
+    //} else if ( !check_char(from_, to_, ')') ) {
+    //    skip_spaces(from_, to_);
+    //    auto id_start = find_char(from_, to_, '{');
+    //    auto name_start = from_;
+    //    // id_start - 1, because the name follows one space (todo: find a bether way to do it)
+    //    auto name_end = id_start - 1;
+    //    set_pos(from_, to_, id_start + 1);
+    //    e.effect_value_type = register_string(parse_number<decltype( e.effect_value_type )>( from_, to_ ), name_start, name_end, string_map_);
+    //    from_ = find_char(from_, to_, ')');
+    //    // skip over )
+    //    set_pos(from_, to_, from_ + 1);
+    //}
 
     skip_spaces(from_, to_);
 
