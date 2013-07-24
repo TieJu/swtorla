@@ -26,6 +26,10 @@ class main_ui : public ui_base {
     std::unique_ptr<window>                 _sync_raid_button;
     std::unique_ptr<window>                 _stop_button;
 
+    HWND post_param() {
+        return _wnd->native_window_handle();
+    }
+
     void display_log_dir_select(display_log_dir_select_event);
     virtual void on_event(const any& v_);
     virtual void handle_os_events();

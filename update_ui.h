@@ -26,6 +26,10 @@ class update_ui : public ui_base {
     std::unique_ptr<progress_bar>   _progress_bar;
     std::unique_ptr<window>         _status_text;
 
+    HWND post_param() {
+        return _wnd->native_window_handle();
+    }
+
 
     void update_progress_info(const update_progress_info_event& e_);
     void update_progress_error(update_progress_error_event e_);

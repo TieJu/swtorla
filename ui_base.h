@@ -12,6 +12,8 @@
 
 #include <Windows.h>
 
+#include "win32_event_queue.h"
+
 struct quit_event {};
 
 struct set_log_dir_event {
@@ -29,25 +31,22 @@ struct start_tracking {
 };
 struct stop_tracking {};
 
-#define APP_EVENT (WM_APP + 1)
-
-class ui_base {
-protected:
-    enum {
-        event_size = sizeof( std::wstring )
-    };
-
-    typedef tj::inplace_any<event_size> any;
+class ui_base
+: public win32_event_queue<ui_base, sizeof( std::wstring )> {
+public:
     typedef std::function<void ( const any& v_ )> callback_type;
 
 private:
     std::vector<callback_type>  _callbacks;
-    std::vector<any>            _eventlist;
     handle_wrap<HFONT, nullptr> _window_font;
+
+protected:
 
     virtual void on_event(const any& v_) = 0;
 
-protected:
+    friend class win32_event_queue<ui_base, sizeof( std::wstring )>;
+    virtual HWND post_param() = 0;
+
     template<typename Event>
     void invoke_event_handlers(Event e_) {
         any evnt(e_);
@@ -57,40 +56,16 @@ protected:
         }
     }
 
-    template<typename Event>
-    void post_event(HWND target_,Event e_) {
-        auto pos = store_event(e_);
-        ::PostMessageW(target_, APP_EVENT, pos, 0);
-    }
-
-    template<typename Event>
-    size_t store_event(Event e_) {
-        auto at = std::find_if(begin(_eventlist), end(_eventlist), [=](const any& a_) {
-            return a_.empty();
-        });
-
-        if ( at != end(_eventlist) ) {
-            *at = std::forward<Event>( e_ );
-            return size_t(std::distance(begin(_eventlist), at));
-        }
-
-        _eventlist.emplace_back(std::forward<Event>( e_ ));
-        return _eventlist.size() - 1;
-    }
-
-    void dispatch_app_event(WPARAM wParam, LPARAM lParam) {
-        // note: do not use refs or pointers to the _eventlist elements
-        // they meight become invalid (event hander posts a new event)
+    void invoke_event_handlers(WPARAM wParam,LPARAM /*lParam*/) {
         for ( auto& clb : _callbacks ) {
-            clb(_eventlist[wParam]);
+            invoke_on(clb, wParam);
         }
-
-        _eventlist[wParam] = any{};
+        free_slot(wParam);
     }
 
     LRESULT os_callback_handler_default(window* window_, UINT uMsg, WPARAM wParam, LPARAM lParam) {
-        if ( APP_EVENT == uMsg ) {
-            this->dispatch_app_event(wParam, lParam);
+        if ( is_app_event(uMsg) ) {
+            invoke_event_handlers(wParam, lParam);
             return 0;
         } else if ( uMsg == WM_CLOSE || uMsg == WM_DESTROY ) {
             ::PostQuitMessage(0);

@@ -24,7 +24,7 @@ void update_ui::on_event(const any& v_) {
         || do_handle_event_e(update_progress_waiting)
         || do_handle_event_e(update_progress_error)
         || do_handle_event_e(update_progress_info) ) ) {
-            post_event(_wnd->native_window_handle(), v_);
+            post_event(v_);
     }
 }
 

@@ -14,7 +14,7 @@ void main_ui::on_event(const any& v_) {
 #define do_handle_event(type,handler) handle_event<type>(v_,[=](const type& e_) { handler(e_); })
 #define do_handle_event_e(event_) do_handle_event(event_##_event,event_)
     if ( !do_handle_event_e(display_log_dir_select) ) {
-        post_event(_wnd->native_window_handle(), v_);
+        post_event(v_);
     }
 }
 
