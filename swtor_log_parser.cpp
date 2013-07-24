@@ -322,26 +322,6 @@ combat_log_entry parse_combat_log_line(const char* from_, const char* to_, strin
     // 3) '('<number>' <dmg type name> '{'<dmg type name id>'}')'
     // 4) '('<number>'* <dmg type name> '{'<dmg type name id>'}')' -> crit
     std::tie(e.effect_value, e.was_crit_effect, e.effect_value_type, e.effect_value2, e.was_crit_effect2, e.effect_value_type2) = parse_effect_value(from_, to_, string_map_);
-    //expect_char(from_, to_, '(');
-    //e.effect_value = parse_number<decltype( e.effect_value )>( from_, to_ );
-    //if ( check_char(from_, to_, '*') ) {
-    //    e.was_crit_effect = true;
-    //}
-    //skip_spaces(from_, to_);
-    //if ( check_string(from_, to_, "-)") ) {
-    //    // skip over it
-    //} else if ( !check_char(from_, to_, ')') ) {
-    //    skip_spaces(from_, to_);
-    //    auto id_start = find_char(from_, to_, '{');
-    //    auto name_start = from_;
-    //    // id_start - 1, because the name follows one space (todo: find a bether way to do it)
-    //    auto name_end = id_start - 1;
-    //    set_pos(from_, to_, id_start + 1);
-    //    e.effect_value_type = register_string(parse_number<decltype( e.effect_value_type )>( from_, to_ ), name_start, name_end, string_map_);
-    //    from_ = find_char(from_, to_, ')');
-    //    // skip over )
-    //    set_pos(from_, to_, from_ + 1);
-    //}
 
     skip_spaces(from_, to_);
 
