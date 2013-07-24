@@ -89,7 +89,6 @@ static void set_pos(const char*& from_, const char* to_, const char *new_pos_) {
 static string_id register_string(string_id id, const char* from_, const char* to_, string_to_id_string_map& string_map_) {
     auto loc = string_map_.find(id);
     if ( loc == end(string_map_) ) {
-        //BOOST_LOG_TRIVIAL(debug) << "new string " << std::string(from_, to_);
         string_map_[id].assign(from_, to_);
     }
     return id;
@@ -139,21 +138,15 @@ static std::tuple<string_id, string_id, unsigned long long> read_entity_name(con
             return std::make_tuple(owner, string_id(-1), ( unsigned long long )( -1 ));
         }
     } else {
-        //BOOST_LOG_TRIVIAL(debug) << std::string(start, to_);
         auto id_start = find_char(start, to_, '{');
-        //BOOST_LOG_TRIVIAL(debug) << std::string(id_start, to_);
         expect_char(id_start, from_, '{');
-        //BOOST_LOG_TRIVIAL(debug) << std::string(id_start, from_);
-        //BOOST_LOG_TRIVIAL(debug) << std::string(start, id_start - 2);
-        //BOOST_LOG_TRIVIAL(debug) << "number: " << std::string(id_start, from_);
-        auto string_end = id_start - 2;// if this is put as param instead into register_string, strange things happens
-        //BOOST_LOG_TRIVIAL(debug) << "name: " << std::string(start, id_start - 2);
+        // if this is direclty put as param to register_string, strange things will happen...
+        auto string_end = id_start - 2;
         auto sid = parse_number<string_id>( id_start, from_ );
         auto mob = register_string(sid, start, string_end, string_map_);
         expect_char(id_start, from_, '}');
         skip_spaces(id_start, from_);
         expect_char(id_start, from_, ':');
-        //BOOST_LOG_TRIVIAL(debug) << std::string(id_start, from_);
         auto id = parse_number<unsigned long long>( id_start, from_ );
         return std::make_tuple(mob, string_id(-1), id);
     }
