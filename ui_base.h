@@ -13,6 +13,7 @@
 #include <Windows.h>
 
 #include "win32_event_queue.h"
+#include "event_router.h"
 
 struct quit_event {};
 
@@ -32,34 +33,27 @@ struct start_tracking {
 struct stop_tracking {};
 
 class ui_base
-: public win32_event_queue<ui_base, sizeof( std::wstring )> {
-public:
-    typedef std::function<void ( const any& v_ )> callback_type;
-
-private:
-    std::vector<callback_type>  _callbacks;
+: protected win32_event_queue<ui_base, sizeof( std::wstring )>
+, protected event_router<sizeof( std::wstring )> {
     handle_wrap<HFONT, nullptr> _window_font;
 
 protected:
+    typedef win32_event_queue<ui_base, sizeof( std::wstring )>  queue_base;
+    typedef event_router<sizeof( std::wstring )>                router_base;
+    typedef queue_base::any                                     any;
 
-    virtual void on_event(const any& v_) = 0;
+    virtual void on_event(const queue_base::any& v_) = 0;
 
     friend class win32_event_queue<ui_base, sizeof( std::wstring )>;
     virtual HWND post_param() = 0;
 
     template<typename Event>
     void invoke_event_handlers(Event e_) {
-        any evnt(e_);
-
-        for ( auto& clb : _callbacks ) {
-            clb(evnt);
-        }
+        route(e_);
     }
 
     void invoke_event_handlers(WPARAM wParam,LPARAM /*lParam*/) {
-        for ( auto& clb : _callbacks ) {
-            invoke_on(clb, wParam);
-        }
+        invoke_on([=](const any& a_) { route(a_); }, wParam);
         free_slot(wParam);
     }
 
@@ -115,12 +109,7 @@ public:
 
     template<typename EventType,typename Reciver>
     void reciver(Reciver r_) {
-        _callbacks.push_back(callback_type([=](const any& v_) {
-            auto v = tj::any_cast<EventType>( &v_ );
-            if ( v ) {
-                r_(*v);
-            }
-        }));
+        add<EventType>(std::forward<Reciver>( r_ ));
     }
 
     static void handle_peding_events() {
