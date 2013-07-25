@@ -82,6 +82,9 @@ program_version find_version_info() {
     return info;
 }
 
+void app::log_entry_handler(const combat_log_entry& e_) {
+}
+
 void app::transit_state(state new_state_) {
     BOOST_LOG_TRIVIAL(debug) << L"app state transition from " << int( _state ) << L" to " << int( new_state_ );
     _state = new_state_;
@@ -397,10 +400,12 @@ app::app(const char* caption_, const char* config_path_)
     remove_old_file();
 
     _log_reader.targets(_string_map, _char_list);
+    _log_reader.processor([=](const combat_log_entry& e_) { log_entry_handler(e_); });
 }
 
 
 app::~app() {
+    _log_reader.stop();
     write_config(_config_path);
 
     BOOST_LOG_TRIVIAL(debug) << L"string table:";

@@ -55,6 +55,8 @@ class app : boost::noncopyable {
     string_to_id_string_map         _string_map;
     character_list                  _char_list;
 
+    void log_entry_handler(const combat_log_entry& e_);
+
     void transit_state(state new_state_);
 
 

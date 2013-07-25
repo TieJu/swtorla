@@ -43,6 +43,7 @@ class log_processor
     string_to_id_string_map*                    _string_map;
     character_list*                             _char_list;
     bool                                        _stop;
+    std::function<void(const combat_log_entry&)>_entry_processor;
 
     friend class event_thread<log_processor>;
 
@@ -62,6 +63,10 @@ public:
     void targets(string_to_id_string_map& string_map_, character_list& char_list_) {
         _string_map = &string_map_;
         _char_list = &char_list_;
+    }
+    template<typename U>
+    void processor(U v_) {
+        _entry_processor = std::forward<U>( v_ );
     }
     void start(const std::wstring& path);
     void stop();

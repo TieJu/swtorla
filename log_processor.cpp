@@ -69,6 +69,9 @@ char* log_processor::process_bytes(char* from_, char* to_) {
         if ( _string_map && _char_list ) {
             try {
                 auto entry = parse_combat_log_line(from_, le, *_string_map, *_char_list);
+                if ( _entry_processor ) {
+                    _entry_processor(entry);
+                }
                 auto h = GetStdHandle(STD_OUTPUT_HANDLE);
                 std::stringstream buf;
                 buf << "Entry: "
