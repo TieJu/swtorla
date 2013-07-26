@@ -83,6 +83,7 @@ program_version find_version_info() {
 }
 
 void app::log_entry_handler(const combat_log_entry& e_) {
+    _analizer.add_entry(e_);
 }
 
 void app::transit_state(state new_state_) {

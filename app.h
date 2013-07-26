@@ -25,6 +25,7 @@
 
 #include "dir_watcher.h"
 #include "log_processor.h"
+#include "combat_analizer.h"
 
 struct program_version {
     int     major;
@@ -54,6 +55,7 @@ class app : boost::noncopyable {
     log_processor                   _log_reader;
     string_to_id_string_map         _string_map;
     character_list                  _char_list;
+    combat_analizer                 _analizer;
 
     void log_entry_handler(const combat_log_entry& e_);
 
