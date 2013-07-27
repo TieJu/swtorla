@@ -68,7 +68,11 @@ char* log_processor::process_bytes(char* from_, char* to_) {
 
         if ( _string_map && _char_list ) {
             try {
+                auto debug_start = from_;
                 auto entry = parse_combat_log_line(from_, le, *_string_map, *_char_list);
+                //if ( entry.ability == 18446744073709551615ull ) {
+                //    BOOST_LOG_TRIVIAL(debug) << L"[log_parser] found bogus entry, on line " << std::string(debug_start,le);
+                //}
                 if ( _entry_processor ) {
                     _entry_processor(entry);
                 }

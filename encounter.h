@@ -2,6 +2,8 @@
 
 #include "swtor_log_parser.h"
 
+#include "query_set.h"
+
 #include <utility>
 #include <vector>
 #include <concurrent_vector.h>
@@ -10,6 +12,7 @@ template<typename T>
 class query_result {
     std::vector<T>  _rows;
 
+    friend class query_result;
     friend class encounter;
 
 protected:
@@ -59,7 +62,7 @@ public:
 class encounter {
     concurrency::concurrent_vector<combat_log_entry>    _table;
 
-public:
+public:/*
     template<typename R,typename U,typename V,typename W,typename X>
     query_result<R> select(U filter_, V transfrom_, W same_group_,X group_combine_) {
         query_result<R> r;
@@ -87,8 +90,13 @@ public:
             v_(row);
         }
     }
-
+    */
     void insert(const combat_log_entry& row_) {
         _table.push_back(row_);
+    }
+
+    template<typename DstType,typename U>
+    query_set<concurrency::concurrent_vector<combat_log_entry>, DstType> select(U v_) {
+        return select_from<DstType>( std::forward<U>( v_ ), _table );
     }
 };

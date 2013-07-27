@@ -84,6 +84,80 @@ program_version find_version_info() {
 
 void app::log_entry_handler(const combat_log_entry& e_) {
     _analizer.add_entry(e_);
+
+    if ( e_.effect_action == ssc_Event && e_.effect_type == ssc_ExitCombat ) {
+
+        auto player_records = _analizer.select_from<combat_log_entry>(_analizer.count_encounters() - 1, [=](const combat_log_entry& e_) {return e_; } )
+            .where([=](const combat_log_entry& e_) {
+                return e_.src == 0 && e_.src_minion == string_id(-1) && e_.ability != string_id(-1);
+        }).commit < std::vector < combat_log_entry >> ( );
+
+        long long total_heal = 0;
+        long long total_damage = 0;
+
+        auto player_heal = select_from<combat_log_entry_ex>( [=, &total_heal](const combat_log_entry& e_) {
+            combat_log_entry_ex ex
+            { e_ };
+            ex.hits = 1;
+            ex.crits = ex.was_crit_effect;
+            ex.misses = 0;
+            total_heal += ex.effect_value;
+            return ex;
+        }, player_records )
+            .where([=](const combat_log_entry& e_) {
+                return e_.effect_action == ssc_ApplyEffect && e_.effect_type == ssc_Heal;
+        }).group_by([=](const combat_log_entry_ex& lhs_, const combat_log_entry_ex& rhs_) {
+            return lhs_.ability == rhs_.ability;
+        }, [=](const combat_log_entry_ex& lhs_, const combat_log_entry_ex& rhs_) {
+            combat_log_entry_ex res = lhs_;
+            res.effect_value += rhs_.effect_value;
+            res.effect_value2 += rhs_.effect_value2;
+            res.hits += rhs_.hits;
+            res.crits += rhs_.crits;
+            res.misses += rhs_.misses;
+            return res;
+        }).order_by([=](const combat_log_entry_ex& lhs_, const combat_log_entry_ex& rhs_) {
+            return lhs_.effect_value < rhs_.effect_value;
+        }).commit < std::vector < combat_log_entry_ex >> ( );
+
+        auto player_damage = select_from<combat_log_entry_ex>( [=, &total_damage](const combat_log_entry& e_) {
+            combat_log_entry_ex ex
+            { e_ };
+            ex.hits = 1;
+            ex.crits = ex.was_crit_effect;
+            ex.misses = ex.effect_value == 0;
+            total_damage += ex.effect_value;
+            return ex;
+        }, player_records )
+            .where([=](const combat_log_entry& e_) {
+                return e_.effect_action == ssc_ApplyEffect && e_.effect_type == ssc_Damage;
+        }).group_by([=](const combat_log_entry_ex& lhs_, const combat_log_entry_ex& rhs_) {
+            return lhs_.ability == rhs_.ability;
+        }, [=](const combat_log_entry_ex& lhs_, const combat_log_entry_ex& rhs_) {
+            combat_log_entry_ex res = lhs_;
+            res.effect_value += rhs_.effect_value;
+            res.effect_value2 += rhs_.effect_value2;
+            res.hits += rhs_.hits;
+            res.crits += rhs_.crits;
+            res.misses += rhs_.misses;
+            return res;
+        }).order_by([=](const combat_log_entry_ex& lhs_, const combat_log_entry_ex& rhs_) {
+            return lhs_.effect_value < rhs_.effect_value;
+        }).commit < std::vector < combat_log_entry_ex >> ( );
+
+
+        BOOST_LOG_TRIVIAL(debug) << L"encounter ended:";
+        BOOST_LOG_TRIVIAL(debug) << L"char " << _char_list[0] << L" did " << total_damage << L" dmg";
+        BOOST_LOG_TRIVIAL(debug) << L"char " << _char_list[0] << L" did " << total_heal << L" healing";
+        BOOST_LOG_TRIVIAL(debug) << L"dmg breakdown by ability:";
+        for ( const auto& row : player_damage ) {
+            BOOST_LOG_TRIVIAL(debug) << L"ability: " << _string_map[row.ability] << L" did " << row.effect_value << L" dmg, through " << row.hits << L" attacks, " << row.crits << L" where crits and " << row.misses << L" missed";
+        }
+        BOOST_LOG_TRIVIAL(debug) << L"heal breakdown by ability:";
+        for ( const auto& row : player_heal ) {
+            BOOST_LOG_TRIVIAL(debug) << L"ability: " << _string_map[row.ability] << L" did " << row.effect_value << L" healing, through " << row.hits << L" applications, " << row.crits << L" where crits";
+        }
+    }
 }
 
 void app::transit_state(state new_state_) {
