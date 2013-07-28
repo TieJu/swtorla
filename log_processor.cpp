@@ -60,52 +60,15 @@ char* log_processor::process_bytes(char* from_, char* to_) {
         auto le = std::find(from_, to_, '\n');
 
         if ( le == to_ ) {
-            //BOOST_LOG_TRIVIAL(debug) << L"[log_processor] no line end found for : " << std::string(from_, to_);
             return std::copy(from_, to_, start);
         }
 
-        //BOOST_LOG_TRIVIAL(debug) << L"[log_processor] parsing line: " << std::string(from_, le);
-
         if ( _string_map && _char_list ) {
             try {
-                auto debug_start = from_;
                 auto entry = parse_combat_log_line(from_, le, *_string_map, *_char_list);
-                //if ( entry.ability == 18446744073709551615ull ) {
-                //    BOOST_LOG_TRIVIAL(debug) << L"[log_parser] found bogus entry, on line " << std::string(debug_start,le);
-                //}
                 if ( _entry_processor ) {
                     _entry_processor(entry);
                 }
-                auto h = GetStdHandle(STD_OUTPUT_HANDLE);
-                std::stringstream buf;
-                buf << "Entry: "
-                    << entry.time_index.hours
-                    << ":"
-                    << entry.time_index.minutes
-                    << ":"
-                    << entry.time_index.seconds
-                    << "."
-                    << entry.time_index.milseconds
-                    << " src[ ";
-                if ( entry.src <= _char_list->size() ) {
-                    buf << ( *_char_list )[entry.src];
-                } else {
-                    buf << ( *_string_map )[entry.src];
-                }
-                buf << " ] dst[ ";
-                if ( entry.dst <= _char_list->size() ) {
-                    buf << ( *_char_list )[entry.dst];
-                } else {
-                    buf << ( *_string_map )[entry.dst];
-                }
-                buf << " ] spell[ "
-                    << ( *_string_map )[entry.ability]
-                    << " ]";
-
-                buf << "\r\n";
-                DWORD w;
-                WriteConsoleA(h, buf.str().c_str(), buf.str().length(), &w, nullptr);
-                //WriteFile(h,)
             } catch ( const std::exception &e ) {
                 BOOST_LOG_TRIVIAL(error) << L"[log_processor] line parsing failed, because " << e.what() << ", line was: " << std::string(from_, le);
             } catch ( ... ) {
@@ -153,13 +116,10 @@ void log_processor::run() {
 
 log_processor::log_processor() {
     _stop = true;
-
-    AllocConsole();
 }
 
 log_processor::~log_processor() {
     stop();
-    FreeConsole();
 }
 
 void log_processor::start(const std::wstring& path) {

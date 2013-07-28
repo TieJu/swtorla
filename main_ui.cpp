@@ -6,6 +6,177 @@
 #include <Shlobj.h>
 #include <Shellapi.h>
 
+void main_ui::update_stat_display() {
+
+    if ( !_analizer ) {
+        return;
+    }
+    if ( _analizer->count_encounters() < 1 ) {
+        return;
+    }
+
+    auto player_records = _analizer->select_from<combat_log_entry>( _analizer->count_encounters() - 1, [=](const combat_log_entry& e_) {return e_; } )
+        .where([=](const combat_log_entry& e_) {
+            return e_.src == 0 && e_.src_minion == string_id(-1) && e_.ability != string_id(-1);
+    }).commit < std::vector < combat_log_entry >> ( );
+
+    auto& first = player_records.front();
+    auto& last = player_records.back();
+
+    unsigned long long start_time = first.time_index.milseconds + first.time_index.seconds * 1000 + first.time_index.minutes * 1000 * 60 + first.time_index.hours * 1000 * 60 * 60;
+    unsigned long long end_time = last.time_index.milseconds + last.time_index.seconds * 1000 + last.time_index.minutes * 1000 * 60 + last.time_index.hours * 1000 * 60 * 60;
+    unsigned long long epleased = end_time - start_time;
+
+    long long total_heal = 0;
+    long long total_damage = 0;
+    
+    /*auto player_heal = select_from<combat_log_entry_ex>( [=, &total_heal](const combat_log_entry& e_) {
+        combat_log_entry_ex ex
+        { e_ };
+        ex.hits = 1;
+        ex.crits = ex.was_crit_effect;
+        ex.misses = 0;
+        total_heal += ex.effect_value;
+        return ex;
+    }, player_records )
+        .where([=](const combat_log_entry& e_) {
+            return e_.effect_action == ssc_ApplyEffect && e_.effect_type == ssc_Heal;
+    }).group_by([=](const combat_log_entry_ex& lhs_, const combat_log_entry_ex& rhs_) {
+        return lhs_.ability == rhs_.ability;
+    }, [=](const combat_log_entry_ex& lhs_, const combat_log_entry_ex& rhs_) {
+        combat_log_entry_ex res = lhs_;
+        res.effect_value += rhs_.effect_value;
+        res.effect_value2 += rhs_.effect_value2;
+        res.hits += rhs_.hits;
+        res.crits += rhs_.crits;
+        res.misses += rhs_.misses;
+        return res;
+    }).order_by([=](const combat_log_entry_ex& lhs_, const combat_log_entry_ex& rhs_) {
+        return lhs_.effect_value < rhs_.effect_value;
+    }).commit < std::vector < combat_log_entry_ex >> ( );
+*/
+    auto player_damage = select_from<combat_log_entry_ex>( [=, &total_damage](const combat_log_entry& e_) {
+        combat_log_entry_ex ex
+        { e_ };
+        ex.hits = 1;
+        ex.crits = ex.was_crit_effect;
+        ex.misses = ex.effect_value == 0;
+        total_damage += ex.effect_value;
+        return ex;
+    }, player_records )
+        .where([=](const combat_log_entry& e_) {
+            return e_.effect_action == ssc_ApplyEffect && e_.effect_type == ssc_Damage;
+    }).group_by([=](const combat_log_entry_ex& lhs_, const combat_log_entry_ex& rhs_) {
+        return lhs_.ability == rhs_.ability;
+    }, [=](const combat_log_entry_ex& lhs_, const combat_log_entry_ex& rhs_) {
+        combat_log_entry_ex res = lhs_;
+        res.effect_value += rhs_.effect_value;
+        res.effect_value2 += rhs_.effect_value2;
+        res.hits += rhs_.hits;
+        res.crits += rhs_.crits;
+        res.misses += rhs_.misses;
+        return res;
+    }).order_by([=](const combat_log_entry_ex& lhs_, const combat_log_entry_ex& rhs_) {
+        return lhs_.effect_value > rhs_.effect_value;
+    }).commit < std::vector < combat_log_entry_ex >> ( );
+
+    auto rect = _wnd->get_client_area_rect();
+
+    rect.top += 120;
+    rect.left += 8;
+    rect.right -= 8;
+    rect.bottom -= 8;
+
+    const auto name_space = 160;
+    const auto value_space = 40;
+    const auto perc_space = 80;
+    const auto bar_space = rect.right - rect.left - name_space - value_space - perc_space;
+    const auto line_with = 30;
+
+    while ( _stat_display.size() < player_damage.size() ) {
+        auto y = rect.top + line_with * _stat_display.size();
+        combat_stat_display disp;
+        disp.name.reset(new window(0, L"static", L"", WS_CHILD | WS_VISIBLE, rect.left, y, name_space, line_with, _wnd->native_window_handle(), nullptr, _wnd_class.source_instance()));
+        disp.value.reset(new window(0, L"static", L"", WS_CHILD | WS_VISIBLE, rect.left + name_space, y, value_space, line_with, _wnd->native_window_handle(), nullptr, _wnd_class.source_instance()));
+        disp.bar.reset(new progress_bar(line_with + name_space + value_space + 16, y, bar_space - 64, line_with - 10, _wnd->native_window_handle(), _stat_display.size(), _wnd_class.source_instance()));
+        disp.perc.reset(new window(0, L"static", L"", WS_CHILD | WS_VISIBLE, rect.left + name_space + value_space + bar_space, y, perc_space, line_with, _wnd->native_window_handle(), nullptr, _wnd_class.source_instance()));
+        _stat_display.push_back(std::move(disp));
+    }
+
+    size_t i = 0;
+    for (; i < player_damage.size(); ++i ) {
+        const auto& row = player_damage[i];
+        const auto& value = (*_string_map)[row.ability];
+        const std::locale locale("");
+        typedef std::codecvt<char, wchar_t, std::mbstate_t> converter_type;
+        const auto &converter = std::use_facet<converter_type>( locale );
+        std::vector<wchar_t> to(value.length() * converter.max_length());
+        std::mbstate_t state;
+        const char* from_next;
+        wchar_t* to_next;
+        const auto result = converter.out(state
+                                         , value.data()
+                                         , value.data() + value.length()
+                                         , from_next
+                                         , to.data()
+                                         , to.data() + to.size()
+                                         , to_next);
+        if (!( result == converter_type::ok || result == converter_type::noconv )) {
+            to_next = to.data();
+        }
+
+        auto& display = _stat_display[i];
+        display.name->caption(std::wstring(to.data(), to_next));
+        display.name->normal();
+
+        display.value->caption(std::to_wstring(row.effect_value));
+        display.value->normal();
+
+        display.bar->range(0, total_damage);
+        display.bar->progress(row.effect_value);
+        display.bar->normal();
+
+        display.perc->caption(std::to_wstring(double( row.effect_value ) / total_damage * 100.0) + L"%");
+        display.perc->normal();
+    }
+
+    for ( ; i < _stat_display.size(); ++i ) {
+        const auto& row = _stat_display[i];
+        row.name->hide();
+        row.value->hide();
+        row.bar->hide();
+        row.perc->hide();
+    }
+
+    auto dps = ( double( total_damage ) / epleased ) * 1000.0;
+    _dps_display->caption(std::to_wstring(dps) + L" dps");
+}
+/*
+void main_ui::update_player_combat_stat(const update_player_combat_stat_event& info_) {
+    auto at = std::find_if(begin(_stat_display), end(_stat_display), [&](const combat_stat_display& d_) {
+        return d_.stat_name == info_.name;
+    });
+
+    if ( at == end(_stat_display) ) {
+        combat_stat_display disp;
+        disp.stat_name = info_.name;
+        disp.name.reset(new window(0, L"static", info_.name, WS_CHILD, 0, 0, 60, 30, _wnd->native_window_handle(), nullptr, _wnd_class.source_instance()));
+        disp.value.reset(new window(0, L"static", L"0", WS_CHILD, 0, 0, 60, 30, _wnd->native_window_handle(), nullptr, _wnd_class.source_instance()));
+        disp.perc.reset(new window(0, L"static", L"0.00%", WS_CHILD, 0, 0, 60, 30, _wnd->native_window_handle(), nullptr, _wnd_class.source_instance()));
+        disp.bar.reset(new progress_bar(0, 0, 60, 30, _wnd->native_window_handle(), _stat_display.size(), _wnd_class.source_instance()));
+        disp.name->caption(info_.name);
+        at = _stat_display.insert(end(_stat_display), std::move(disp));
+    }
+
+    at->stat_value = info_.value;
+    _stat_total = info_.total;
+}
+*/
+void main_ui::set_analizer(const set_analizer_event& e_) {
+    _analizer = e_.anal;
+    _string_map = e_.smap;
+}
+
 void main_ui::display_log_dir_select(display_log_dir_select_event) {
     display_dir_select();
 }
@@ -13,7 +184,8 @@ void main_ui::display_log_dir_select(display_log_dir_select_event) {
 void main_ui::on_event(const any& v_) {
 #define do_handle_event(type,handler) handle_event<type>(v_,[=](const type& e_) { handler(e_); })
 #define do_handle_event_e(event_) do_handle_event(event_##_event,event_)
-    if ( !do_handle_event_e(display_log_dir_select) ) {
+    if ( !do_handle_event_e(display_log_dir_select)
+        && !do_handle_event_e(set_analizer) ) {
         post_event(v_);
     }
 }
@@ -250,7 +422,6 @@ LRESULT main_ui::os_callback_handler(window* window_, UINT uMsg, WPARAM wParam, 
                 invoke_event_handlers(start_tracking{&ok} );
                 if ( ok ) {
                     _start_solo_button->disable();
-                    _sync_raid_button->disable();
                     _stop_button->enable();
                 }
             }
@@ -259,7 +430,6 @@ LRESULT main_ui::os_callback_handler(window* window_, UINT uMsg, WPARAM wParam, 
             if ( code == BN_CLICKED ) {
                 invoke_event_handlers(stop_tracking{});
                 _stop_button->disable();
-                //_sync_raid_button->enable();
                 _start_solo_button->enable();
             }
             break;
@@ -276,8 +446,10 @@ LRESULT main_ui::os_callback_handler(window* window_, UINT uMsg, WPARAM wParam, 
         // currently disable maxing
         info->ptMaxTrackSize.x = min_width;
         info->ptMaxTrackSize.y = min_height;
-    } else if ( uMsg == WM_NOTIFY ) {
-        _tab->handle_event(*reinterpret_cast<LPNMHDR>(lParam));
+    } else if ( uMsg == WM_TIMER ) {
+        //if ( wParam == _timer ) {
+            update_stat_display();
+        //}
     }
     return os_callback_handler_default(window_, uMsg, wParam, lParam);
 }
@@ -298,25 +470,22 @@ main_ui::main_ui(const std::wstring& log_path_)
         , nullptr
         , _wnd_class.source_instance()));
 
+
     RECT wr{};
     GetClientRect(_wnd->native_window_handle(), &wr);
 
     auto char_size_x = LOWORD(GetDialogBaseUnits());
     auto char_size_y = HIWORD(GetDialogBaseUnits());
 
+    //auto button_x = 150;
+    //auto button_y = 30;
     _path_button.reset(new window(0, L"button", L"Browse", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, char_size_x, 8, 8 * char_size_x, 7 * char_size_y / 6, _wnd->native_window_handle(), (HMENU)control_path_button, _wnd_class.source_instance()));
-    _tab.reset(new tab_set(2, char_size_y * 2 + 2, wr.right - 2, wr.bottom - 2, _wnd->native_window_handle(), control_tab, _wnd_class.source_instance()));
-
+    
     auto pos_left = 600 - char_size_x * 2;
     pos_left -= 8 * char_size_x - char_size_x - char_size_x;
     _stop_button.reset(new window(0, L"button", L"Stop", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, pos_left, 8, 6 * char_size_x, 7 * char_size_y / 6, _wnd->native_window_handle(), (HMENU)control_stop_button, _wnd_class.source_instance()));
     // only active if tracking is enabled
     _stop_button->disable();
-
-    pos_left -= 16 * char_size_x - char_size_x - char_size_x;
-    _sync_raid_button.reset(new window(0, L"button", L"Sync to Raid", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, pos_left, 8, 14 * char_size_x, 7 * char_size_y / 6, _wnd->native_window_handle(), (HMENU)control_sync_to_raid_button, _wnd_class.source_instance()));
-    // for now you cant sync to raids
-    _sync_raid_button->disable();
 
     pos_left -= 8 * char_size_x - char_size_x - char_size_x;
     _start_solo_button.reset(new window(0, L"button", L"Solo", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, pos_left, 8, 6 * char_size_x, 7 * char_size_y / 6, _wnd->native_window_handle(), (HMENU)control_start_solo_button, _wnd_class.source_instance()));
@@ -324,42 +493,23 @@ main_ui::main_ui(const std::wstring& log_path_)
     pos_left -= 11 * char_size_x - char_size_x - char_size_x;
     _path_edit.reset(new window(0, L"edit", log_path_.c_str(), WS_CHILD | WS_VISIBLE | WS_BORDER | ES_LEFT | ES_AUTOHSCROLL, 9 * char_size_x, 8, pos_left, 7 * char_size_y / 6, _wnd->native_window_handle(), (HMENU)control_path_edit, _wnd_class.source_instance()));
 
-
-    std::vector<std::unique_ptr<window>> tab_elements;
-    tab_elements.emplace_back(new window(0, L"static", L"you!", WS_CHILD, 0, 0, 0, 0, _tab->native_window_handle(), nullptr, _wnd_class.source_instance()));
-    auto you_tab = _tab->add_tab(L"You", std::move(tab_elements));
-    tab_elements.emplace_back(new window(0, L"static", L"raid!", WS_CHILD, 0, 0, 0, 0, _tab->native_window_handle(), nullptr, _wnd_class.source_instance()));
-    _tab->add_tab(L"Raid", std::move(tab_elements));
-
-    wr = _tab->get_client_area_rect();
-    _tab->get_client_rect_for_window_rect(wr);
-
-    for ( size_t t = 0; t < _tab->get_tab_element_count(); ++t ) {
-        auto& tab = _tab->get_tab_elements(t);
-
-        for ( auto& element : tab ) {
-            element->move(wr.left, wr.top, wr.right - wr.left, 7 * char_size_y / 6);
-            set_font_to_window(*element);
-        }
-    }
-
-    _tab->switch_tab(you_tab);
+    _dps_display.reset(new window(0, L"static", L"", WS_CHILD | WS_VISIBLE, 8, 60, 320, 30, _wnd->native_window_handle(), nullptr, _wnd_class.source_instance()));
 
 
     _wnd->callback([=](window* window_, UINT uMsg, WPARAM wParam, LPARAM lParam) -> LRESULT {
         return os_callback_handler(window_, uMsg, wParam, lParam);
     });
+    _timer = SetTimer(_wnd->native_window_handle(), _timer, 1000, nullptr);
     set_font_to_window(*_wnd);
     set_font_to_window(*_path_button);
     set_font_to_window(*_stop_button);
     set_font_to_window(*_start_solo_button);
-    set_font_to_window(*_sync_raid_button);
     set_font_to_window(*_path_edit);
-    set_font_to_window(*_tab);
     _wnd->update();
     _wnd->size(600, 600);
 
 }
 
 main_ui::~main_ui() {
+    KillTimer(_wnd->native_window_handle(), _timer);
 }

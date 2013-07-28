@@ -83,3 +83,20 @@ template<typename DstType, typename SrcCont,typename U>
 inline query_set<SrcCont, DstType> select_from(U v_, SrcCont& s_) {
     return query_set<SrcCont, DstType>( s_, v_ );
 }
+/*
+template<typename SrcRange,typename Predicate>
+struct select_range {
+    SrcRange    _src;
+    Predicate   _pred;
+
+    typedef typename std::decay<decltype( Predicate()( SrcRange().front() ) )>::type value_type;
+
+    value_type front() {
+        return _pred(_src.front());
+    }
+
+    bool next() {
+        return _src.next();
+    }
+};
+*/

@@ -33,18 +33,18 @@ struct start_tracking {
 struct stop_tracking {};
 
 class ui_base
-: protected win32_event_queue<ui_base, sizeof( std::wstring )>
-, protected event_router<sizeof( std::wstring )> {
+: protected win32_event_queue<ui_base, 128>
+, protected event_router<128> {
     handle_wrap<HFONT, nullptr> _window_font;
 
 protected:
-    typedef win32_event_queue<ui_base, sizeof( std::wstring )>  queue_base;
-    typedef event_router<sizeof( std::wstring )>                router_base;
-    typedef queue_base::any                                     any;
+    typedef win32_event_queue<ui_base, 128>     queue_base;
+    typedef event_router<128>                   router_base;
+    typedef queue_base::any                     any;
 
     virtual void on_event(const queue_base::any& v_) = 0;
 
-    friend class win32_event_queue<ui_base, sizeof( std::wstring )>;
+    friend class win32_event_queue<ui_base, 128>;
     virtual HWND post_param() = 0;
 
     template<typename Event>

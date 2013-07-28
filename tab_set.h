@@ -13,6 +13,8 @@ class tab_set
     typedef std::vector<std::unique_ptr<window>>    tab_elements;
     typedef std::vector<tab_elements>               tab_sets;
 
+    window_class                _draw_class;
+    std::unique_ptr<window>     _draw_wnd;
     std::vector<std::wstring>   _tab_names;
     tab_sets                    _tabs;
     size_t                      _active_tab;
@@ -31,6 +33,9 @@ public:
                 , (HMENU)id_
                 , instance_)
         , _active_tab(size_t(-1)) {
+        _draw_class.name(L"tab_wnd_base");
+        _draw_class.register_class();
+        _draw_wnd.reset(new window(WS_EX_CONTROLPARENT, _draw_class, L"", WS_CHILDWINDOW | WS_VISIBLE | WS_CLIPSIBLINGS | WS_CLIPCHILDREN, 0, 0, width_, height_ / 2, native_window_handle(), nullptr, _draw_class.source_instance()));
     }
     //~tab_set() {}
 
@@ -44,6 +49,13 @@ public:
         tie.mask = TCIF_TEXT;
         tie.pszText = const_cast<wchar_t*>(_tab_names[index].c_str());
         TabCtrl_InsertItem(native_window_handle(), index, &tie);
+
+        if ( index == 0 ) {
+            auto wr = get_client_area_rect();
+            get_client_rect_for_window_rect(wr);
+            _draw_wnd->move(wr.left, wr.top,wr.right - wr.left, wr.bottom - wr.top);
+        }
+
         return index;
     }
 
@@ -71,6 +83,10 @@ public:
                 element->normal();
             }
         }
+    }
+
+    size_t active_tab() const {
+        return _active_tab;
     }
 
     const std::vector<std::unique_ptr<window>>& get_tab_elements(size_t tab_id_) const {
@@ -106,5 +122,9 @@ public:
 
     void get_client_rect_for_window_rect(RECT& rect_) {
         TabCtrl_AdjustRect(native_window_handle(), FALSE, &rect_);
+    }
+
+    HWND get_draw_area_window_handle() {
+        return _draw_wnd->native_window_handle();
     }
 };
