@@ -100,6 +100,10 @@ void main_ui::update_stat_display() {
         disp.value.reset(new window(0, L"static", L"", WS_CHILD | WS_VISIBLE, rect.left + name_space, y, value_space, line_with, _wnd->native_window_handle(), nullptr, _wnd_class.source_instance()));
         disp.bar.reset(new progress_bar(line_with + name_space + value_space + 16, y, bar_space - 64, line_with - 10, _wnd->native_window_handle(), _stat_display.size(), _wnd_class.source_instance()));
         disp.perc.reset(new window(0, L"static", L"", WS_CHILD | WS_VISIBLE, rect.left + name_space + value_space + bar_space, y, perc_space, line_with, _wnd->native_window_handle(), nullptr, _wnd_class.source_instance()));
+        set_font_to_window(*disp.name);
+        set_font_to_window(*disp.value);
+        set_font_to_window(*disp.bar);
+        set_font_to_window(*disp.perc);
         _stat_display.push_back(std::move(disp));
     }
 

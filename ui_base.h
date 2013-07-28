@@ -75,7 +75,7 @@ protected:
     }
 
     void set_font_to_window(window& wnd) {
-        ::SendMessageW(wnd.native_window_handle(), WM_SETFONT, ( WPARAM )*_window_font, TRUE);
+        //::SendMessageW(wnd.native_window_handle(), WM_SETFONT, ( WPARAM )*_window_font, TRUE);
     }
 
     static void setup_default_window_class(window_class& wc_) {
@@ -97,7 +97,7 @@ protected:
 
 public:
     ui_base() {
-        load_font(L"times new roman");
+        load_font(L"microsoft sans serif");
     }
     virtual ~ui_base() {}
     virtual void handle_os_events() = 0;
