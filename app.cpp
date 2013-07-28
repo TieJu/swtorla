@@ -627,7 +627,12 @@ void app::operator()() {
             ui_base::handle_peding_events();
             transit_state(state::enter_main_screen);
         } else if ( state::enter_main_screen == _state ) {
-            _ui.reset(new main_ui(_config.get<std::wstring>( L"log.path", L"" )));
+            auto log_path = _config.get<std::wstring>( L"log.path", L"" );
+            if ( log_path.empty() ) {
+                log_path = find_swtor_log_path();
+                _config.put(L"log.path", log_path);
+            }
+            _ui.reset(new main_ui(log_path));
             _ui->reciver<quit_event>( [=](quit_event) { transit_state(state::shutdown); } );
             _ui->reciver<set_log_dir_event>( [=](set_log_dir_event e_) {
                 std::wstring str(e_.path);
