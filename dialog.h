@@ -34,6 +34,8 @@ private:
         }
         if ( self && self->_message_handler ) {
             return self->_message_handler(self, uMsg, wParam, lParam);
+        } else if ( uMsg == WM_INITDIALOG ) {
+            return TRUE;
         }
         return FALSE;
     }

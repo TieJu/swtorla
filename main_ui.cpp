@@ -82,36 +82,43 @@ void main_ui::update_stat_display() {
 
     auto rect = _wnd->client_area_rect();
 
-    rect.top += 120;
+    auto base_set = GetDialogBaseUnits();
+    auto base_x = LOWORD(base_set);
+    auto base_y = HIWORD(base_set);
+
+    rect.top += MulDiv(34 + 39, base_y, 8);
     rect.left += 8;
     rect.right -= 8;
     rect.bottom -= 8;
 
-    const auto name_space = 160;
-    const auto value_space = 40;
-    const auto perc_space = 80;
+    const auto name_space = MulDiv(60, base_x, 4);
+    const auto value_space = MulDiv(30, base_x, 4);
+    const auto perc_space = MulDiv(30, base_x, 4);
     const auto bar_space = rect.right - rect.left - name_space - value_space - perc_space;
-    const auto line_with = 30;
+    const auto line_with = MulDiv(14, base_y, 8);
+
+    auto font = ( HFONT )::SendMessageW(_wnd->native_handle(), WM_GETFONT, 0, 0);
 
     while ( _stat_display.size() < player_damage.size() ) {
         auto y = rect.top + line_with * _stat_display.size();
         combat_stat_display disp;
-        disp.name.reset(new window(0, L"static", L"", WS_CHILD | WS_VISIBLE, rect.left, y, name_space, line_with, _wnd->native_window_handle(), nullptr, _wnd_class.source_instance()));
-        disp.value.reset(new window(0, L"static", L"", WS_CHILD | WS_VISIBLE, rect.left + name_space, y, value_space, line_with, _wnd->native_window_handle(), nullptr, _wnd_class.source_instance()));
-        disp.bar.reset(new progress_bar(line_with + name_space + value_space + 16, y, bar_space - 64, line_with - 10, _wnd->native_window_handle(), _stat_display.size(), _wnd_class.source_instance()));
-        disp.perc.reset(new window(0, L"static", L"", WS_CHILD | WS_VISIBLE, rect.left + name_space + value_space + bar_space, y, perc_space, line_with, _wnd->native_window_handle(), nullptr, _wnd_class.source_instance()));
-        set_font_to_window(*disp.name);
-        set_font_to_window(*disp.value);
-        set_font_to_window(*disp.bar);
-        set_font_to_window(*disp.perc);
+        disp.name.reset(new window(0, L"static", L"", WS_CHILD | WS_VISIBLE | SS_CENTERIMAGE, rect.left, y, name_space, line_with, _wnd->native_window_handle(), nullptr, _wnd->instance_handle()));
+        disp.value.reset(new window(0, L"static", L"", WS_CHILD | WS_VISIBLE | SS_CENTERIMAGE, rect.left + name_space, y, value_space, line_with, _wnd->native_window_handle(), nullptr, _wnd->instance_handle()));
+        disp.bar.reset(new progress_bar(line_with + name_space + value_space + 16, y, bar_space - 64, line_with - 10, _wnd->native_window_handle(), _stat_display.size(), _wnd->instance_handle()));
+        disp.perc.reset(new window(0, L"static", L"", WS_CHILD | WS_VISIBLE | SS_CENTERIMAGE, rect.left + name_space + value_space + bar_space, y, perc_space, line_with, _wnd->native_window_handle(), nullptr, _wnd->instance_handle()));
+        ::SendMessageW(disp.name->native_window_handle(), WM_SETFONT, (WPARAM)font, TRUE);
+        ::SendMessageW(disp.value->native_window_handle(), WM_SETFONT, (WPARAM)font, TRUE);
+        ::SendMessageW(disp.bar->native_window_handle(), WM_SETFONT, (WPARAM)font, TRUE);
+        ::SendMessageW(disp.perc->native_window_handle(), WM_SETFONT, (WPARAM)font, TRUE);
         _stat_display.push_back(std::move(disp));
     }
 
     size_t i = 0;
+    // TODO: move the string translation from this loop to string lookup gen
+    const std::locale locale;
     for (; i < player_damage.size(); ++i ) {
         const auto& row = player_damage[i];
         const auto& value = (*_string_map)[row.ability];
-        const std::locale locale("");
         typedef std::codecvt<char, wchar_t, std::mbstate_t> converter_type;
         const auto &converter = std::use_facet<converter_type>( locale );
         std::vector<wchar_t> to(value.length() * converter.max_length());
@@ -153,7 +160,23 @@ void main_ui::update_stat_display() {
     }
 
     auto dps = ( double( total_damage ) / epleased ) * 1000.0;
-    _dps_display->caption(std::to_wstring(dps) + L" dps");
+    auto hps = ( double( total_heal ) / epleased ) * 1000.0;
+    auto ep = epleased / 1000;
+    auto dsp_diplay = GetDlgItem(_wnd->native_handle(), IDC_GLOBAL_STATS);
+
+    auto dps_text = std::to_wstring(dps) + L" dps";
+    auto hps_text = std::to_wstring(hps) + L" hps";
+    auto damage_text = L"Damage: " + std::to_wstring(total_damage);
+    auto heal_text = L"Healing: " + std::to_wstring(total_heal);
+    auto dur_text = L"Duration: " + std::to_wstring(epleased) + L" seconds";
+
+    auto final_text = dps_text + L"\r\n"
+                    + hps_text + L"\r\n"
+                    + damage_text + L"\r\n"
+                    + heal_text + L"\r\n"
+                    + dur_text + L"\r\n";
+
+    ::SetWindowTextW(dsp_diplay, final_text.c_str());
 }
 /*
 void main_ui::update_player_combat_stat(const update_player_combat_stat_event& info_) {
@@ -378,7 +401,10 @@ int CALLBACK main_ui::BrowseCallbackProc(HWND hWnd, UINT uMsg, LPARAM lParam, LP
 }
 
 void main_ui::display_dir_select() {
-    std::wstring current_path = _path_edit->caption();
+    auto edit = GetDlgItem(_wnd->native_handle(), IDC_URI_EDIT);
+    std::wstring current_path;
+    current_path.resize(::GetWindowTextLengthW(edit) + 1, L' ');
+    ::GetWindowTextW(edit, const_cast<wchar_t*>( current_path.data() ), int( current_path.size() ));
 
     BROWSEINFO bi{};
     bi.hwndOwner    = _wnd->native_window_handle();
@@ -401,16 +427,13 @@ void main_ui::display_dir_select() {
 
         if ( SHGetPathFromIDListW(pidlFolder, path_buffer) ) {
             invoke_event_handlers(set_log_dir_event{ path_buffer });
-            _path_edit->caption(path_buffer);
+            ::SetWindowTextW(edit, path_buffer);
         }
     }
 }
 
-void main_ui::on_size(window* window_, WPARAM wParam, LPARAM lParam) {
-
-}
-
-LRESULT main_ui::os_callback_handler(window* window_, UINT uMsg, WPARAM wParam, LPARAM lParam) {
+LRESULT main_ui::os_callback_handler(dialog* window_, UINT uMsg, WPARAM wParam, LPARAM lParam) {
+#if 0
     if ( uMsg == WM_COMMAND ) {
         auto id = LOWORD(wParam);
         auto code = HIWORD(wParam);
@@ -444,74 +467,75 @@ LRESULT main_ui::os_callback_handler(window* window_, UINT uMsg, WPARAM wParam, 
     } else if ( uMsg == WM_SIZE ) {
         on_size(window_, wParam, lParam);
     } else if ( uMsg == WM_GETMINMAXINFO ) {
-        auto info = reinterpret_cast<MINMAXINFO*>( lParam );
+        /*auto info = reinterpret_cast<MINMAXINFO*>( lParam );
         info->ptMinTrackSize.x = min_width;
         info->ptMinTrackSize.y = min_height;
         // currently disable maxing
         info->ptMaxTrackSize.x = min_width;
-        info->ptMaxTrackSize.y = min_height;
+        info->ptMaxTrackSize.y = min_height;*/
     } else if ( uMsg == WM_TIMER ) {
         //if ( wParam == _timer ) {
             update_stat_display();
         //}
     }
     return os_callback_handler_default(window_, uMsg, wParam, lParam);
+#endif
+    if ( WM_COMMAND == uMsg ) {
+        auto id = LOWORD(wParam);
+        auto code = HIWORD(wParam);
+        switch ( id ) {
+        case IDC_BROWSE_BUTTON:
+            if ( code == BN_CLICKED ) {
+                display_dir_select();
+            }
+            break;
+        case IDC_START_SOLO_BUTTON:
+            if ( code == BN_CLICKED ) {
+                bool ok = true;
+                invoke_event_handlers(start_tracking{ &ok });
+                if ( ok ) {
+                    _timer = SetTimer(_wnd->native_window_handle(), _timer, 1000, nullptr);
+                    ::EnableWindow(GetDlgItem(_wnd->native_handle(), IDC_BROWSE_BUTTON), FALSE);
+                    ::EnableWindow(GetDlgItem(_wnd->native_handle(), IDC_START_SOLO_BUTTON), FALSE);
+                    ::EnableWindow(GetDlgItem(_wnd->native_handle(), IDC_SYNC_TO_RAID_BUTTON), FALSE);
+                    ::EnableWindow(GetDlgItem(_wnd->native_handle(), IDC_STOP_BUTTON), TRUE);
+                }
+            }
+            break;
+        case IDC_SYNC_TO_RAID_BUTTON:
+            break;
+        case IDC_STOP_BUTTON:
+            if ( code == BN_CLICKED ) {
+                invoke_event_handlers(stop_tracking{});
+                KillTimer(_wnd->native_window_handle(), _timer);
+                ::EnableWindow(GetDlgItem(_wnd->native_handle(), IDC_BROWSE_BUTTON), TRUE);
+                ::EnableWindow(GetDlgItem(_wnd->native_handle(), IDC_START_SOLO_BUTTON), TRUE);
+                ::EnableWindow(GetDlgItem(_wnd->native_handle(), IDC_SYNC_TO_RAID_BUTTON), TRUE);
+                ::EnableWindow(GetDlgItem(_wnd->native_handle(), IDC_STOP_BUTTON), FALSE);
+            }
+            break;
+        }
+    } else if ( uMsg == WM_TIMER ) {
+        //if ( wParam == _timer ) {
+        update_stat_display();
+        //}
+        return TRUE;
+    }
+    return os_callback_handler_default(window_, uMsg, wParam, lParam);
 }
 
-main_ui::main_ui(const std::wstring& log_path_)
-: _wnd_class(L"swtorla_main_window_class") {
-    setup_default_window_class(_wnd_class);
-    _wnd_class.register_class();
-    _wnd.reset(new window(0
-        , _wnd_class
-        , L"SW:ToR log analizer"
-        , WS_OVERLAPPEDWINDOW | WS_CLIPCHILDREN | WS_CLIPSIBLINGS | WS_VISIBLE
-        , CW_USEDEFAULT
-        , CW_USEDEFAULT
-        , 600
-        , 600
-        , nullptr
-        , nullptr
-        , _wnd_class.source_instance()));
+main_ui::main_ui(const std::wstring& log_path_) {
+    _wnd.reset(new dialog(GetModuleHandleW(nullptr), MAKEINTRESOURCEW(IDD_MAIN_WINDOW), nullptr));
 
-
-    RECT wr{};
-    GetClientRect(_wnd->native_window_handle(), &wr);
-
-    auto char_size_x = LOWORD(GetDialogBaseUnits());
-    auto char_size_y = HIWORD(GetDialogBaseUnits());
-
-    //auto button_x = 150;
-    //auto button_y = 30;
-    _path_button.reset(new window(0, L"button", L"Browse", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, char_size_x, 8, 8 * char_size_x, 7 * char_size_y / 6, _wnd->native_window_handle(), (HMENU)control_path_button, _wnd_class.source_instance()));
-    
-    auto pos_left = 600 - char_size_x * 2;
-    pos_left -= 8 * char_size_x - char_size_x - char_size_x;
-    _stop_button.reset(new window(0, L"button", L"Stop", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, pos_left, 8, 6 * char_size_x, 7 * char_size_y / 6, _wnd->native_window_handle(), (HMENU)control_stop_button, _wnd_class.source_instance()));
-    // only active if tracking is enabled
-    _stop_button->disable();
-
-    pos_left -= 8 * char_size_x - char_size_x - char_size_x;
-    _start_solo_button.reset(new window(0, L"button", L"Solo", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, pos_left, 8, 6 * char_size_x, 7 * char_size_y / 6, _wnd->native_window_handle(), (HMENU)control_start_solo_button, _wnd_class.source_instance()));
-
-    pos_left -= 11 * char_size_x - char_size_x - char_size_x;
-    _path_edit.reset(new window(0, L"edit", log_path_.c_str(), WS_CHILD | WS_VISIBLE | WS_BORDER | ES_LEFT | ES_AUTOHSCROLL, 9 * char_size_x, 8, pos_left, 7 * char_size_y / 6, _wnd->native_window_handle(), (HMENU)control_path_edit, _wnd_class.source_instance()));
-
-    _dps_display.reset(new window(0, L"static", L"", WS_CHILD | WS_VISIBLE, 8, 60, 320, 30, _wnd->native_window_handle(), nullptr, _wnd_class.source_instance()));
-
-
-    _wnd->callback([=](window* window_, UINT uMsg, WPARAM wParam, LPARAM lParam) -> LRESULT {
+    _wnd->callback([=](dialog* window_, UINT uMsg, WPARAM wParam, LPARAM lParam) -> LRESULT {
         return os_callback_handler(window_, uMsg, wParam, lParam);
     });
-    _timer = SetTimer(_wnd->native_window_handle(), _timer, 1000, nullptr);
-    set_font_to_window(*_wnd);
-    set_font_to_window(*_path_button);
-    set_font_to_window(*_stop_button);
-    set_font_to_window(*_start_solo_button);
-    set_font_to_window(*_path_edit);
-    _wnd->update();
-    _wnd->size(600, 600);
 
+    auto edit = GetDlgItem(_wnd->native_handle(), IDC_URI_EDIT);
+    ::SetWindowTextW(edit, log_path_.c_str());
+    ::EnableWindow(GetDlgItem(_wnd->native_handle(), IDC_STOP_BUTTON), FALSE);
+    // if sync to raid is supported, we can enable this again
+    ::EnableWindow(GetDlgItem(_wnd->native_handle(), IDC_SYNC_TO_RAID_BUTTON), FALSE);
 }
 
 main_ui::~main_ui() {

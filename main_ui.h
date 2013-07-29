@@ -2,6 +2,7 @@
 
 #include "ui_base.h"
 #include "window.h"
+#include "dialog.h"
 #include "progress_bar.h"
 #include "tab_set.h"
 #include "combat_analizer.h"
@@ -11,25 +12,9 @@ struct set_analizer_event {
     string_to_id_string_map*    smap;
 };
 
-class main_ui : public ui_base {
-    enum {
-        control_path_button,
-        control_path_edit,
-        control_tab,
-        control_start_solo_button,
-        control_sync_to_raid_button,
-        control_stop_button,
-
-        min_width = 600,
-        min_height = 600,
-    };
-    window_class                            _wnd_class;
-    std::unique_ptr<window>                 _wnd;
-    std::unique_ptr<window>                 _path_button;
-    std::unique_ptr<window>                 _path_edit;
-    std::unique_ptr<window>                 _start_solo_button;
-    std::unique_ptr<window>                 _stop_button;
-    std::unique_ptr<window>                 _dps_display;
+class main_ui
+: public ui_base {
+    std::unique_ptr<dialog>                 _wnd;
 
     UINT_PTR                                _timer;
 
@@ -82,8 +67,7 @@ class main_ui : public ui_base {
     static int CALLBACK BrowseCallbackProc(HWND hWnd, UINT uMsg, LPARAM lParam, LPARAM lpData);
     void display_dir_select();
 
-    void on_size(window* window_,WPARAM wParam, LPARAM lParam);
-    LRESULT os_callback_handler(window* window_, UINT uMsg, WPARAM wParam, LPARAM lParam);
+    LRESULT os_callback_handler(dialog* window_, UINT uMsg, WPARAM wParam, LPARAM lParam);
 
 public:
     main_ui(const std::wstring& log_path_);
