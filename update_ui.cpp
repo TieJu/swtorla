@@ -1,20 +1,50 @@
 #include "update_ui.h"
 
+#include "resource.h"
+
 void update_ui::update_progress_info(const update_progress_info_event& e_) {
-    SetWindowText(_status_text->native_window_handle(), e_.msg.c_str());
+    SetWindowTextW(GetDlgItem(_wnd->native_handle(), IDC_UPDATE_INFO), e_.msg.c_str());
 }
 
 void update_ui::update_progress_error(update_progress_error_event e_) {
-    _progress_bar->state(e_.level);
+#ifndef PBM_SETSTATE 
+#define PBM_SETSTATE            (WM_USER+16)
+#define PBM_GETSTATE            (WM_USER+17)
+#define PBST_NORMAL             0x0001
+#define PBST_ERROR              0x0002
+#define PBST_PAUSED             0x0003
+#endif
+    WPARAM value = 0;
+    switch ( e_.level ) {
+    case progress_bar::display_state::normal:
+        value = PBST_NORMAL;
+        break;
+    case progress_bar::display_state::error:
+        value = PBST_ERROR;
+        break;
+    case progress_bar::display_state::paused:
+        value = PBST_PAUSED;
+        break;
+    }
+    ::PostMessageW(GetDlgItem(_wnd->native_handle(), IDC_UPDATE_PROGRESS), PBM_SETSTATE, value, 0);
 }
 
 void update_ui::update_progress_waiting(update_progress_waiting_event e_) {
-    _progress_bar->marque(e_.waiting);
+    auto element = GetDlgItem(_wnd->native_handle(), IDC_UPDATE_PROGRESS);
+    if ( e_.waiting ) {
+        ::SetWindowLongPtrW(element, GWL_STYLE, ::GetWindowLongPtrW(element, GWL_STYLE) | PBS_MARQUEE);
+        ::SetWindowPos(element, NULL, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_FRAMECHANGED);
+        ::PostMessageW(element, PBM_SETMARQUEE, TRUE, 0);
+    } else {
+        ::SetWindowLongPtrW(element, GWL_STYLE, ::GetWindowLongPtrW(element, GWL_STYLE) & ~PBS_MARQUEE);
+        ::SetWindowPos(element, NULL, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_FRAMECHANGED);
+    }
 }
 
 void update_ui::update_progress(const update_progress_event& e_) {
-    _progress_bar->range(e_.range_from, e_.range_to);
-    _progress_bar->progress(e_.pos);
+    auto element = GetDlgItem(_wnd->native_handle(), IDC_UPDATE_PROGRESS);
+    ::PostMessageW(element, PBM_SETRANGE32, e_.range_from, e_.range_to);
+    ::PostMessageW(element, PBM_SETPOS, e_.pos, 0);
 }
 
 void update_ui::on_event(const any& v_) {
@@ -40,27 +70,10 @@ void update_ui::handle_os_events() {
     }
 }
 
-update_ui::update_ui()
-    : _wnd_class(L"swtorla_update_window_class") {
-    setup_default_window_class(_wnd_class);
-    _wnd_class.register_class();
-    _wnd.reset( new window(0
-              , _wnd_class
-              , L"...checking for updates..."
-              , WS_MINIMIZEBOX | WS_CLIPCHILDREN | WS_CLIPSIBLINGS | WS_VISIBLE | WS_CAPTION | WS_SYSMENU
-              , CW_USEDEFAULT
-              , CW_USEDEFAULT
-              , 350
-              , 125
-              , nullptr
-              , nullptr
-              , _wnd_class.source_instance()));
+update_ui::update_ui() {
+    _wnd.reset(new dialog(GetModuleHandleW(nullptr), MAKEINTRESOURCEW(IDD_UPDATE_POPUP), nullptr));
     
-    _progress_bar.reset(new progress_bar(50, 15, 250, 25, _wnd->native_window_handle(), 0, _wnd_class.source_instance()));
-
-    _status_text.reset(new window(0, L"static", L"", SS_CENTER | WS_CHILD | WS_VISIBLE, 50, 50, 250, 25, _wnd->native_window_handle(), nullptr, _wnd_class.source_instance()));
-    
-    _wnd->callback([=](window* window_, UINT uMsg, WPARAM wParam, LPARAM lParam) -> LRESULT {
+    _wnd->callback([=](dialog* window_, UINT uMsg, WPARAM wParam, LPARAM lParam) -> LRESULT {
         return os_callback_handler_default(window_, uMsg, wParam, lParam);
     });
     

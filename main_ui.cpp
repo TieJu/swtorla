@@ -80,7 +80,7 @@ void main_ui::update_stat_display() {
         return lhs_.effect_value > rhs_.effect_value;
     }).commit < std::vector < combat_log_entry_ex >> ( );
 
-    auto rect = _wnd->get_client_area_rect();
+    auto rect = _wnd->client_area_rect();
 
     rect.top += 120;
     rect.left += 8;

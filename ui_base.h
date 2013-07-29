@@ -1,6 +1,7 @@
 #pragma once
 
 #include "window.h"
+#include "dialog.h"
 #include "handle_wrap.h"
 
 #include <vector>
@@ -69,6 +70,18 @@ protected:
         }
     }
 
+    LRESULT os_callback_handler_default(dialog* window_, UINT uMsg, WPARAM wParam, LPARAM lParam) {
+        if ( is_app_event(uMsg) ) {
+            invoke_event_handlers(wParam, lParam);
+            return TRUE;
+        } else if ( uMsg == WM_CLOSE || uMsg == WM_DESTROY ) {
+            ::PostQuitMessage(0);
+            return TRUE;
+        } else {
+            return FALSE;
+        }
+    }
+
     void load_font(const std::wstring& name) {
         _window_font.reset(::CreateFontW(0, 0, GM_ADVANCED, 0, FW_NORMAL, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_DONTCARE, name.c_str())
                           , [](HFONT h_) { DeleteObject(h_); });
@@ -115,9 +128,9 @@ public:
     static void handle_peding_events() {
         MSG msg
         {};
-        while ( GetMessage(&msg, 0, 0, 0) ) {
+        /*while ( GetMessage(&msg, 0, 0, 0) ) {
             TranslateMessage(&msg);
             DispatchMessage(&msg);
-        }
+        }*/
     }
 };

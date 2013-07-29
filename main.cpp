@@ -21,10 +21,29 @@
 
 #include "swtor_log_parser.h"
 
+#include "resource.h"
+
 // google breakpad
 #include <client/windows/handler/exception_handler.h>
 
-int APIENTRY WinMain(HINSTANCE /*hInstance*/
+INT_PTR CALLBACK DialogProc(
+    _In_  HWND hwndDlg,
+    _In_  UINT uMsg,
+    _In_  WPARAM wParam,
+    _In_  LPARAM lParam
+    ) {
+        
+        if ( WM_INITDIALOG == uMsg ) {
+            auto value = GetWindowLongPtrW(hwndDlg, DWLP_USER);
+            return true;
+        } else if ( WM_CLOSE == uMsg || WM_DESTROY == uMsg ) {
+            PostQuitMessage(0);
+            return true;
+        }
+        return false;
+}
+
+int APIENTRY WinMain(HINSTANCE hInstance
                     ,HINSTANCE /*hPrevInstance*/
                     ,LPSTR /*lpCmdLine*/
                     ,int /*nCmdShow*/) {
@@ -34,6 +53,18 @@ int APIENTRY WinMain(HINSTANCE /*hInstance*/
     //auto arg_v = CommandLineToArgvW(GetCommandLine(), &arg_c);
     auto hMutex = CreateMutexW(nullptr, TRUE, L"swtor_log_analizer_unique");
     WaitForSingleObject(hMutex, INFINITE);
+    /*
+    auto wnd = CreateDialogParamW(hInstance, MAKEINTRESOURCEW(IDD_MAIN_WINDOW), nullptr, DialogProc, 5);
+    ShowWindow(wnd,SW_NORMAL);
+    MSG msg
+    {};
+    while ( GetMessageW(&msg, wnd, 0, 0) ) {
+        TranslateMessage(&msg);
+        DispatchMessage(&msg);
+    }
+
+    DestroyWindow(wnd);*/
+
     try {
         app core(APP_CATION, CONFIG_PATH);
 

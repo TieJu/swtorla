@@ -507,7 +507,7 @@ app::app(const char* caption_, const char* config_path_)
     read_config(_config_path);
 
     INITCOMMONCONTROLSEX init =
-    { sizeof( INITCOMMONCONTROLSEX ), ICC_PROGRESS_CLASS | ICC_TAB_CLASSES };
+    { sizeof( INITCOMMONCONTROLSEX ), /*ICC_PROGRESS_CLASS | ICC_TAB_CLASSES | ICC_STANDARD_CLASSES | ICC_WIN95_CLASSES*/ 0xFFFFFFFF };
     InitCommonControlsEx(&init);
 
     remove_old_file();
