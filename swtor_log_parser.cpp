@@ -11,6 +11,8 @@
 #include <boost/log/sources/severity_logger.hpp>
 #include <boost/log/sources/record_ostream.hpp>
 
+#include <Windows.h>
+
 static void expect_char(const char*& from_, const char* to_,char c_) {
     if ( from_ == to_ ) {
         throw std::runtime_error("unexpected end of log line");
@@ -86,13 +88,21 @@ static void set_pos(const char*& from_, const char* to_, const char *new_pos_) {
     from_ = new_pos_;
 }
 
+std::wstring to_wstring(const char* begin_, const char* end_) {
+    auto length = MultiByteToWideChar(CP_UTF8, 0, begin_, end_ - begin_, nullptr, 0);
+
+    std::wstring str(length, L' ');
+    MultiByteToWideChar(CP_UTF8, 0, begin_, end_ - begin_, const_cast<wchar_t*>( str.data() ), str.length());
+    return str;
+}
+
 static string_id register_string(string_id id, const char* from_, const char* to_, string_to_id_string_map& string_map_) {
     auto loc = string_map_.find(id);
     if ( loc == end(string_map_) ) {
         if ( from_ >= to_ ) {
-            string_map_[id] = "<missing localisation for " + std::to_string(id) + ">";
+            string_map_[id] = L"<missing localisation for " + std::to_wstring(id) + L">";
         } else {
-            string_map_[id].assign(from_, to_);
+            string_map_[id] = to_wstring(from_, to_);
         }
     }
     return id;
@@ -100,15 +110,27 @@ static string_id register_string(string_id id, const char* from_, const char* to
 
 static string_id register_name(const char* from_, const char* to_, character_list& char_list_) {
     const auto len = to_ - from_;
-    auto loc = std::find_if(begin(char_list_), end(char_list_), [=](const std::string& name_) {
-        return !name_.compare(0, std::string::npos, from_, len);
+    std::wstring str;
+    auto loc = std::find_if(begin(char_list_), end(char_list_), [=,&str](const std::wstring& name_) {
+        if ( name_.length() != len ) {
+            return false;
+        }
+
+        if ( str.empty() ) {
+            str = to_wstring(from_, to_);
+        }
+
+        return str == name_;
     });
 
     if ( loc != end(char_list_) ) {
         return std::distance(begin(char_list_), loc);
     }
 
-    char_list_.push_back(std::string(from_, to_));
+    if ( str.empty() ) {
+        str = to_wstring(from_, to_);
+    }
+    char_list_.push_back(str);
 
     return char_list_.size() - 1;
 }

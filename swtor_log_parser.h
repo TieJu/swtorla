@@ -36,7 +36,7 @@ struct combat_log_entry {
     int                         effect_thread;
 };
 
-typedef concurrency::concurrent_unordered_map<string_id, std::string>  string_to_id_string_map;
-typedef concurrency::concurrent_vector<std::string>                    character_list;
+typedef concurrency::concurrent_unordered_map<string_id, std::wstring>  string_to_id_string_map;
+typedef concurrency::concurrent_vector<std::wstring>                    character_list;
 
 combat_log_entry parse_combat_log_line(const char* from_, const char* to_, string_to_id_string_map& string_map_, character_list& char_list_);

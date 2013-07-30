@@ -9,11 +9,14 @@
 #include <Shellapi.h>
 
 void main_ui::update_stat_display() {
-
-    if ( !_analizer ) {
-        return;
-    }
-    if ( _analizer->count_encounters() < 1 ) {
+    if ( !_analizer || _analizer->count_encounters() < 1 ) {
+        for ( size_t i = 0; i < _stat_display.size(); ++i ) {
+            const auto& row = _stat_display[i];
+            row.name->hide();
+            row.value->hide();
+            row.bar->hide();
+            row.perc->hide();
+        }
         return;
     }
 
@@ -30,6 +33,17 @@ void main_ui::update_stat_display() {
         .where([=](const combat_log_entry& e_) {
             return e_.src == 0 && e_.src_minion == string_id(-1) && e_.ability != string_id(-1);
     }).commit < std::vector < combat_log_entry >> ( );
+
+    if ( player_records.empty() ) {
+        for ( size_t i = 0; i < _stat_display.size(); ++i ) {
+            const auto& row = _stat_display[i];
+            row.name->hide();
+            row.value->hide();
+            row.bar->hide();
+            row.perc->hide();
+        }
+        return;
+    }
 
     auto& first = player_records.front();
     auto& last = player_records.back();
@@ -125,30 +139,12 @@ void main_ui::update_stat_display() {
     }
 
     size_t i = 0;
-    // TODO: move the string translation from this loop to string lookup gen
-    const std::locale locale;
     for (; i < player_damage.size(); ++i ) {
         const auto& row = player_damage[i];
         const auto& value = (*_string_map)[row.ability];
-        typedef std::codecvt<char, wchar_t, std::mbstate_t> converter_type;
-        const auto &converter = std::use_facet<converter_type>( locale );
-        std::vector<wchar_t> to(value.length() * converter.max_length());
-        std::mbstate_t state;
-        const char* from_next;
-        wchar_t* to_next;
-        const auto result = converter.out(state
-                                         , value.data()
-                                         , value.data() + value.length()
-                                         , from_next
-                                         , to.data()
-                                         , to.data() + to.size()
-                                         , to_next);
-        if (!( result == converter_type::ok || result == converter_type::noconv )) {
-            to_next = to.data();
-        }
 
         auto& display = _stat_display[i];
-        display.name->caption(std::wstring(to.data(), to_next));
+        display.name->caption(value);
         display.name->normal();
 
         display.value->caption(std::to_wstring(row.effect_value));
@@ -172,14 +168,14 @@ void main_ui::update_stat_display() {
 
     auto dps = ( double( total_damage ) / epleased ) * 1000.0;
     auto hps = ( double( total_heal ) / epleased ) * 1000.0;
-    auto ep = epleased / 1000;
+    auto ep = epleased / 1000.0;
     auto dsp_diplay = GetDlgItem(_wnd->native_handle(), IDC_GLOBAL_STATS);
 
     auto dps_text = std::to_wstring(dps) + L" dps";
     auto hps_text = std::to_wstring(hps) + L" hps";
     auto damage_text = L"Damage: " + std::to_wstring(total_damage);
     auto heal_text = L"Healing: " + std::to_wstring(total_heal);
-    auto dur_text = L"Duration: " + std::to_wstring(epleased) + L" seconds";
+    auto dur_text = L"Duration: " + std::to_wstring(ep) + L" seconds";
 
     auto final_text = dps_text + L"\r\n"
                     + hps_text + L"\r\n"
@@ -189,27 +185,7 @@ void main_ui::update_stat_display() {
 
     ::SetWindowTextW(dsp_diplay, final_text.c_str());
 }
-/*
-void main_ui::update_player_combat_stat(const update_player_combat_stat_event& info_) {
-    auto at = std::find_if(begin(_stat_display), end(_stat_display), [&](const combat_stat_display& d_) {
-        return d_.stat_name == info_.name;
-    });
 
-    if ( at == end(_stat_display) ) {
-        combat_stat_display disp;
-        disp.stat_name = info_.name;
-        disp.name.reset(new window(0, L"static", info_.name, WS_CHILD, 0, 0, 60, 30, _wnd->native_window_handle(), nullptr, _wnd_class.source_instance()));
-        disp.value.reset(new window(0, L"static", L"0", WS_CHILD, 0, 0, 60, 30, _wnd->native_window_handle(), nullptr, _wnd_class.source_instance()));
-        disp.perc.reset(new window(0, L"static", L"0.00%", WS_CHILD, 0, 0, 60, 30, _wnd->native_window_handle(), nullptr, _wnd_class.source_instance()));
-        disp.bar.reset(new progress_bar(0, 0, 60, 30, _wnd->native_window_handle(), _stat_display.size(), _wnd_class.source_instance()));
-        disp.name->caption(info_.name);
-        at = _stat_display.insert(end(_stat_display), std::move(disp));
-    }
-
-    at->stat_value = info_.value;
-    _stat_total = info_.total;
-}
-*/
 void main_ui::set_analizer(const set_analizer_event& e_) {
     _analizer = e_.anal;
     _string_map = e_.smap;
