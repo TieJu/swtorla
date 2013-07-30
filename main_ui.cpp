@@ -1,5 +1,7 @@
 #include "main_ui.h"
 
+
+#include <sstream>
 #include <boost/scope_exit.hpp>
 
 #include <CommCtrl.h>
@@ -15,7 +17,16 @@ void main_ui::update_stat_display() {
         return;
     }
 
-    auto player_records = _analizer->select_from<combat_log_entry>( _analizer->count_encounters() - 1, [=](const combat_log_entry& e_) {return e_; } )
+    auto encounter_id = _analizer->count_encounters() - 1;
+    auto& encounter = _analizer->from(encounter_id);
+
+    if ( encounter.timestamp() <= _last_update ) {
+        return;
+    }
+
+    _last_update = encounter.timestamp();
+
+    auto player_records = encounter.select<combat_log_entry>( [=](const combat_log_entry& e_) {return e_; } )
         .where([=](const combat_log_entry& e_) {
             return e_.src == 0 && e_.src_minion == string_id(-1) && e_.ability != string_id(-1);
     }).commit < std::vector < combat_log_entry >> ( );
@@ -484,6 +495,55 @@ LRESULT main_ui::os_callback_handler(dialog* window_, UINT uMsg, WPARAM wParam, 
         auto id = LOWORD(wParam);
         auto code = HIWORD(wParam);
         switch ( id ) {
+        case ID_HELP_ABOUT:
+            {
+                dialog about(GetModuleHandleW(nullptr), MAKEINTRESOURCEW(IDD_ABOUT), _wnd->native_handle());
+                about.callback([=](dialog* dlg_, UINT msg_, WPARAM w_param_, LPARAM l_param_) {
+                    switch ( msg_ ) {
+                    case WM_CLOSE:
+                    case WM_DESTROY:
+                        ::PostQuitMessage(0);
+                        break;
+                    case WM_NOTIFY:
+                        auto from_info = reinterpret_cast<LPNMHDR>( l_param_ );
+                        switch ( from_info->idFrom ) {
+                        default:
+                            break;
+                        case IDC_ABOUT_HOME_LINK:
+                            auto info = reinterpret_cast<PNMLINK>( l_param_ );
+                            switch ( from_info->code ) {
+                            case NM_CLICK:
+                            case NM_RETURN:
+                                ::ShellExecuteW(nullptr, L"open", info->item.szUrl, nullptr, nullptr, SW_SHOW);
+                                break;
+                            }
+                            break;
+                        }
+                        break;
+                    }
+                    return FALSE;
+                });
+                auto version = GetDlgItem(about.native_handle(), IDC_ABOUT_VERSION);
+                program_version version_num;
+                invoke_event_handlers(get_program_version_event{ &version_num });
+                std::wstringstream verstr;
+                verstr << version_num.major << L"." << version_num.minor << L"." << version_num.patch << " Build " << version_num.build;
+                ::SetWindowTextW(version, verstr.str().c_str());
+                MSG msg{};
+                while ( GetMessageW(&msg, about.native_handle(), 0, 0) ) {
+                    TranslateMessage(&msg);
+                    DispatchMessageW(&msg);
+                }
+            }
+            // display about dlg
+            break;
+        case ID_EDIT_OPTIONS:
+            ::MessageBoxW(nullptr, L"No options yet, sorry!", L"Options", MB_OK | MB_ICONINFORMATION);
+            // display options
+            break;
+        case ID_FILE_EXIT:
+            ::PostQuitMessage(0);
+            break;
         case IDC_BROWSE_BUTTON:
             if ( code == BN_CLICKED ) {
                 display_dir_select();
@@ -526,6 +586,8 @@ LRESULT main_ui::os_callback_handler(dialog* window_, UINT uMsg, WPARAM wParam, 
 
 main_ui::main_ui(const std::wstring& log_path_) {
     _wnd.reset(new dialog(GetModuleHandleW(nullptr), MAKEINTRESOURCEW(IDD_MAIN_WINDOW), nullptr));
+
+    _last_update = std::chrono::high_resolution_clock::now();
 
     _wnd->callback([=](dialog* window_, UINT uMsg, WPARAM wParam, LPARAM lParam) -> LRESULT {
         return os_callback_handler(window_, uMsg, wParam, lParam);

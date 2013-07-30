@@ -33,6 +33,17 @@ struct start_tracking {
 };
 struct stop_tracking {};
 
+struct program_version {
+    int     major;
+    int     minor;
+    int     patch;
+    int     build;
+};
+
+struct get_program_version_event {
+    program_version*    ver;
+};
+
 class ui_base
 : protected win32_event_queue<ui_base, 128>
 , protected event_router<128> {

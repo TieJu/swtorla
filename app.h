@@ -27,13 +27,6 @@
 #include "log_processor.h"
 #include "combat_analizer.h"
 
-struct program_version {
-    int     major;
-    int     minor;
-    int     patch;
-    int     build;
-};
-
 class app : boost::noncopyable {
     enum class state {
         update_check,

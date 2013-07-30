@@ -14,7 +14,8 @@ struct set_analizer_event {
 
 class main_ui
 : public ui_base {
-    std::unique_ptr<dialog>                 _wnd;
+    std::unique_ptr<dialog>                         _wnd;
+    std::chrono::high_resolution_clock::time_point  _last_update;
 
     UINT_PTR                                _timer;
 

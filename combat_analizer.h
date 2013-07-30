@@ -53,6 +53,10 @@ public:
         return _encounters[index_].select<DstType>( std::forward<U>( v_ ) );
     }
 
+    encounter& from(size_t index_) {
+        return _encounters[index_];
+    }
+
     size_t count_encounters() {
         return _encounters.size();
     }

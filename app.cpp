@@ -666,6 +666,9 @@ void app::operator()() {
                 _dir_watcher.reset();
                 _log_reader.stop();
             } );
+            _ui->reciver<get_program_version_event>( [=](get_program_version_event e_) {
+                *e_.ver = _version;
+            } );
 
             _ui->send(set_analizer_event{ &_analizer, &_string_map });
 
