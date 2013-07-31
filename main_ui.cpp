@@ -8,6 +8,151 @@
 #include <Shlobj.h>
 #include <Shellapi.h>
 
+void main_ui::show_options_dlg() {
+    dialog options(GetModuleHandleW(nullptr), MAKEINTRESOURCEW(IDD_OPTIONS), _wnd->native_handle());
+
+    options.callback([=](dialog* dlg_, UINT msg_, WPARAM w_param_, LPARAM l_param_) {
+        return options_dlg_handler(dlg_, msg_, w_param_, l_param_);
+    });
+
+    program_config cfg;
+    invoke_event_handlers(get_program_config_event{ &cfg });
+
+    auto path_edit = ::GetDlgItem(options.native_handle(), IDC_OPTIONS_COMBAT_LOG);
+    ::SetWindowTextW(path_edit, cfg.log_path.c_str());
+
+    auto auto_update = ::GetDlgItem(options.native_handle(), IDC_OPTIONS_AUTO_UPDATE);
+    ::SendMessageW(auto_update, BM_SETCHECK, cfg.check_for_updates ? BST_CHECKED : BST_UNCHECKED, 0);
+    // disabled for now
+    ::EnableWindow(auto_update, FALSE);
+
+    auto update_info = ::GetDlgItem(options.native_handle(), IDC_OPTIONS_SHOW_UPDATE_INFO);
+    ::SendMessageW(update_info, BM_SETCHECK, cfg.show_update_info ? BST_CHECKED : BST_UNCHECKED, 0);
+    // disabled for now
+    ::EnableWindow(update_info, FALSE);
+
+    auto update_button = ::GetDlgItem(options.native_handle(), IDC_OPTIONS_UPDATE_NOW);
+    ::EnableWindow(update_button, FALSE);
+
+    auto debug_level = ::GetDlgItem(options.native_handle(), IDC_OPTIONS_DEBUG_LEVEL);
+    ::SendMessageW(debug_level, CB_ADDSTRING, 0, (LPARAM)L"None");
+    ::SendMessageW(debug_level, CB_ADDSTRING, 0, (LPARAM)L"Error");
+    ::SendMessageW(debug_level, CB_ADDSTRING, 0, (LPARAM)L"Warning");
+    ::SendMessageW(debug_level, CB_ADDSTRING, 0, (LPARAM)L"Debug");
+    ::SendMessageW(debug_level, CB_ADDSTRING, 0, (LPARAM)L"All");
+    ::SendMessageW(debug_level, CB_SETCURSEL, cfg.log_level, 0);
+    ::EnableWindow(debug_level, FALSE);
+
+    MSG msg{};
+    while ( GetMessageW(&msg, nullptr, 0, 0) ) {
+        TranslateMessage(&msg);
+        DispatchMessageW(&msg);
+    }
+}
+
+void main_ui::gather_options_state(dialog* dlg_, program_config& cfg_) {
+    auto path_edit = ::GetDlgItem(dlg_->native_handle(), IDC_OPTIONS_COMBAT_LOG);
+    cfg_.log_path.resize(::GetWindowTextLengthW(path_edit), L' ');
+    ::GetWindowTextW(path_edit, const_cast<wchar_t*>( cfg_.log_path.c_str() ), cfg_.log_path.length() + 1);
+
+    auto auto_update = ::GetDlgItem(dlg_->native_handle(), IDC_OPTIONS_AUTO_UPDATE);
+    cfg_.check_for_updates = BST_CHECKED == ::SendMessageW(auto_update, BM_GETCHECK, 0, 0);
+
+    auto update_info = ::GetDlgItem(dlg_->native_handle(), IDC_OPTIONS_SHOW_UPDATE_INFO);
+    cfg_.show_update_info = BST_CHECKED == ::SendMessageW(update_info, BM_GETCHECK, 0, 0);
+
+    auto debug_level = ::GetDlgItem(dlg_->native_handle(), IDC_OPTIONS_DEBUG_LEVEL);
+    cfg_.log_level = ::SendMessageW(debug_level, CB_GETCURSEL, 0, 0);
+}
+
+INT_PTR main_ui::options_dlg_handler(dialog* dlg_, UINT msg_, WPARAM w_param_, LPARAM l_param_) {
+    switch ( msg_ ) {
+    case WM_CLOSE:
+    case WM_DESTROY:
+        ::PostQuitMessage(0);
+        return TRUE;
+        break;
+    case WM_COMMAND:
+        {
+            auto id = LOWORD(w_param_);
+            auto code = HIWORD(w_param_);
+            switch ( id ) {
+            case IDC_OPTIONS_COMBAT_LOG_BROWSE:
+                display_dir_select(::GetDlgItem(dlg_->native_handle(), IDC_OPTIONS_COMBAT_LOG));
+                break;
+            case IDC_OPTIONS_UPDATE_NOW:
+                break;
+            case IDC_OPTIONS_APPLY:
+                {
+                    program_config cfg;
+                    gather_options_state(dlg_, cfg);
+                    invoke_event_handlers( set_program_config_event{ cfg } );
+                }
+                break;
+            case IDC_OPTIONS_OK:
+                {
+                    program_config cfg;
+                    gather_options_state(dlg_, cfg);
+                    invoke_event_handlers( set_program_config_event{ cfg } );
+                }
+            case IDC_OPTIONS_CANCEL:
+                ::PostQuitMessage(0);
+                break;
+            }
+        }
+        break;
+    }
+    return FALSE;
+}
+
+void main_ui::show_about_dlg() {
+    dialog about(GetModuleHandleW(nullptr), MAKEINTRESOURCEW(IDD_ABOUT), _wnd->native_handle());
+    about.callback([=](dialog* dlg_, UINT msg_, WPARAM w_param_, LPARAM l_param_) {
+        return about_dlg_handler(dlg_, msg_, w_param_, l_param_);
+    });
+
+    program_version version_num;
+    invoke_event_handlers(get_program_version_event{ &version_num });
+
+    std::wstringstream verstr;
+    verstr << version_num.major << L"." << version_num.minor << L"." << version_num.patch << " Build " << version_num.build;
+
+    auto version = GetDlgItem(about.native_handle(), IDC_ABOUT_VERSION);
+    ::SetWindowTextW(version, verstr.str().c_str());
+    
+    MSG msg{};
+    while ( GetMessageW(&msg, nullptr, 0, 0) ) {
+        TranslateMessage(&msg);
+        DispatchMessageW(&msg);
+    }
+}
+
+INT_PTR main_ui::about_dlg_handler(dialog* dlg_, UINT msg_, WPARAM w_param_, LPARAM l_param_) {
+    switch ( msg_ ) {
+    case WM_CLOSE:
+    case WM_DESTROY:
+        ::PostQuitMessage(0);
+        break;
+    case WM_NOTIFY:
+        auto from_info = reinterpret_cast<LPNMHDR>( l_param_ );
+        switch ( from_info->idFrom ) {
+        default:
+            break;
+        case IDC_ABOUT_HOME_LINK:
+            auto info = reinterpret_cast<PNMLINK>( l_param_ );
+            switch ( from_info->code ) {
+            case NM_CLICK:
+            case NM_RETURN:
+                ::ShellExecuteW(nullptr, L"open", info->item.szUrl, nullptr, nullptr, SW_SHOW);
+                break;
+            }
+            break;
+        }
+        break;
+    }
+    return FALSE;
+}
+
 void main_ui::update_stat_display() {
     if ( !_analizer || _analizer->count_encounters() < 1 ) {
         for ( size_t i = 0; i < _stat_display.size(); ++i ) {
@@ -192,7 +337,7 @@ void main_ui::set_analizer(const set_analizer_event& e_) {
 }
 
 void main_ui::display_log_dir_select(display_log_dir_select_event) {
-    display_dir_select();
+    //display_dir_select();
 }
 
 void main_ui::on_event(const any& v_) {
@@ -387,11 +532,10 @@ int CALLBACK main_ui::BrowseCallbackProc(HWND hWnd, UINT uMsg, LPARAM lParam, LP
     return 0;
 }
 
-void main_ui::display_dir_select() {
-    auto edit = GetDlgItem(_wnd->native_handle(), IDC_URI_EDIT);
+void main_ui::display_dir_select(HWND edit_) {
     std::wstring current_path;
-    current_path.resize(::GetWindowTextLengthW(edit) + 1, L' ');
-    ::GetWindowTextW(edit, const_cast<wchar_t*>( current_path.data() ), int( current_path.size() ));
+    current_path.resize(::GetWindowTextLengthW(edit_) + 1, L' ');
+    ::GetWindowTextW(edit_, const_cast<wchar_t*>( current_path.data() ), int( current_path.size() ));
 
     BROWSEINFO bi{};
     bi.hwndOwner    = _wnd->native_window_handle();
@@ -414,7 +558,7 @@ void main_ui::display_dir_select() {
 
         if ( SHGetPathFromIDListW(pidlFolder, path_buffer) ) {
             invoke_event_handlers(set_log_dir_event{ path_buffer });
-            ::SetWindowTextW(edit, path_buffer);
+            ::SetWindowTextW(edit_, path_buffer);
         }
     }
 }
@@ -472,58 +616,13 @@ LRESULT main_ui::os_callback_handler(dialog* window_, UINT uMsg, WPARAM wParam, 
         auto code = HIWORD(wParam);
         switch ( id ) {
         case ID_HELP_ABOUT:
-            {
-                dialog about(GetModuleHandleW(nullptr), MAKEINTRESOURCEW(IDD_ABOUT), _wnd->native_handle());
-                about.callback([=](dialog* dlg_, UINT msg_, WPARAM w_param_, LPARAM l_param_) {
-                    switch ( msg_ ) {
-                    case WM_CLOSE:
-                    case WM_DESTROY:
-                        ::PostQuitMessage(0);
-                        break;
-                    case WM_NOTIFY:
-                        auto from_info = reinterpret_cast<LPNMHDR>( l_param_ );
-                        switch ( from_info->idFrom ) {
-                        default:
-                            break;
-                        case IDC_ABOUT_HOME_LINK:
-                            auto info = reinterpret_cast<PNMLINK>( l_param_ );
-                            switch ( from_info->code ) {
-                            case NM_CLICK:
-                            case NM_RETURN:
-                                ::ShellExecuteW(nullptr, L"open", info->item.szUrl, nullptr, nullptr, SW_SHOW);
-                                break;
-                            }
-                            break;
-                        }
-                        break;
-                    }
-                    return FALSE;
-                });
-                auto version = GetDlgItem(about.native_handle(), IDC_ABOUT_VERSION);
-                program_version version_num;
-                invoke_event_handlers(get_program_version_event{ &version_num });
-                std::wstringstream verstr;
-                verstr << version_num.major << L"." << version_num.minor << L"." << version_num.patch << " Build " << version_num.build;
-                ::SetWindowTextW(version, verstr.str().c_str());
-                MSG msg{};
-                while ( GetMessageW(&msg, about.native_handle(), 0, 0) ) {
-                    TranslateMessage(&msg);
-                    DispatchMessageW(&msg);
-                }
-            }
-            // display about dlg
+            show_about_dlg();
             break;
         case ID_EDIT_OPTIONS:
-            ::MessageBoxW(nullptr, L"No options yet, sorry!", L"Options", MB_OK | MB_ICONINFORMATION);
-            // display options
+            show_options_dlg();
             break;
         case ID_FILE_EXIT:
             ::PostQuitMessage(0);
-            break;
-        case IDC_BROWSE_BUTTON:
-            if ( code == BN_CLICKED ) {
-                display_dir_select();
-            }
             break;
         case IDC_START_SOLO_BUTTON:
             if ( code == BN_CLICKED ) {
@@ -531,7 +630,6 @@ LRESULT main_ui::os_callback_handler(dialog* window_, UINT uMsg, WPARAM wParam, 
                 invoke_event_handlers(start_tracking{ &ok });
                 if ( ok ) {
                     _timer = SetTimer(_wnd->native_window_handle(), _timer, 1000, nullptr);
-                    ::EnableWindow(GetDlgItem(_wnd->native_handle(), IDC_BROWSE_BUTTON), FALSE);
                     ::EnableWindow(GetDlgItem(_wnd->native_handle(), IDC_START_SOLO_BUTTON), FALSE);
                     ::EnableWindow(GetDlgItem(_wnd->native_handle(), IDC_SYNC_TO_RAID_BUTTON), FALSE);
                     ::EnableWindow(GetDlgItem(_wnd->native_handle(), IDC_STOP_BUTTON), TRUE);
@@ -544,9 +642,9 @@ LRESULT main_ui::os_callback_handler(dialog* window_, UINT uMsg, WPARAM wParam, 
             if ( code == BN_CLICKED ) {
                 invoke_event_handlers(stop_tracking{});
                 KillTimer(_wnd->native_window_handle(), _timer);
-                ::EnableWindow(GetDlgItem(_wnd->native_handle(), IDC_BROWSE_BUTTON), TRUE);
                 ::EnableWindow(GetDlgItem(_wnd->native_handle(), IDC_START_SOLO_BUTTON), TRUE);
-                ::EnableWindow(GetDlgItem(_wnd->native_handle(), IDC_SYNC_TO_RAID_BUTTON), TRUE);
+                // do not enable this for now
+                //::EnableWindow(GetDlgItem(_wnd->native_handle(), IDC_SYNC_TO_RAID_BUTTON), TRUE);
                 ::EnableWindow(GetDlgItem(_wnd->native_handle(), IDC_STOP_BUTTON), FALSE);
             }
             break;
@@ -565,12 +663,14 @@ main_ui::main_ui(const std::wstring& log_path_) {
 
     _last_update = std::chrono::high_resolution_clock::now();
 
+    auto icon = ::LoadIconW(GetModuleHandleW(nullptr), MAKEINTRESOURCEW(IDI_ICON1));
+    ::SendMessageW(_wnd->native_handle(), WM_SETICON, ICON_BIG, (LPARAM)icon);
+    ::SendMessageW(_wnd->native_handle(), WM_SETICON, ICON_SMALL, (LPARAM)icon);
+
     _wnd->callback([=](dialog* window_, UINT uMsg, WPARAM wParam, LPARAM lParam) -> LRESULT {
         return os_callback_handler(window_, uMsg, wParam, lParam);
     });
 
-    auto edit = GetDlgItem(_wnd->native_handle(), IDC_URI_EDIT);
-    ::SetWindowTextW(edit, log_path_.c_str());
     ::EnableWindow(GetDlgItem(_wnd->native_handle(), IDC_STOP_BUTTON), FALSE);
     // if sync to raid is supported, we can enable this again
     ::EnableWindow(GetDlgItem(_wnd->native_handle(), IDC_SYNC_TO_RAID_BUTTON), FALSE);

@@ -669,6 +669,19 @@ void app::operator()() {
             _ui->reciver<get_program_version_event>( [=](get_program_version_event e_) {
                 *e_.ver = _version;
             } );
+            _ui->reciver<get_program_config_event>( [=](get_program_config_event e_) {
+                e_.cfg->check_for_updates = _config.get<bool>( L"update.auto_check", true );
+                e_.cfg->show_update_info = _config.get<bool>( L"update.show_info", true );
+                e_.cfg->log_level = _config.get<int>( L"app.log.level", 4 );
+                e_.cfg->log_path = _config.get<std::wstring>( L"log.path", L"" );
+            } );
+            _ui->reciver<set_program_config_event>( [=](const set_program_config_event& e_) {
+                _config.put(L"update.auto_check", e_.cfg.check_for_updates);
+                _config.put(L"update.show_info", e_.cfg.show_update_info);
+                _config.put(L"app.log.level", e_.cfg.log_level);
+                _config.put(L"log.path", e_.cfg.log_path);
+                write_config(_config_path);
+            } );
 
             _ui->send(set_analizer_event{ &_analizer, &_string_map });
 

@@ -44,6 +44,21 @@ struct get_program_version_event {
     program_version*    ver;
 };
 
+struct program_config {
+    std::wstring    log_path;
+    bool            check_for_updates;
+    bool            show_update_info;
+    int             log_level;
+};
+
+struct get_program_config_event {
+    program_config* cfg;
+};
+
+struct set_program_config_event {
+    program_config cfg; // for some fucking reason, destructing this will crash...
+};
+
 class ui_base
 : protected win32_event_queue<ui_base, 128>
 , protected event_router<128> {
@@ -112,7 +127,7 @@ protected:
 
     template<typename EventType, typename HandlerType>
     static bool handle_event(const any& v_, HandlerType handler_) {
-        auto e = tj::any_cast<EventType>( &v_ );
+        auto e = any_cast<EventType>( &v_ );
         if ( e ) {
             handler_(*e);
         }
