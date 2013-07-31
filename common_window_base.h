@@ -76,8 +76,8 @@ public:
 
     std::wstring caption() {
         std::wstring buf;
-        buf.resize(::GetWindowTextLengthW(_handle) + 1, L' ');
-        ::GetWindowTextW(_handle, const_cast<wchar_t*>(buf.data()), int( buf.size() ));
+        buf.resize(::GetWindowTextLengthW(_handle), L' ');
+        ::GetWindowTextW(_handle, const_cast<wchar_t*>(buf.data()), int( buf.size() + 1 ));
         return buf;
     }
 

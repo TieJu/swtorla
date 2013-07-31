@@ -11,6 +11,10 @@
 void main_ui::show_options_dlg() {
     dialog options(GetModuleHandleW(nullptr), MAKEINTRESOURCEW(IDD_OPTIONS), _wnd->native_handle());
 
+    auto icon = ::LoadIconW(GetModuleHandleW(nullptr), MAKEINTRESOURCEW(IDI_ICON1));
+    ::SendMessageW(options.native_handle(), WM_SETICON, ICON_BIG, (LPARAM)icon);
+    ::SendMessageW(options.native_handle(), WM_SETICON, ICON_SMALL, (LPARAM)icon);
+
     options.callback([=](dialog* dlg_, UINT msg_, WPARAM w_param_, LPARAM l_param_) {
         return options_dlg_handler(dlg_, msg_, w_param_, l_param_);
     });
@@ -41,7 +45,6 @@ void main_ui::show_options_dlg() {
     ::SendMessageW(debug_level, CB_ADDSTRING, 0, (LPARAM)L"Debug");
     ::SendMessageW(debug_level, CB_ADDSTRING, 0, (LPARAM)L"All");
     ::SendMessageW(debug_level, CB_SETCURSEL, cfg.log_level, 0);
-    ::EnableWindow(debug_level, FALSE);
 
     MSG msg{};
     while ( GetMessageW(&msg, nullptr, 0, 0) ) {
@@ -107,6 +110,11 @@ INT_PTR main_ui::options_dlg_handler(dialog* dlg_, UINT msg_, WPARAM w_param_, L
 
 void main_ui::show_about_dlg() {
     dialog about(GetModuleHandleW(nullptr), MAKEINTRESOURCEW(IDD_ABOUT), _wnd->native_handle());
+
+    auto icon = ::LoadIconW(GetModuleHandleW(nullptr), MAKEINTRESOURCEW(IDI_ICON1));
+    ::SendMessageW(about.native_handle(), WM_SETICON, ICON_BIG, (LPARAM)icon);
+    ::SendMessageW(about.native_handle(), WM_SETICON, ICON_SMALL, (LPARAM)icon);
+
     about.callback([=](dialog* dlg_, UINT msg_, WPARAM w_param_, LPARAM l_param_) {
         return about_dlg_handler(dlg_, msg_, w_param_, l_param_);
     });

@@ -3,6 +3,14 @@
 #include <mutex>
 #include <concurrent_vector.h>
 
+#ifdef USE_BOOST_ANY
+#include <boost/any.hpp>
+#define any_cast boost::any_cast
+#else
+#include <inplace_any.h>
+#define any_cast tj::any_cast
+#endif
+
 #define APP_EVENT ( WM_APP + 1 )
 
 
@@ -19,7 +27,11 @@ std::unique_lock<Mutex> try_lock_unique(Mutex& m_) {
 template<typename Derived,size_t MaxEventSize>
 class win32_event_queue {
 public:
-    typedef tj::inplace_any<MaxEventSize> any;
+#ifdef USE_BOOST_ANY
+    typedef boost::any   any;
+#else
+    typedef tj::inplace_any<MaxEventSize>   any;
+#endif
 
 private:
     typedef concurrency::concurrent_vector<any>     any_buffer;

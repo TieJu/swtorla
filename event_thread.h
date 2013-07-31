@@ -32,7 +32,7 @@ class event_thread
 protected:
     template<typename EventType, typename HandlerType>
     static bool do_handle_event(const any& v_, HandlerType handler_) {
-        auto e = tj::any_cast<EventType>( &v_ );
+        auto e = any_cast<EventType>( &v_ );
         if ( e ) {
             handler_(*e);
         }

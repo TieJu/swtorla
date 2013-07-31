@@ -50,6 +50,7 @@ class app : boost::noncopyable {
     character_list                  _char_list;
     combat_analizer                 _analizer;
 
+    void setup_from_config();
     void log_entry_handler(const combat_log_entry& e_);
 
     void transit_state(state new_state_);

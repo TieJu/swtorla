@@ -84,6 +84,38 @@ program_version find_version_info() {
     return info;
 }
 
+void app::setup_from_config() {
+    /*
+    _config.put(L"update.auto_check", e_.cfg.check_for_updates);
+    _config.put(L"update.show_info", e_.cfg.show_update_info);
+    _config.put(L"log.path", e_.cfg.log_path);
+    */
+
+    auto log_level = _config.get<int>( L"app.log.level", 4 );
+    auto core = boost::log::core::get();
+    switch ( log_level ) {
+    case 0:
+        core->set_logging_enabled(false);
+        break;
+    case 1:
+        core->set_logging_enabled(true);
+        core->set_filter(boost::log::trivial::severity >= boost::log::trivial::error);
+        break;
+    case 2:
+        core->set_logging_enabled(true);
+        core->set_filter(boost::log::trivial::severity >= boost::log::trivial::warning);
+        break;
+    case 3:
+        core->set_logging_enabled(true);
+        core->set_filter(boost::log::trivial::severity >= boost::log::trivial::debug);
+        break;
+    case 4:
+        core->set_logging_enabled(true);
+        core->reset_filter();
+        break;
+    }
+}
+
 void app::log_entry_handler(const combat_log_entry& e_) {
     _analizer.add_entry(e_);
 
@@ -456,7 +488,7 @@ void app::remove_old_file() {
     std::wstring temp_name(file_name);
     temp_name += L".old";
 
-    BOOST_LOG_TRIVIAL(error) << L"removing old file " << temp_name;
+    BOOST_LOG_TRIVIAL(debug) << L"removing old file " << temp_name;
 
     while ( !DeleteFile(temp_name.c_str()) ) {
         if ( GetLastError() == ERROR_FILE_NOT_FOUND ) {
@@ -505,6 +537,8 @@ app::app(const char* caption_, const char* config_path_)
     BOOST_LOG_TRIVIAL(info) << L"SW:ToR log analizer version " << _version.major << L"." << _version.minor << L"." << _version.patch << L" Build " << _version.build;
 
     read_config(_config_path);
+
+    setup_from_config();
 
     INITCOMMONCONTROLSEX init =
     { sizeof( INITCOMMONCONTROLSEX ), /*ICC_PROGRESS_CLASS | ICC_TAB_CLASSES | ICC_STANDARD_CLASSES | ICC_WIN95_CLASSES*/ 0xFFFFFFFF };
@@ -681,6 +715,8 @@ void app::operator()() {
                 _config.put(L"app.log.level", e_.cfg.log_level);
                 _config.put(L"log.path", e_.cfg.log_path);
                 write_config(_config_path);
+
+                setup_from_config();
             } );
 
             _ui->send(set_analizer_event{ &_analizer, &_string_map });

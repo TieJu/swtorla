@@ -2,12 +2,24 @@
 
 #include <functional>
 #include <concurrent_vector.h>
+
+#ifdef USE_BOOST_ANY
+#include <boost/any.hpp>
+#define any_cast boost::any_cast
+#else
 #include <inplace_any.h>
+#define any_cast tj::any_cast
+#endif
 
 template<size_t MaxEventSize>
 class event_router {
 public:
+#ifdef USE_BOOST_ANY
+    typedef boost::any   any;
+#else
     typedef tj::inplace_any<MaxEventSize>   any;
+#endif
+    
     typedef std::function<void (const any&)>    callback_type;
 
 private:
@@ -18,7 +30,7 @@ public:
     template<typename Type,typename Clb>
     void add(Clb clb_) {
         _routes.push_back([=](const any& v_) {
-            auto t = tj::any_cast<Type>( &v_ );
+            auto t = any_cast<Type>( &v_ );
             if ( t ) {
                 clb_(*t);
             }

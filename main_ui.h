@@ -54,6 +54,12 @@ class main_ui
         return _wnd->native_window_handle();
     }
 
+    void show_options_dlg();
+    void gather_options_state(dialog* dlg_, program_config& cfg_);
+    INT_PTR options_dlg_handler(dialog* dlg_, UINT msg_, WPARAM w_param_, LPARAM l_param_);
+    void show_about_dlg();
+    INT_PTR about_dlg_handler(dialog* dlg_, UINT msg_, WPARAM w_param_, LPARAM l_param_);
+
     void update_stat_display();
     void set_analizer(const set_analizer_event& e_);
     void display_log_dir_select(display_log_dir_select_event);
@@ -66,7 +72,7 @@ class main_ui
     static void SizeBrowseDialog(HWND hWnd);
 #endif
     static int CALLBACK BrowseCallbackProc(HWND hWnd, UINT uMsg, LPARAM lParam, LPARAM lpData);
-    void display_dir_select();
+    void display_dir_select(HWND edit_);
 
     LRESULT os_callback_handler(dialog* window_, UINT uMsg, WPARAM wParam, LPARAM lParam);
 
