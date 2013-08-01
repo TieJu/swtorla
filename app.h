@@ -41,6 +41,7 @@ class app : boost::noncopyable {
     character_list                  _char_list;
     combat_analizer                 _analizer;
 
+    std::future<void> show_update_info(const std::string& name_);
     bool run_update_async_job(update_dialog& dlg_);
     bool run_update_async();
     std::future<bool> run_update();

@@ -36,13 +36,9 @@ bool main_ui::show_options_dlg() {
 
     auto auto_update = ::GetDlgItem(options.native_handle(), IDC_OPTIONS_AUTO_UPDATE);
     ::SendMessageW(auto_update, BM_SETCHECK, cfg.check_for_updates ? BST_CHECKED : BST_UNCHECKED, 0);
-    // disabled for now
-    ::EnableWindow(auto_update, FALSE);
 
     auto update_info = ::GetDlgItem(options.native_handle(), IDC_OPTIONS_SHOW_UPDATE_INFO);
     ::SendMessageW(update_info, BM_SETCHECK, cfg.show_update_info ? BST_CHECKED : BST_UNCHECKED, 0);
-    // disabled for now
-    ::EnableWindow(update_info, FALSE);
 
     auto debug_level = ::GetDlgItem(options.native_handle(), IDC_OPTIONS_DEBUG_LEVEL);
     ::SendMessageW(debug_level, CB_ADDSTRING, 0, (LPARAM)L"None");
@@ -56,7 +52,7 @@ bool main_ui::show_options_dlg() {
     MSG msg{};
     for ( ;; ) {
         if ( _update_state.valid() ) {
-            while ( std::future_status::ready != _update_state.wait_for(std::chrono::milliseconds(10)) ) {
+            while ( std::future_status::ready != _update_state.wait_for(std::chrono::milliseconds(100)) ) {
                 while ( ::PeekMessageW(&msg, nullptr, 0, 0, PM_REMOVE) ) {
                     TranslateMessage(&msg);
                     DispatchMessageW(&msg);

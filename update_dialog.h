@@ -13,6 +13,9 @@ class update_dialog
 public:
     update_dialog()
         : dialog(GetModuleHandleW(nullptr), MAKEINTRESOURCEW(IDD_UPDATE_POPUP), nullptr) {
+        auto icon = ::LoadIconW(GetModuleHandleW(nullptr), MAKEINTRESOURCEW(IDI_ICON1));
+        ::SendMessageW(native_handle(), WM_SETICON, ICON_BIG, (LPARAM)icon);
+        ::SendMessageW(native_handle(), WM_SETICON, ICON_SMALL, (LPARAM)icon);
     }
 
     void info_msg(const std::wstring& str_) {

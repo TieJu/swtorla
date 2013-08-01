@@ -18,6 +18,7 @@
 #include "path_finder.h"
 
 #include "to_string.h"
+#include "update_info_dialog.h"
 
 #define PATCH_FILE_NAME "patch.bin"
 #define WPATCH_FILE_NAME L"patch.bin"
@@ -84,12 +85,49 @@ program_version find_version_info() {
     return info;
 }
 
+std::future<void> app::show_update_info(const std::string& name_) {
+    return std::async(std::launch::async, [=]() {
+        if ( !_config.get<bool>( L"update.show_info", true ) ) {
+            return;
+        }
+
+        std::string info = "test info";
+
+        if ( info.empty() ) {
+            return;
+        }
+
+        bool do_update = true;
+        bool display_info = true;
+        update_info_dialog dlg(info,&do_update,&display_info);
+        MSG msg{};
+        while ( GetMessageW(&msg, nullptr, 0, 0) ) {
+            TranslateMessage(&msg);
+            DispatchMessageW(&msg);
+        }
+
+        if ( !do_update ) {
+            _config.put( L"update.auto_check", false );
+        }
+
+        if ( !display_info ) {
+            _config.put(L"update.show_info", false);
+        }
+
+        if ( !display_info || !do_update ) {
+            write_config(_config_path);
+        }
+    });
+}
+
 bool app::run_update_async_job(update_dialog& dlg_) {
     auto str = check_update(dlg_);
 
     if ( str.empty() ) {
         return false;
     }
+
+    auto display = show_update_info(str);
 
     str = download_update(dlg_,str);
 
@@ -98,6 +136,12 @@ bool app::run_update_async_job(update_dialog& dlg_) {
     }
 
     start_update_process(dlg_);
+
+    try {
+        display.get();
+    } catch ( const std::exception& e_ ) {
+        BOOST_LOG_TRIVIAL(error) << L"update info diplay failed, because: " << e_.what();
+    }
 
     return true;
 }
@@ -117,7 +161,7 @@ bool app::run_update_async() {
     bool result = false;
 
     MSG msg{};
-    while ( job.wait_for(std::chrono::milliseconds(10)) != std::future_status::ready ) {
+    while ( job.wait_for(std::chrono::milliseconds(100)) != std::future_status::ready ) {
         while ( ::PeekMessageW(&msg, nullptr, 0, 0, PM_REMOVE) ) {
             TranslateMessage(&msg);
             DispatchMessageW(&msg);
