@@ -84,11 +84,68 @@ program_version find_version_info() {
     return info;
 }
 
+bool app::run_update_async_job(update_dialog& dlg_) {
+    auto str = check_update(dlg_);
+
+    if ( str.empty() ) {
+        return false;
+    }
+
+    str = download_update(dlg_,str);
+
+    if ( str.empty() ) {
+        return false;
+    }
+
+    start_update_process(dlg_);
+
+    return true;
+}
+
+// returns true if a new version was installed and the app needs to restart
+bool app::run_update_async() {
+    update_dialog dlg;
+    dlg.callback([=](dialog* dlg_, UINT msg_, WPARAM w_param_, LPARAM l_param_) {
+        if ( msg_ == WM_CLOSE || msg_ == WM_DESTROY ) {
+            ::PostQuitMessage(0);
+        }
+        return FALSE;
+    });
+
+    auto job = std::async(std::launch::async, [=, &dlg]() { return run_update_async_job(dlg); });
+
+    bool result = false;
+
+    MSG msg{};
+    while ( job.wait_for(std::chrono::milliseconds(10)) != std::future_status::ready ) {
+        while ( ::PeekMessageW(&msg, nullptr, 0, 0, PM_REMOVE) ) {
+            TranslateMessage(&msg);
+            DispatchMessageW(&msg);
+        }
+    }
+    ::PostQuitMessage(0);
+    try {
+        result = job.get();
+    } catch ( const std::exception& e_ ) {
+        BOOST_LOG_TRIVIAL(error) << L"run_async_job failed because: " << e_.what();
+    }
+
+    while ( ::GetMessageW(&msg, nullptr, 0, 0) ) {
+        TranslateMessage(&msg);
+        DispatchMessageW(&msg);
+    }
+
+    return result;
+}
+
+std::future<bool> app::run_update() {
+    return std::async(std::launch::async, [=]() { return run_update_async(); });
+}
+
 void app::setup_from_config() {
     /*
     _config.put(L"update.auto_check", e_.cfg.check_for_updates);
     _config.put(L"update.show_info", e_.cfg.show_update_info);
-    _config.put(L"log.path", e_.cfg.log_path);
     */
 
     auto log_level = _config.get<int>( L"app.log.level", 4 );
@@ -235,13 +292,11 @@ void app::transit_state(state new_state_) {
     _state = new_state_;
 }
 
-#define SubmitUpdate(pos_) { update_progress_event update{0,100,pos_}; _ui->send(update); }
-#define SubmitUpdateMsg(msg_) { update_progress_info_event msg={msg_}; _ui->send(msg); }
-
-std::string app::check_update() {
+std::string app::check_update(update_dialog& dlg_) {
     update_progress_waiting_event waiting = { true };
-    SubmitUpdate(0);
-    SubmitUpdateMsg(L"...locating patch server...");
+
+    dlg_.progress(0);
+    dlg_.info_msg(L"...locating patch server...");
     auto remote_server = std::to_string(_config.get<std::wstring>( L"update.server", L"homepages.thm.de" ));
     auto remote_path = std::to_string(_config.get<std::wstring>( L"update.path", L"/~hg14866/swtorla/update.php?a=" ));
     auto target_arch = std::to_string(_config.get<std::wstring>( L"app.arch",
@@ -257,14 +312,15 @@ std::string app::check_update() {
                    "\r\n\r\n";
     std::string new_version_path;
 
-    SubmitUpdate(10);
+    dlg_.progress(10);
+    dlg_.info_msg(L"...locating patch server...");
     BOOST_LOG_TRIVIAL(debug) << L"looking up remote server address for " << remote_server;
     boost::asio::ip::tcp::resolver tcp_lookup(_io_service);
     boost::asio::ip::tcp::resolver::query remote_query(remote_server, "http");
     auto list = tcp_lookup.resolve(remote_query);
 
-    SubmitUpdate(20);
-    SubmitUpdateMsg(L"...connecting to patch server...");
+    dlg_.progress(20);
+    dlg_.info_msg(L"...connecting to patch server...");
     BOOST_LOG_TRIVIAL(debug) << L"connecting to remote server";
     boost::asio::ip::tcp::socket socket(_io_service);
     boost::system::error_code error;
@@ -277,13 +333,12 @@ std::string app::check_update() {
     }
 
     if ( error ) {
-        SubmitUpdateMsg(L"...unable to connect to patch server...");
+        dlg_.info_msg(L"...unable to connect to patch server...");
         BOOST_LOG_TRIVIAL(error) << L"unable to connect to remote server";
         throw boost::system::system_error(error);
     }
 
-    SubmitUpdateMsg(L"...requesting patch data...");
-    SubmitUpdate(20);
+    dlg_.info_msg(L"...requesting patch data...");
     BOOST_LOG_TRIVIAL(debug) << L"sending request to server " << request;
     if ( !socket.write_some(boost::asio::buffer(request), error) ) {
         BOOST_LOG_TRIVIAL(error) << L"failed to send request to server";
@@ -325,15 +380,15 @@ std::string app::check_update() {
     waiting.waiting = false;
     _ui->send(waiting);
 
-    SubmitUpdateMsg(L"...patch data recived, processing...");
-    SubmitUpdate(30);
+    dlg_.progress(30);
+    dlg_.info_msg(L"...patch data recived, processing...");
     BOOST_LOG_TRIVIAL(debug) << L"http content";
     BOOST_LOG_TRIVIAL(debug) << state.content().stream.str();
 
     BOOST_LOG_TRIVIAL(debug) << L"closing connection to server";
     socket.close();
 
-    SubmitUpdate(40);
+    dlg_.progress(40);
     BOOST_LOG_TRIVIAL(debug) << L"parsing response";
 
     boost::property_tree::ptree version_info;
@@ -352,23 +407,20 @@ std::string app::check_update() {
     }
 
     if ( max_ver > _version.build ) {
-        SubmitUpdateMsg(L"...new version on server found...");
+        dlg_.info_msg(L"...new version on server found...");
         BOOST_LOG_TRIVIAL(debug) << L"never version on server found: " << new_version_path;
     } else {
-        SubmitUpdateMsg(L"...no new version on server found...");
+        dlg_.info_msg(L"...no new version on server found...");
         BOOST_LOG_TRIVIAL(debug) << L"application is up to date";
         new_version_path.clear();
     }
 
-    SubmitUpdate(50);
+    dlg_.progress(50);
 
     return new_version_path;
 }
 
-std::string app::download_update(std::string update_path_) {
-    update_progress_waiting_event waiting =
-    { true };
-
+std::string app::download_update(update_dialog& dlg_, std::string update_path_) {
     auto remote_server = std::to_string(_config.get<std::wstring>( L"update.server", L"homepages.thm.de" ));
     auto remote_path = std::to_string(_config.get<std::wstring>( L"update.path", L"/~hg14866/swtorla/" ));
     auto request = std::string("GET ") + remote_path + update_path_ + " HTTP/1.1\r\n"
@@ -377,15 +429,15 @@ std::string app::download_update(std::string update_path_) {
                    "\r\n\r\n";
     std::string response;
 
-    SubmitUpdate(50);
-    SubmitUpdateMsg(L"...locating patch file server...");
+    dlg_.progress(60);
+    dlg_.info_msg(L"...locating patch file server...");
     BOOST_LOG_TRIVIAL(debug) << L"looking up remote server address for " << remote_server;
     boost::asio::ip::tcp::resolver tcp_lookup(_io_service);
     boost::asio::ip::tcp::resolver::query remote_query(remote_server, "http");
     auto list = tcp_lookup.resolve(remote_query);
 
-    SubmitUpdate(60);
-    SubmitUpdateMsg(L"...connecting to patch file server...");
+    dlg_.progress(70);
+    dlg_.info_msg(L"...connecting to patch file server...");
     BOOST_LOG_TRIVIAL(debug) << L"connecting to remote server";
     boost::asio::ip::tcp::socket socket(_io_service);
     boost::system::error_code error;
@@ -398,21 +450,21 @@ std::string app::download_update(std::string update_path_) {
     }
 
     if ( error ) {
-        SubmitUpdateMsg(L"...can not connect to patch file server...");
+        dlg_.info_msg(L"...can not connect to patch file server...");
         BOOST_LOG_TRIVIAL(error) << L"unable to connect to remote server";
         throw boost::system::system_error(error);
     }
 
-    SubmitUpdate(70);
-    SubmitUpdateMsg(L"...requesting patch file from server...");
+    dlg_.progress(0);
+    dlg_.info_msg(L"...requesting patch file from server...");
     BOOST_LOG_TRIVIAL(debug) << L"sending request to server " << request;
     if ( !socket.write_some(boost::asio::buffer(request), error) ) {
         BOOST_LOG_TRIVIAL(error) << L"failed to send request to server";
         throw boost::system::system_error(error);
     }
 
-    SubmitUpdateMsg(L"...downloading patch file...");
-    _ui->send(waiting);
+    dlg_.info_msg(L"...downloading patch file...");
+    dlg_.unknown_progress(true);
     boost::array<char, 1024> buf;
     http_state<content_store_stream<std::ofstream>> state(content_store_stream<std::ofstream>( std::ofstream(PATCH_FILE_NAME, std::ios_base::out | std::ios_base::binary) ));
     bool header_written = false;
@@ -440,24 +492,22 @@ std::string app::download_update(std::string update_path_) {
             for ( auto& kvp : state.header() ) {
                 BOOST_LOG_TRIVIAL(debug) << kvp.first << ": " << kvp.second;
             }
-            SubmitUpdate(80);
         }
     }
 
-    waiting.waiting = false;
-    _ui->send(waiting);
+    dlg_.unknown_progress(false);
 
-    SubmitUpdateMsg(L"...download complete...");
+    dlg_.info_msg(L"...download complete...");
     BOOST_LOG_TRIVIAL(debug) << L"closing connection to server";
-    SubmitUpdate(90);
+    dlg_.progress(90);
     socket.close();
 
     return PATCH_FILE_NAME;
 
 }
 
-void app::start_update_process() {
-    SubmitUpdateMsg(L"...applying patch...");
+void app::start_update_process(update_dialog& dlg_) {
+    dlg_.info_msg(L"...applying patch...");
     BOOST_LOG_TRIVIAL(error) << L"starting image patch process";
     wchar_t file_name[MAX_PATH];
     GetModuleFileName(nullptr, file_name, MAX_PATH);
@@ -475,8 +525,8 @@ void app::start_update_process() {
 
     si.cb = sizeof( si );
 
-    SubmitUpdate(100);
-    SubmitUpdateMsg(L"...finished, restarting...");
+    dlg_.progress(100);
+    dlg_.info_msg(L"...finished, restarting...");
     BOOST_LOG_TRIVIAL(error) << L"restarting";
     CreateProcessW(file_name, L"-update", nullptr, nullptr, FALSE, 0, nullptr, nullptr, &si, &pi);
 }
@@ -573,9 +623,6 @@ void app::operator()() {
         }
     } );
 
-    update_progress_event update = { 0, 100, 0 };
-    SubmitUpdate(0);
-
     std::future<std::string> update_result;
 
     _ui->reciver<enter_main_window_event> ( [=](enter_main_window_event) {
@@ -597,7 +644,7 @@ void app::operator()() {
         if ( !update_data.empty() ) {
             update_result = std::async(std::launch::async, [=]() {
                 try {
-                    start_update_process();
+                    //start_update_process();
                     _ui->send(update_done_event{});
                     return std::string();
                 } catch ( ... ) {
@@ -624,9 +671,10 @@ void app::operator()() {
         if ( !update_data.empty() ) {
             update_result = std::async(std::launch::async, [=]() {
                 try {
-                    auto res = download_update(update_data);
+                    //auto res = download_update(update_data);
                     _ui->send(loaded_patch_file_event{});
-                    return res;
+                    //return res;
+                    return std::string();
                 } catch ( ... ) {
                     _ui->send(loaded_patch_file_event{});
                     throw;
@@ -634,7 +682,6 @@ void app::operator()() {
             });
             transit_state(state::update_load);
         } else {
-            SubmitUpdate(100);
             _ui->send(enter_main_window_event{});
             transit_state(state::cleanup_update_screen);
         }
@@ -642,9 +689,10 @@ void app::operator()() {
 
     update_result = std::async(std::launch::async, [=]() {
         try {
-            auto res = check_update();
+            //auto res = check_update();
             _ui->send(loaded_patch_data_event{});
-            return res;
+            //return res;
+            return std::string();
         } catch ( ... ) {
             _ui->send(loaded_patch_data_event{});
             throw;
@@ -717,6 +765,9 @@ void app::operator()() {
                 write_config(_config_path);
 
                 setup_from_config();
+            } );
+            _ui->reciver<check_update_event>( [=](check_update_event e_) {
+                *e_.target = std::move(run_update());
             } );
 
             _ui->send(set_analizer_event{ &_analizer, &_string_map });

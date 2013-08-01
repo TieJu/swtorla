@@ -8,7 +8,16 @@
 #include <Shlobj.h>
 #include <Shellapi.h>
 
-void main_ui::show_options_dlg() {
+#include <boost/log/core.hpp>
+#include <boost/log/trivial.hpp>
+#include <boost/log/expressions.hpp>
+#include <boost/log/sinks/text_file_backend.hpp>
+#include <boost/log/utility/setup/file.hpp>
+#include <boost/log/utility/setup/common_attributes.hpp>
+#include <boost/log/sources/severity_logger.hpp>
+#include <boost/log/sources/record_ostream.hpp>
+
+bool main_ui::show_options_dlg() {
     dialog options(GetModuleHandleW(nullptr), MAKEINTRESOURCEW(IDD_OPTIONS), _wnd->native_handle());
 
     auto icon = ::LoadIconW(GetModuleHandleW(nullptr), MAKEINTRESOURCEW(IDI_ICON1));
@@ -35,9 +44,6 @@ void main_ui::show_options_dlg() {
     // disabled for now
     ::EnableWindow(update_info, FALSE);
 
-    auto update_button = ::GetDlgItem(options.native_handle(), IDC_OPTIONS_UPDATE_NOW);
-    ::EnableWindow(update_button, FALSE);
-
     auto debug_level = ::GetDlgItem(options.native_handle(), IDC_OPTIONS_DEBUG_LEVEL);
     ::SendMessageW(debug_level, CB_ADDSTRING, 0, (LPARAM)L"None");
     ::SendMessageW(debug_level, CB_ADDSTRING, 0, (LPARAM)L"Error");
@@ -46,11 +52,35 @@ void main_ui::show_options_dlg() {
     ::SendMessageW(debug_level, CB_ADDSTRING, 0, (LPARAM)L"All");
     ::SendMessageW(debug_level, CB_SETCURSEL, cfg.log_level, 0);
 
+    bool do_restart = false;
     MSG msg{};
-    while ( GetMessageW(&msg, nullptr, 0, 0) ) {
-        TranslateMessage(&msg);
-        DispatchMessageW(&msg);
+    for ( ;; ) {
+        if ( _update_state.valid() ) {
+            while ( std::future_status::ready != _update_state.wait_for(std::chrono::milliseconds(10)) ) {
+                while ( ::PeekMessageW(&msg, nullptr, 0, 0, PM_REMOVE) ) {
+                    TranslateMessage(&msg);
+                    DispatchMessageW(&msg);
+                }
+            }
+            try {
+                do_restart = do_restart || _update_state.get();
+            } catch ( const std::exception& e_ ) {
+                BOOST_LOG_TRIVIAL(error) << "update process failed, because: " << e_.what();
+            }
+            BOOST_LOG_TRIVIAL(debug) << "update result was " << do_restart;
+            if ( do_restart ) {
+                ::PostQuitMessage(0);
+            }
+        } else {
+            if ( GetMessageW(&msg, nullptr, 0, 0) ) {
+                TranslateMessage(&msg);
+                DispatchMessageW(&msg);
+            } else {
+                break;
+            }
+        }
     }
+    return do_restart;
 }
 
 void main_ui::gather_options_state(dialog* dlg_, program_config& cfg_) {
@@ -84,6 +114,7 @@ INT_PTR main_ui::options_dlg_handler(dialog* dlg_, UINT msg_, WPARAM w_param_, L
                 display_dir_select(::GetDlgItem(dlg_->native_handle(), IDC_OPTIONS_COMBAT_LOG));
                 break;
             case IDC_OPTIONS_UPDATE_NOW:
+                invoke_event_handlers(check_update_event{ &_update_state });
                 break;
             case IDC_OPTIONS_APPLY:
                 {
@@ -627,7 +658,9 @@ LRESULT main_ui::os_callback_handler(dialog* window_, UINT uMsg, WPARAM wParam, 
             show_about_dlg();
             break;
         case ID_EDIT_OPTIONS:
-            show_options_dlg();
+            if ( show_options_dlg() ) {
+                ::PostQuitMessage(0);
+            }
             break;
         case ID_FILE_EXIT:
             ::PostQuitMessage(0);

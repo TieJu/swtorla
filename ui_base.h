@@ -7,6 +7,7 @@
 #include <vector>
 #include <functional>
 #include <memory>
+#include <future>
 #include <inplace_any.h>
 
 #include "resource.h"
@@ -57,6 +58,10 @@ struct get_program_config_event {
 
 struct set_program_config_event {
     program_config cfg; // for some fucking reason, destructing this will crash...
+};
+
+struct check_update_event {
+    std::future<bool>*  target;
 };
 
 class ui_base

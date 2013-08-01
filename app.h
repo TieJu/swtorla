@@ -1,6 +1,7 @@
 #pragma once
 
 #include <memory>
+#include <future>
 
 #include <boost/property_tree/ptree.hpp>
 
@@ -26,6 +27,7 @@
 #include "dir_watcher.h"
 #include "log_processor.h"
 #include "combat_analizer.h"
+#include "update_dialog.h"
 
 class app : boost::noncopyable {
     enum class state {
@@ -50,15 +52,19 @@ class app : boost::noncopyable {
     character_list                  _char_list;
     combat_analizer                 _analizer;
 
+    bool run_update_async_job(update_dialog& dlg_);
+    bool run_update_async();
+    std::future<bool> run_update();
+
     void setup_from_config();
     void log_entry_handler(const combat_log_entry& e_);
 
     void transit_state(state new_state_);
 
 
-    std::string check_update();
-    std::string download_update(std::string update_path);
-    void start_update_process();
+    std::string check_update(update_dialog& dlg_);
+    std::string download_update(update_dialog& dlg_, std::string update_path);
+    void start_update_process(update_dialog& dlg_);
     void remove_old_file();
 
     void read_config(const char* config_path_);

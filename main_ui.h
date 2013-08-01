@@ -1,5 +1,7 @@
 #pragma once
 
+#include <future>
+
 #include "ui_base.h"
 #include "window.h"
 #include "dialog.h"
@@ -16,6 +18,7 @@ class main_ui
 : public ui_base {
     std::unique_ptr<dialog>                         _wnd;
     std::chrono::high_resolution_clock::time_point  _last_update;
+    std::future<bool>                               _update_state;
 
     UINT_PTR                                _timer;
 
@@ -54,7 +57,7 @@ class main_ui
         return _wnd->native_window_handle();
     }
 
-    void show_options_dlg();
+    bool show_options_dlg();
     void gather_options_state(dialog* dlg_, program_config& cfg_);
     INT_PTR options_dlg_handler(dialog* dlg_, UINT msg_, WPARAM w_param_, LPARAM l_param_);
     void show_about_dlg();
