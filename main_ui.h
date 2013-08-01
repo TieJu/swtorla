@@ -67,7 +67,7 @@ class main_ui
     void set_analizer(const set_analizer_event& e_);
     void display_log_dir_select(display_log_dir_select_event);
     virtual void on_event(const any& v_);
-    virtual void handle_os_events();
+    virtual bool handle_os_events();
 
 #if defined(USE_CUSTOME_SELECTOR)
     static void ScreenToClientX(HWND hWnd, LPRECT lpRect);

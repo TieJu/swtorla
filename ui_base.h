@@ -144,7 +144,7 @@ public:
         load_font(L"microsoft sans serif");
     }
     virtual ~ui_base() {}
-    virtual void handle_os_events() = 0;
+    virtual bool handle_os_events() = 0;
 
     template<typename Event>
     void send(Event e_) {

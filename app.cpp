@@ -287,14 +287,7 @@ void app::log_entry_handler(const combat_log_entry& e_) {
     }*/
 }
 
-void app::transit_state(state new_state_) {
-    BOOST_LOG_TRIVIAL(debug) << L"app state transition from " << int( _state ) << L" to " << int( new_state_ );
-    _state = new_state_;
-}
-
 std::string app::check_update(update_dialog& dlg_) {
-    update_progress_waiting_event waiting = { true };
-
     dlg_.progress(0);
     dlg_.info_msg(L"...locating patch server...");
     auto remote_server = std::to_string(_config.get<std::wstring>( L"update.server", L"homepages.thm.de" ));
@@ -345,7 +338,7 @@ std::string app::check_update(update_dialog& dlg_) {
         throw boost::system::system_error(error);
     }
 
-    _ui->send(waiting);
+    dlg_.unknown_progress(true);
     boost::array<char, 1024> buf;
 
     http_state<content_store_stream<std::stringstream>> state;
@@ -377,8 +370,7 @@ std::string app::check_update(update_dialog& dlg_) {
         }
     }
 
-    waiting.waiting = false;
-    _ui->send(waiting);
+    dlg_.unknown_progress(false);
 
     dlg_.progress(30);
     dlg_.info_msg(L"...patch data recived, processing...");
@@ -573,8 +565,7 @@ void app::send_crashreport(const char* path_) {
 }
 
 app::app(const char* caption_, const char* config_path_)
-: _config_path(config_path_)
-, _state(state::update_check) {
+: _config_path(config_path_) {
     boost::log::add_file_log(boost::log::keywords::file_name = "app.log"
                             ,boost::log::keywords::format = "[%TimeStamp%]: %Message%"
                             ,boost::log::keywords::auto_flush = true);
@@ -616,167 +607,84 @@ app::~app() {
 
 
 void app::operator()() {
-    _ui.reset(new update_ui());
-    _ui->reciver<quit_event>( [=](quit_event) {
-        if ( _state != state::cleanup_update_screen ) {
-            transit_state(state::shutdown);
+    if ( _config.get<bool>( L"update.auto_check", true ) ) {
+        if ( run_update_async() ) {
+            return;
         }
+    }
+
+    auto log_path = _config.get<std::wstring>( L"log.path", L"" );
+    if ( log_path.empty() ) {
+        log_path = find_swtor_log_path();
+        _config.put(L"log.path", log_path);
+    }
+
+    _ui.reset(new main_ui(log_path));
+
+    _ui->reciver<set_log_dir_event>( [=](set_log_dir_event e_) {
+        std::wstring str(e_.path);
+        BOOST_LOG_TRIVIAL(debug) << L"log path updated to " << str;
+        _config.put(L"log.path", str);
     } );
 
-    std::future<std::string> update_result;
-
-    _ui->reciver<enter_main_window_event> ( [=](enter_main_window_event) {
-        // do nothing here, the event exists ony to invoke the main loop
-    } );
-
-    _ui->reciver<update_done_event>( [=, &update_result](update_done_event) {
-        transit_state(state::shutdown);
-    } );
-
-    _ui->reciver<loaded_patch_file_event>( [=, &update_result](loaded_patch_file_event) {
-        std::string update_data;
-        try {
-            update_data = update_result.get();
-        } catch ( const std::exception& e ) {
-            BOOST_LOG_TRIVIAL(error) << L"update process error: " << e.what();
-            _ui->send(update_progress_error_event{ progress_bar::display_state::error });
-        }
-        if ( !update_data.empty() ) {
-            update_result = std::async(std::launch::async, [=]() {
-                try {
-                    //start_update_process();
-                    _ui->send(update_done_event{});
-                    return std::string();
-                } catch ( ... ) {
-                    _ui->send(update_done_event{});
-                    throw;
-                }
-            });
-            transit_state(state::update_apply);
-        } else {
-            _ui->send(enter_main_window_event{});
-            transit_state(state::cleanup_update_screen);
-        }
-    } );
-
-
-    _ui->reciver<loaded_patch_data_event>( [=, &update_result](loaded_patch_data_event) {
-        std::string update_data;
-        try {
-            update_data = update_result.get();
-        } catch ( const std::exception& e ) {
-            BOOST_LOG_TRIVIAL(error) << L"update process error: " << e.what();
-            _ui->send(update_progress_error_event{ progress_bar::display_state::error });
-        }
-        if ( !update_data.empty() ) {
-            update_result = std::async(std::launch::async, [=]() {
-                try {
-                    //auto res = download_update(update_data);
-                    _ui->send(loaded_patch_file_event{});
-                    //return res;
-                    return std::string();
-                } catch ( ... ) {
-                    _ui->send(loaded_patch_file_event{});
-                    throw;
-                }
-            });
-            transit_state(state::update_load);
-        } else {
-            _ui->send(enter_main_window_event{});
-            transit_state(state::cleanup_update_screen);
-        }
-    });
-
-    update_result = std::async(std::launch::async, [=]() {
-        try {
-            //auto res = check_update();
-            _ui->send(loaded_patch_data_event{});
-            //return res;
-            return std::string();
-        } catch ( ... ) {
-            _ui->send(loaded_patch_data_event{});
-            throw;
-        }
-    });
-
-    int count = 0;
-    for ( ;; ) {
-        if ( state::shutdown == _state ) {
-            break;
-        }
-        if ( state::cleanup_update_screen == _state ) { 
-            _ui.reset();
-            ui_base::handle_peding_events();
-            transit_state(state::enter_main_screen);
-        } else if ( state::enter_main_screen == _state ) {
-            auto log_path = _config.get<std::wstring>( L"log.path", L"" );
-            if ( log_path.empty() ) {
-                log_path = find_swtor_log_path();
-                _config.put(L"log.path", log_path);
+    _ui->reciver<get_log_dir_event>( [=](get_log_dir_event e_) {
+        *e_.target = _config.get<std::wstring>( L"log.path", L"" );
+        if ( e_.target->empty() ) {
+            BOOST_LOG_TRIVIAL(debug) << L"swtor log path is empty, trying to find it";
+            *e_.target = find_swtor_log_path();
+            if ( e_.target->empty() ) {
+                BOOST_LOG_TRIVIAL(debug) << L"unable to locate swtor log path, loging ingame enabled?";
+            } else {
+                BOOST_LOG_TRIVIAL(debug) << L"swtor log path located at " << *e_.target;
             }
-            _ui.reset(new main_ui(log_path));
-            _ui->reciver<quit_event>( [=](quit_event) { transit_state(state::shutdown); } );
-            _ui->reciver<set_log_dir_event>( [=](set_log_dir_event e_) {
-                std::wstring str(e_.path);
-                BOOST_LOG_TRIVIAL(debug) << L"log path updated to " << str;
-                _config.put(L"log.path", str);
-            } );
-            _ui->reciver<get_log_dir_event>( [=](get_log_dir_event e_) {
-                *e_.target = _config.get<std::wstring>( L"log.path", L"" );
-                if ( e_.target->empty() ) {
-                    BOOST_LOG_TRIVIAL(debug) << L"swtor log path is empty, trying to find it";
-                    *e_.target = find_swtor_log_path();
-                    if ( e_.target->empty() ) {
-                        BOOST_LOG_TRIVIAL(debug) << L"unable to locate swtor log path, loging ingame enabled?";
-                    } else {
-                        BOOST_LOG_TRIVIAL(debug) << L"swtor log path located at " << *e_.target;
-                    }
-                }
-            } );
-            _ui->reciver<start_tracking>( [=](start_tracking e_) {
-                *e_.ok = true;
-                auto log_path = _config.get<std::wstring>( L"log.path", L"" );
-                _dir_watcher.reset(new dir_watcher(log_path));
-                _dir_watcher->add_handler([=](const std::wstring& file_) {
-                    _log_reader.stop();
-                    _log_reader.start(log_path + L"\\" + file_);
-                });
-                auto file = find_path_for_lates_log_file(log_path);
-                _log_reader.start(file);
-            } );
-            _ui->reciver<stop_tracking>( [=](stop_tracking) {
-                _dir_watcher.reset();
-                _log_reader.stop();
-            } );
-            _ui->reciver<get_program_version_event>( [=](get_program_version_event e_) {
-                *e_.ver = _version;
-            } );
-            _ui->reciver<get_program_config_event>( [=](get_program_config_event e_) {
-                e_.cfg->check_for_updates = _config.get<bool>( L"update.auto_check", true );
-                e_.cfg->show_update_info = _config.get<bool>( L"update.show_info", true );
-                e_.cfg->log_level = _config.get<int>( L"app.log.level", 4 );
-                e_.cfg->log_path = _config.get<std::wstring>( L"log.path", L"" );
-            } );
-            _ui->reciver<set_program_config_event>( [=](const set_program_config_event& e_) {
-                _config.put(L"update.auto_check", e_.cfg.check_for_updates);
-                _config.put(L"update.show_info", e_.cfg.show_update_info);
-                _config.put(L"app.log.level", e_.cfg.log_level);
-                _config.put(L"log.path", e_.cfg.log_path);
-                write_config(_config_path);
-
-                setup_from_config();
-            } );
-            _ui->reciver<check_update_event>( [=](check_update_event e_) {
-                *e_.target = std::move(run_update());
-            } );
-
-            _ui->send(set_analizer_event{ &_analizer, &_string_map });
-
-            transit_state(state::main_screen);
         }
+    } );
 
-        if ( _ui ) {
-            _ui->handle_os_events();
-        }
+    _ui->reciver<start_tracking>( [=](start_tracking e_) {
+        *e_.ok = true;
+        auto log_path = _config.get<std::wstring>( L"log.path", L"" );
+        _dir_watcher.reset(new dir_watcher(log_path));
+        _dir_watcher->add_handler([=](const std::wstring& file_) {
+            _log_reader.stop();
+            _log_reader.start(log_path + L"\\" + file_);
+        });
+        auto file = find_path_for_lates_log_file(log_path);
+        _log_reader.start(file);
+    } );
+
+    _ui->reciver<stop_tracking>( [=](stop_tracking) {
+        _dir_watcher.reset();
+        _log_reader.stop();
+    } );
+
+    _ui->reciver<get_program_version_event>( [=](get_program_version_event e_) {
+        *e_.ver = _version;
+    } );
+
+    _ui->reciver<get_program_config_event>( [=](get_program_config_event e_) {
+        e_.cfg->check_for_updates = _config.get<bool>( L"update.auto_check", true );
+        e_.cfg->show_update_info = _config.get<bool>( L"update.show_info", true );
+        e_.cfg->log_level = _config.get<int>( L"app.log.level", 4 );
+        e_.cfg->log_path = _config.get<std::wstring>( L"log.path", L"" );
+    } );
+
+    _ui->reciver<set_program_config_event>( [=](const set_program_config_event& e_) {
+        _config.put(L"update.auto_check", e_.cfg.check_for_updates);
+        _config.put(L"update.show_info", e_.cfg.show_update_info);
+        _config.put(L"app.log.level", e_.cfg.log_level);
+        _config.put(L"log.path", e_.cfg.log_path);
+        write_config(_config_path);
+
+        setup_from_config();
+    } );
+
+    _ui->reciver<check_update_event>( [=](check_update_event e_) {
+        *e_.target = std::move(run_update());
+    } );
+
+    _ui->send(set_analizer_event
+    { &_analizer, &_string_map });
+
+    while ( _ui->handle_os_events() ) {
     }
 }

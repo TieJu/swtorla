@@ -388,14 +388,15 @@ void main_ui::on_event(const any& v_) {
     }
 }
 
-void main_ui::handle_os_events() {
+bool main_ui::handle_os_events() {
     MSG msg
     {};
     if ( GetMessageW(&msg, _wnd->native_window_handle(), 0, 0) ) {
         TranslateMessage(&msg);
         DispatchMessage(&msg);
+        return true;
     } else {
-        invoke_event_handlers(quit_event());
+        return false;
     }
 }
 

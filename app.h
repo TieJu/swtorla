@@ -30,17 +30,6 @@
 #include "update_dialog.h"
 
 class app : boost::noncopyable {
-    enum class state {
-        update_check,
-        update_load,
-        update_apply,
-        cleanup_update_screen,
-        enter_main_screen,
-        main_screen,
-        shutdown
-    };
-
-    state                           _state;
     const char*                     _config_path;
     boost::property_tree::wptree    _config;
     boost::asio::io_service         _io_service;
@@ -58,9 +47,6 @@ class app : boost::noncopyable {
 
     void setup_from_config();
     void log_entry_handler(const combat_log_entry& e_);
-
-    void transit_state(state new_state_);
-
 
     std::string check_update(update_dialog& dlg_);
     std::string download_update(update_dialog& dlg_, std::string update_path);

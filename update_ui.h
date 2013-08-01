@@ -32,7 +32,7 @@ class update_ui : public ui_base {
     void update_progress_waiting(update_progress_waiting_event e_);    
     void update_progress(const update_progress_event& e_);
     virtual void on_event(const any& v_);
-    virtual void handle_os_events();
+    virtual bool handle_os_events();
 
 public:
     update_ui();
