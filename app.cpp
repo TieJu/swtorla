@@ -737,7 +737,6 @@ app::~app() {
 
 
 void app::operator()() {
-    show_update_info("updates/888.update").get();
     if ( _config.get<bool>( L"update.auto_check", true ) ) {
         if ( run_update_async() ) {
             return;
