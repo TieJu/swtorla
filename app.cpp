@@ -85,16 +85,103 @@ program_version find_version_info() {
     return info;
 }
 
+int get_build_from_name(const std::string& name_) {
+    int c_ver = 0;
+    sscanf_s(name_.c_str(), "updates/%d.update", &c_ver);
+    return c_ver;
+}
+
+std::string app::load_update_info(const std::string& name_) {
+    auto remote_server = std::to_string(_config.get<std::wstring>( L"update.server", L"homepages.thm.de" ));
+    auto remote_path = std::to_string(_config.get<std::wstring>( L"update.path", L"/~hg14866/swtorla/info.php?" ));
+    auto command = "from=" + std::to_string(_version.build) + "&to=" + std::to_string(get_build_from_name(name_));
+    auto request = std::string("GET ") + remote_path + command + " HTTP/1.1\r\n"
+        "Host: " + remote_server + "\r\n"
+        "Connection: close\r\n"
+        "\r\n\r\n";
+    std::string response;
+
+    BOOST_LOG_TRIVIAL(debug) << L"looking up remote server address for " << remote_server;
+    boost::asio::ip::tcp::resolver tcp_lookup(_io_service);
+    boost::asio::ip::tcp::resolver::query remote_query(remote_server, "http");
+    auto list = tcp_lookup.resolve(remote_query);
+
+    BOOST_LOG_TRIVIAL(debug) << L"connecting to remote server";
+    boost::asio::ip::tcp::socket socket(_io_service);
+    boost::system::error_code error;
+    boost::asio::ip::tcp::resolver::iterator lend;
+    for ( ; lend != list; ++list ) {
+        if ( !socket.connect(*list, error) ) {
+            BOOST_LOG_TRIVIAL(debug) << L"connected to " << list->endpoint();
+            break;
+        }
+    }
+
+    if ( error ) {
+        BOOST_LOG_TRIVIAL(error) << L"unable to connect to remote server";
+        throw boost::system::system_error(error);
+    }
+
+    BOOST_LOG_TRIVIAL(debug) << L"sending request to server " << request;
+    if ( !socket.write_some(boost::asio::buffer(request), error) ) {
+        BOOST_LOG_TRIVIAL(error) << L"failed to send request to server";
+        throw boost::system::system_error(error);
+    }
+
+    boost::array<char, 1024> buf;
+    http_state<content_store_stream<std::stringstream>> state;
+    bool header_written = false;
+
+    while ( state ) {
+        auto len = socket.read_some(boost::asio::buffer(buf), error);
+
+        if ( error == boost::asio::error::eof ) {
+            break;
+        } else if ( error ) {
+            throw boost::system::system_error(error);
+        }
+
+        state(buf.begin(), buf.begin() + len);
+
+        if ( state.http_result() != 200 ) {
+            throw std::runtime_error(std::string("http request error, expected code 200, but got ") + std::to_string(state.http_result()));
+        }
+
+        if ( state.is_header_finished() && !header_written ) {
+            header_written = true;
+            BOOST_LOG_TRIVIAL(debug) << L"recived response from server";
+            BOOST_LOG_TRIVIAL(debug) << L"http header";
+            BOOST_LOG_TRIVIAL(debug) << L"http status code " << state.http_result();
+            for ( auto& kvp : state.header() ) {
+                BOOST_LOG_TRIVIAL(debug) << kvp.first << ": " << kvp.second;
+            }
+        }
+    }
+
+
+    BOOST_LOG_TRIVIAL(debug) << L"closing connection to server";
+    socket.close();
+
+    return state.content().stream.str();
+}
+
 std::future<void> app::show_update_info(const std::string& name_) {
     return std::async(std::launch::async, [=]() {
         if ( !_config.get<bool>( L"update.show_info", true ) ) {
             return;
         }
 
-        std::string info = "test info";
+        std::string info = "";
+        
+        try {
+            info = load_update_info(name_);
+        } catch ( const std::exception& e_ ) {
+            info = "Error while loading update informations: ";
+            info += e_.what();
+        }
 
         if ( info.empty() ) {
-            return;
+            info = "No update information available";
         }
 
         bool do_update = true;
@@ -335,7 +422,7 @@ std::string app::check_update(update_dialog& dlg_) {
     dlg_.progress(0);
     dlg_.info_msg(L"...locating patch server...");
     auto remote_server = std::to_string(_config.get<std::wstring>( L"update.server", L"homepages.thm.de" ));
-    auto remote_path = std::to_string(_config.get<std::wstring>( L"update.path", L"/~hg14866/swtorla/update.php?a=" ));
+    auto remote_path = std::to_string(_config.get<std::wstring>( L"update.command", L"/~hg14866/swtorla/update.php?a=" ));
     auto target_arch = std::to_string(_config.get<std::wstring>( L"app.arch",
 #ifdef _M_X64
         L"x64"
@@ -539,7 +626,6 @@ std::string app::download_update(update_dialog& dlg_, std::string update_path_) 
     socket.close();
 
     return PATCH_FILE_NAME;
-
 }
 
 void app::start_update_process(update_dialog& dlg_) {
@@ -651,6 +737,7 @@ app::~app() {
 
 
 void app::operator()() {
+    show_update_info("updates/888.update").get();
     if ( _config.get<bool>( L"update.auto_check", true ) ) {
         if ( run_update_async() ) {
             return;
