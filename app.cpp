@@ -9,8 +9,6 @@
 
 #include <boost/array.hpp>
 
-#include "update_ui.h"
-#include "main_ui.h"
 
 #include "to_string.h"
 #include "http_state.h"

@@ -22,7 +22,7 @@
 
 #include "window.h"
 
-#include "ui_base.h"
+#include "main_ui.h"
 
 #include "dir_watcher.h"
 #include "log_processor.h"
@@ -33,7 +33,7 @@ class app : boost::noncopyable {
     const char*                     _config_path;
     boost::property_tree::wptree    _config;
     boost::asio::io_service         _io_service;
-    std::unique_ptr<ui_base>        _ui;
+    std::unique_ptr<main_ui>        _ui;
     program_version                 _version;
     std::unique_ptr<dir_watcher>    _dir_watcher;
     log_processor                   _log_reader;

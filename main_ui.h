@@ -67,8 +67,10 @@ class main_ui
     void set_analizer(const set_analizer_event& e_);
     void display_log_dir_select(display_log_dir_select_event);
     virtual void on_event(const any& v_);
+public:
     virtual bool handle_os_events();
 
+private:
 #if defined(USE_CUSTOME_SELECTOR)
     static void ScreenToClientX(HWND hWnd, LPRECT lpRect);
     static void MoveWindowX(HWND hWnd, RECT& rect, BOOL bRepaint);
