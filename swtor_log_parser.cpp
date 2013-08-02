@@ -233,7 +233,18 @@ static std::tuple<int, bool, string_id, int, bool, string_id> parse_effect_value
         --from_;
     }
 
-    skip_spaces(from_, to_);
+    skip_spaces(from_, to_); 
+    
+    if ( check_char(from_, to_, '-') ) {
+        skip_spaces(from_, to_);
+        auto id_start = find_char(from_, to_, '{');
+        expect_char(id_start, to_, '{');
+        auto name_end = id_start - 2;
+        effect_name2 = register_string(parse_number<string_id>( id_start, to_ ), from_, name_end, string_map_);
+        from_ = id_start;
+        expect_char(from_, to_, '}');
+        skip_spaces(from_, to_);
+    }
 
     if ( check_char(from_, to_, '(') ) {
         skip_spaces(from_, to_);
@@ -247,14 +258,6 @@ static std::tuple<int, bool, string_id, int, bool, string_id> parse_effect_value
         from_ = id_start;
         expect_char(from_, to_, '}');
         expect_char(from_, to_, ')');
-    } else if ( check_char(from_, to_, '-') ) {
-        skip_spaces(from_, to_);
-        auto id_start = find_char(from_, to_, '{');
-        expect_char(id_start, to_, '{');
-        auto name_end = id_start - 2;
-        effect_name2 = register_string(parse_number<string_id>( id_start, to_ ), from_, name_end, string_map_);
-        from_ = id_start;
-        expect_char(from_, to_, '}');
     }
 
     expect_char(from_, to_, ')');
