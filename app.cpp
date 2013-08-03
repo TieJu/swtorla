@@ -159,6 +159,7 @@ std::string app::load_update_info(const std::string& name_) {
 
     BOOST_LOG_TRIVIAL(debug) << L"closing connection to server";
     socket.close();
+    BOOST_LOG_TRIVIAL(debug) << L"result was: " << state.content().stream.str();
 
     return state.content().stream.str();
 }
