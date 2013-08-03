@@ -17,9 +17,6 @@
 #include <boost/log/sources/severity_logger.hpp>
 #include <boost/log/sources/record_ostream.hpp>
 
-void main_ui::on_skill_link_click(unsigned long long index_) {
-}
-
 bool main_ui::show_options_dlg() {
     dialog options(GetModuleHandleW(nullptr), MAKEINTRESOURCEW(IDD_OPTIONS), _wnd->native_handle());
 
@@ -193,9 +190,13 @@ INT_PTR main_ui::about_dlg_handler(dialog* dlg_, UINT msg_, WPARAM w_param_, LPA
 
 void main_ui::update_stat_display() {
     if ( _data_display ) {
+        if ( !_analizer ) {
+            return;
+        }
+        _data_display->_encounter = _analizer->count_encounters() - 1;
         _data_display->update_display(*_analizer, _ui_elements);
     }
-
+#if 0
     if ( !_analizer || _analizer->count_encounters() < 1 ) {
         _ui_elements.show_only_num_rows(0);
         return;
@@ -378,6 +379,7 @@ void main_ui::update_stat_display() {
                     + dur_text + L"\r\n";
 
     ::SetWindowTextW(dsp_diplay, final_text.c_str());
+#endif
 }
 
 void main_ui::set_analizer(const set_analizer_event& e_) {
@@ -720,7 +722,11 @@ main_ui::main_ui(const std::wstring& log_path_) {
     _ui_elements.parent(_wnd->native_handle());
     _ui_elements.app_instance(GetModuleHandleW(nullptr));
 
-    _last_update = std::chrono::high_resolution_clock::now();
+    auto itfc = new data_display_entity_dmg_done;
+    itfc->_entity_name = 0;
+    itfc->_minion_name = string_id(-1);
+    itfc->_last_update = std::chrono::high_resolution_clock::now();
+    _data_display.reset(itfc);
 
     auto icon = ::LoadIconW(GetModuleHandleW(nullptr), MAKEINTRESOURCEW(IDI_ICON1));
     ::SendMessageW(_wnd->native_handle(), WM_SETICON, ICON_BIG, (LPARAM)icon);
