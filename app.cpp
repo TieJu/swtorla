@@ -811,7 +811,7 @@ void app::operator()() {
     } );
 
     _ui->send(set_analizer_event
-    { &_analizer, &_string_map });
+    { &_analizer, &_string_map, &_char_list });
 
     while ( _ui->handle_os_events() ) {
     }

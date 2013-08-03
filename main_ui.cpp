@@ -17,6 +17,9 @@
 #include <boost/log/sources/severity_logger.hpp>
 #include <boost/log/sources/record_ostream.hpp>
 
+void main_ui::on_skill_link_click(unsigned long long index_) {
+}
+
 bool main_ui::show_options_dlg() {
     dialog options(GetModuleHandleW(nullptr), MAKEINTRESOURCEW(IDD_OPTIONS), _wnd->native_handle());
 
@@ -189,14 +192,12 @@ INT_PTR main_ui::about_dlg_handler(dialog* dlg_, UINT msg_, WPARAM w_param_, LPA
 }
 
 void main_ui::update_stat_display() {
+    if ( _data_display ) {
+        _data_display->update_display(*_analizer, _ui_elements);
+    }
+
     if ( !_analizer || _analizer->count_encounters() < 1 ) {
-        for ( size_t i = 0; i < _stat_display.size(); ++i ) {
-            const auto& row = _stat_display[i];
-            row.name->hide();
-            row.value->hide();
-            row.bar->hide();
-            row.perc->hide();
-        }
+        _ui_elements.show_only_num_rows(0);
         return;
     }
 
@@ -215,13 +216,7 @@ void main_ui::update_stat_display() {
     }).commit < std::vector < combat_log_entry >> ( );
 
     if ( player_records.empty() ) {
-        for ( size_t i = 0; i < _stat_display.size(); ++i ) {
-            const auto& row = _stat_display[i];
-            row.name->hide();
-            row.value->hide();
-            row.bar->hide();
-            row.perc->hide();
-        }
+        _ui_elements.show_only_num_rows(0);
         return;
     }
 
@@ -285,6 +280,21 @@ void main_ui::update_stat_display() {
         return lhs_.effect_value > rhs_.effect_value;
     }).commit < std::vector < combat_log_entry_ex >> ( );
 
+    while ( _ui_elements.rows() < player_damage.size() ) {
+        _ui_elements.new_data_row();
+    }
+
+    for ( size_t i = 0; i < player_damage.size(); ++i ) {
+        auto& display_row = _ui_elements.row(i);
+        const auto& dmg_row = player_damage[i];
+
+        display_row.name(dmg_row.ability);
+        display_row.value_max(total_damage);
+        display_row.value(dmg_row.effect_value);
+    }
+
+    _ui_elements.show_only_num_rows(player_damage.size());
+    /*
     auto rect = _wnd->client_area_rect();
 
     auto base_set = GetDialogBaseUnits();
@@ -305,12 +315,13 @@ void main_ui::update_stat_display() {
     auto font = ( HFONT )::SendMessageW(_wnd->native_handle(), WM_GETFONT, 0, 0);
 
     while ( _stat_display.size() < player_damage.size() ) {
+        auto ui_id = SKILL_BASE_ID + _stat_display.size() * 3;
         auto y = rect.top + line_with * _stat_display.size();
         combat_stat_display disp;
-        disp.name.reset(new window(0, L"static", L"", WS_CHILD | WS_VISIBLE | SS_CENTERIMAGE, rect.left, y, name_space, line_with, _wnd->native_window_handle(), nullptr, _wnd->instance_handle()));
-        disp.value.reset(new window(0, L"static", L"", WS_CHILD | WS_VISIBLE | SS_CENTERIMAGE, rect.left + name_space, y, value_space, line_with, _wnd->native_window_handle(), nullptr, _wnd->instance_handle()));
+        disp.name.reset(new window(0, WC_LINK, L"", WS_CHILD | WS_VISIBLE | SS_CENTERIMAGE, rect.left, y + 2, name_space, line_with, _wnd->native_window_handle(), (HMENU)ui_id, _wnd->instance_handle()));
+        disp.value.reset(new window(0, L"static", L"", WS_CHILD | WS_VISIBLE | SS_CENTERIMAGE, rect.left + name_space, y, value_space, line_with, _wnd->native_window_handle(), (HMENU)(ui_id + 1), _wnd->instance_handle()));
         disp.bar.reset(new progress_bar(line_with + name_space + value_space + 16, y, bar_space - 64, line_with - 10, _wnd->native_window_handle(), _stat_display.size(), _wnd->instance_handle()));
-        disp.perc.reset(new window(0, L"static", L"", WS_CHILD | WS_VISIBLE | SS_CENTERIMAGE, rect.left + name_space + value_space + bar_space, y, perc_space, line_with, _wnd->native_window_handle(), nullptr, _wnd->instance_handle()));
+        disp.perc.reset(new window(0, L"static", L"", WS_CHILD | WS_VISIBLE | SS_CENTERIMAGE, rect.left + name_space + value_space + bar_space, y, perc_space, line_with, _wnd->native_window_handle(), (HMENU)(ui_id + 1), _wnd->instance_handle()));
         ::SendMessageW(disp.name->native_window_handle(), WM_SETFONT, (WPARAM)font, TRUE);
         ::SendMessageW(disp.value->native_window_handle(), WM_SETFONT, (WPARAM)font, TRUE);
         ::SendMessageW(disp.bar->native_window_handle(), WM_SETFONT, (WPARAM)font, TRUE);
@@ -321,7 +332,7 @@ void main_ui::update_stat_display() {
     size_t i = 0;
     for (; i < player_damage.size(); ++i ) {
         const auto& row = player_damage[i];
-        const auto& value = (*_string_map)[row.ability];
+        const auto& value = L"<a>" + _ui_elements.looup_info()(row.ability) + L"</a>";
 
         auto& display = _stat_display[i];
         display.name->caption(value);
@@ -336,16 +347,19 @@ void main_ui::update_stat_display() {
 
         display.perc->caption(std::to_wstring(double( row.effect_value ) / total_damage * 100.0) + L"%");
         display.perc->normal();
+
+        display.skill_name = row.ability;
     }
 
     for ( ; i < _stat_display.size(); ++i ) {
-        const auto& row = _stat_display[i];
+        auto& row = _stat_display[i];
         row.name->hide();
         row.value->hide();
         row.bar->hide();
         row.perc->hide();
+        row.skill_name = string_id(-1);
     }
-
+    */
     auto dps = ( double( total_damage ) / epleased ) * 1000.0;
     auto hps = ( double( total_heal ) / epleased ) * 1000.0;
     auto ep = epleased / 1000.0;
@@ -368,7 +382,8 @@ void main_ui::update_stat_display() {
 
 void main_ui::set_analizer(const set_analizer_event& e_) {
     _analizer = e_.anal;
-    _string_map = e_.smap;
+    _ui_elements.lookup_info().smap = e_.smap;
+    _ui_elements.lookup_info().names = e_.names;
 }
 
 void main_ui::display_log_dir_select(display_log_dir_select_event) {
@@ -665,7 +680,8 @@ LRESULT main_ui::os_callback_handler(dialog* window_, UINT uMsg, WPARAM wParam, 
         case IDC_START_SOLO_BUTTON:
             if ( code == BN_CLICKED ) {
                 bool ok = true;
-                invoke_event_handlers(start_tracking{ &ok });
+                invoke_event_handlers(start_tracking
+                { &ok });
                 if ( ok ) {
                     _timer = SetTimer(_wnd->native_window_handle(), _timer, 1000, nullptr);
                     ::EnableWindow(GetDlgItem(_wnd->native_handle(), IDC_START_SOLO_BUTTON), FALSE);
@@ -678,7 +694,8 @@ LRESULT main_ui::os_callback_handler(dialog* window_, UINT uMsg, WPARAM wParam, 
             break;
         case IDC_STOP_BUTTON:
             if ( code == BN_CLICKED ) {
-                invoke_event_handlers(stop_tracking{});
+                invoke_event_handlers(stop_tracking
+                {});
                 KillTimer(_wnd->native_window_handle(), _timer);
                 ::EnableWindow(GetDlgItem(_wnd->native_handle(), IDC_START_SOLO_BUTTON), TRUE);
                 // do not enable this for now
@@ -693,11 +710,15 @@ LRESULT main_ui::os_callback_handler(dialog* window_, UINT uMsg, WPARAM wParam, 
         //}
         return TRUE;
     }
+    _ui_elements.on_event(uMsg, wParam, lParam);
     return os_callback_handler_default(window_, uMsg, wParam, lParam);
 }
 
 main_ui::main_ui(const std::wstring& log_path_) {
     _wnd.reset(new dialog(GetModuleHandleW(nullptr), MAKEINTRESOURCEW(IDD_MAIN_WINDOW), nullptr));
+
+    _ui_elements.parent(_wnd->native_handle());
+    _ui_elements.app_instance(GetModuleHandleW(nullptr));
 
     _last_update = std::chrono::high_resolution_clock::now();
 
