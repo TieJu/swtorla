@@ -72,7 +72,7 @@ void data_display_entity_dmg_done::update_display(combat_analizer& analizer_, ui
         display_row.value(dmg_row.effect_value);
 
         display_row.callback([=](string_id skill_name_) {
-            auto display = new data_display_entity_skill_base;
+            auto display = new data_display_entity_skill_dmg_done;
             display->_ability_name = skill_name_;
             display->_encounter = _encounter;
             display->_entity_name = _entity_name;
@@ -103,7 +103,7 @@ void data_display_entity_dmg_done::update_display(combat_analizer& analizer_, ui
     ui_element_manager_.info_text(final_text);
 }
 
-void data_display_entity_skill_base::update_display(combat_analizer& analizer_, ui_element_manager& ui_element_manager_, change_display_mode_callback clb) {
+void data_display_entity_skill_dmg_done::update_display(combat_analizer& analizer_, ui_element_manager& ui_element_manager_, change_display_mode_callback clb) {
     if ( analizer_.count_encounters() < _encounter ) {
         ui_element_manager_.show_only_num_rows(0);
         return;

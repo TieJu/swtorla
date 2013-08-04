@@ -32,5 +32,10 @@ struct data_display_entity_healing_recived : public data_display_entity_base {};
 
 struct data_display_entity_skill_base : public data_display_entity_base {
     string_id       _ability_name;
+}; 
+
+struct data_display_entity_skill_dmg_done : public data_display_entity_skill_base {
     virtual void update_display(combat_analizer& analizer_, ui_element_manager& ui_element_manager_, change_display_mode_callback clb) override;
 };
+
+struct data_display_entity_skill_healing_done : public data_display_entity_skill_base {};
