@@ -892,6 +892,10 @@ main_ui::main_ui(const std::wstring& log_path_) {
             _timer = SetTimer(_wnd->native_window_handle(), _timer, 1000, nullptr);
         }
     });
+
+    _ui_elements.info_callback(L"parse_raid", [=]() {
+        MessageBoxW(nullptr, L"Sorry, not implemented yet!", L"NIY", MB_OK | MB_ICONINFORMATION);
+    });
     
     _ui_elements.info_callback(L"parse_stop", [=]() {
         invoke_event_handlers(stop_tracking{});
