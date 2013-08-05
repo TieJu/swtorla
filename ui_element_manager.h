@@ -187,6 +187,13 @@ private:
     bool                                                _enable_solo;
     bool                                                _enable_raid;
 
+    void callback_for(const wchar_t* str) {
+        auto at = _info_callbacks.find(str);
+        if ( at != end(_info_callbacks) ) {
+            at->second();
+        }
+    }
+
 public:
     size_t new_data_row() {
         RECT r;
@@ -258,22 +265,29 @@ public:
                 }
             } else if ( notify_info->idFrom == IDC_GLOBAL_STATS ) {
                 auto link_info = reinterpret_cast<const NMLINK*>( lParam );
-                auto at = _info_callbacks.find(link_info->item.szID);
-                if ( at == end(_info_callbacks) ) {
-                    at = _info_callbacks.find(link_info->item.szUrl);
-                    if ( at == end(_info_callbacks) ) {
-                        return;
-                    }
-                }
-
-                at->second();
+                callback_for(link_info->item.szID);
+                callback_for(link_info->item.szUrl);
+            }
+        } else if ( WM_COMMAND == uMsg ) {
+            auto id = LOWORD(wParam);
+            auto code = HIWORD(wParam);
+            switch ( id ) {
+            case IDC_MAIN_START_SOLO:
+                callback_for(L"parse_solo");
+                break;
+            case IDC_MAIN_SYNC_TO_RAID:
+                callback_for(L"parse_raid");
+                break;
+            case IDC_MAIN_STOP:
+                callback_for(L"parse_stop");
+                break;
             }
         }
     }
 
     void info_text(const std::wstring& str_) {
         auto dsp_diplay = ::GetDlgItem(_parent, IDC_GLOBAL_STATS);
-        ::SetWindowTextW(dsp_diplay, ( get_info_text_default_links(_enable_solo, _enable_raid, !_enable_solo && !_enable_raid) + L"\r\n\r\n" + str_ ).c_str());
+        ::SetWindowTextW(dsp_diplay, str_.c_str());
     }
 
     void clear() {
@@ -282,11 +296,13 @@ public:
     }
 
     void enable_solo(bool enable_ = true) {
-        _enable_solo = enable_;
+        ::EnableWindow(::GetDlgItem(_parent, IDC_MAIN_START_SOLO), enable_ ? TRUE : FALSE);
+        ::EnableWindow(::GetDlgItem(_parent, IDC_MAIN_STOP), enable_ ? FALSE : TRUE);
     }
 
     void enable_raid(bool enable_ = true) {
-        _enable_raid = enable_;
+        ::EnableWindow(::GetDlgItem(_parent, IDC_MAIN_SYNC_TO_RAID), enable_ ? TRUE : FALSE);
+        ::EnableWindow(::GetDlgItem(_parent, IDC_MAIN_STOP), enable_ ? FALSE : TRUE);
     }
 
     void enable_stop(bool enable_ = true) {
