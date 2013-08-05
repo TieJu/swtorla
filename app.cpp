@@ -306,6 +306,12 @@ void app::setup_from_config() {
 void app::log_entry_handler(const combat_log_entry& e_) {
     _analizer.add_entry(e_);
 
+    // tell the ui the new current play, this might change on a relog (move this elsewere, do this once
+    // if a new combat log is opened)
+    if ( e_.effect_action == ssc_Event && e_.effect_type == ssc_EnterCombat ) {
+        _ui->update_main_player(e_.src);
+    }
+
     //if ( _analizer.count_encounters() < 1 ) {
     //    return;
     //}

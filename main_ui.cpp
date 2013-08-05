@@ -707,6 +707,11 @@ main_ui::main_ui(const std::wstring& log_path_) {
         invoke_event_handlers(start_tracking{ &ok });
         if ( ok ) {
             _timer = SetTimer(_wnd->native_window_handle(), _timer, 1000, nullptr);
+            auto itfc = new data_display_entity_dmg_done;
+            itfc->_entity_name = _player_id;
+            itfc->_minion_name = string_id(-1);
+            itfc->_last_update = std::chrono::high_resolution_clock::now();
+            _data_display.reset(itfc);
         }
     });
 
@@ -720,12 +725,6 @@ main_ui::main_ui(const std::wstring& log_path_) {
         _ui_elements.enable_stop(false);
         _ui_elements.clear();
     });
-
-    auto itfc = new data_display_entity_dmg_done;
-    itfc->_entity_name = 0;
-    itfc->_minion_name = string_id(-1);
-    itfc->_last_update = std::chrono::high_resolution_clock::now();
-    _data_display.reset(itfc);
 
     auto icon = ::LoadIconW(GetModuleHandleW(nullptr), MAKEINTRESOURCEW(IDI_ICON1));
     ::SendMessageW(_wnd->native_handle(), WM_SETICON, ICON_BIG, (LPARAM)icon);

@@ -25,6 +25,7 @@ class main_ui
     std::future<bool>                               _update_state;
     UINT_PTR                                        _timer;
     combat_analizer*                                _analizer;
+    string_id                                       _player_id;
 
     HWND post_param() {
         return _wnd->native_window_handle();
@@ -58,4 +59,8 @@ private:
 public:
     main_ui(const std::wstring& log_path_);
     virtual ~main_ui();
+
+    void update_main_player(string_id player_id_) {
+        _player_id = player_id_;
+    }
 };
