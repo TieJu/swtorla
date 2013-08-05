@@ -291,7 +291,8 @@ public:
     }
 
     void clear() {
-        show_only_num_rows(0);
+        //show_only_num_rows(0);
+        _rows.clear();
         info_text(L"");
     }
 

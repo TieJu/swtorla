@@ -724,6 +724,7 @@ main_ui::main_ui(const std::wstring& log_path_) {
         KillTimer(_wnd->native_window_handle(), _timer);
         _ui_elements.enable_stop(false);
         _ui_elements.clear();
+        _data_display.reset();
     });
 
     auto icon = ::LoadIconW(GetModuleHandleW(nullptr), MAKEINTRESOURCEW(IDI_ICON1));
