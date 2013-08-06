@@ -19,7 +19,9 @@ struct set_analizer_event {
 
 class main_ui
 : public ui_base {
-    ui_element_manager                              _ui_elements;
+    friend class ui_element_manager<main_ui>;
+
+    ui_element_manager<main_ui>                     _ui_elements;
     std::unique_ptr<data_display_mode>              _data_display;
     std::unique_ptr<dialog>                         _wnd;
     std::future<bool>                               _update_state;
@@ -30,7 +32,6 @@ class main_ui
     HWND post_param() {
         return _wnd->native_window_handle();
     }
-
 
     bool show_options_dlg();
     void gather_options_state(dialog* dlg_, program_config& cfg_);
@@ -55,6 +56,10 @@ private:
     void display_dir_select(HWND edit_);
 
     LRESULT os_callback_handler(dialog* window_, UINT uMsg, WPARAM wParam, LPARAM lParam);
+protected:
+    void on_start_solo();
+    void on_start_raid();
+    void on_stop();
 
 public:
     main_ui(const std::wstring& log_path_);

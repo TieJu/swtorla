@@ -693,8 +693,36 @@ LRESULT main_ui::os_callback_handler(dialog* window_, UINT uMsg, WPARAM wParam, 
     return os_callback_handler_default(window_, uMsg, wParam, lParam);
 }
 
+void main_ui::on_start_solo() {
+    bool ok = false;
+    invoke_event_handlers(start_tracking{ &ok });
+    if ( ok ) {
+        _timer = SetTimer(_wnd->native_window_handle(), _timer, 1000, nullptr);
+        auto itfc = new data_display_entity_dmg_done;
+        itfc->_entity_name = &_player_id;
+        itfc->_minion_name = string_id(-1);
+        itfc->_last_update = std::chrono::high_resolution_clock::now();
+        _data_display.reset(itfc);
+    }
+}
+
+void main_ui::on_start_raid() {
+    MessageBoxW(nullptr, L"Sorry, not implemented yet!", L"NIY", MB_OK | MB_ICONINFORMATION);
+}
+
+void main_ui::on_stop() {
+    invoke_event_handlers(stop_tracking
+    {});
+    KillTimer(_wnd->native_window_handle(), _timer);
+    _ui_elements.enable_stop(false);
+    _ui_elements.clear();
+    _data_display.reset();
+}
+
 main_ui::main_ui(const std::wstring& log_path_) {
     _wnd.reset(new dialog(GetModuleHandleW(nullptr), MAKEINTRESOURCEW(IDD_MAIN_WINDOW), nullptr));
+
+    _ui_elements.mainui(this);
 
     _ui_elements.parent(_wnd->native_handle());
     _ui_elements.app_instance(GetModuleHandleW(nullptr));
@@ -702,34 +730,29 @@ main_ui::main_ui(const std::wstring& log_path_) {
     _ui_elements.enable_stop(false);
     _ui_elements.clear();
 
-    _ui_elements.info_callback(L"parse_solo", [=]() {
-        bool ok = false;
-        invoke_event_handlers(start_tracking{ &ok });
-        if ( ok ) {
-            _timer = SetTimer(_wnd->native_window_handle(), _timer, 1000, nullptr);
-            auto itfc = new data_display_entity_dmg_done;
-            itfc->_entity_name = _player_id;
-            itfc->_minion_name = string_id(-1);
-            itfc->_last_update = std::chrono::high_resolution_clock::now();
-            _data_display.reset(itfc);
-        }
-    });
-
-    _ui_elements.info_callback(L"parse_raid", [=]() {
-        MessageBoxW(nullptr, L"Sorry, not implemented yet!", L"NIY", MB_OK | MB_ICONINFORMATION);
-    });
-    
-    _ui_elements.info_callback(L"parse_stop", [=]() {
-        invoke_event_handlers(stop_tracking{});
-        KillTimer(_wnd->native_window_handle(), _timer);
-        _ui_elements.enable_stop(false);
-        _ui_elements.clear();
-        _data_display.reset();
-    });
-
     auto icon = ::LoadIconW(GetModuleHandleW(nullptr), MAKEINTRESOURCEW(IDI_ICON1));
     ::SendMessageW(_wnd->native_handle(), WM_SETICON, ICON_BIG, (LPARAM)icon);
     ::SendMessageW(_wnd->native_handle(), WM_SETICON, ICON_SMALL, (LPARAM)icon);
+
+    auto list_view = ::GetDlgItem(_wnd->native_handle(), IDC_MAIN_DISPLAY_LIST);
+    //::ShowWindow(list_view, SW_HIDE);
+    //::EnableWindow(list_view, FALSE);
+
+    LVCOLUMNW col{};
+
+    col.mask = LVCF_WIDTH | LVCF_TEXT | LVCF_FMT | LVCF_SUBITEM;
+    col.fmt = LVCFMT_LEFT;
+    col.cx = 100;
+
+    const wchar_t* ColumnNames[lvc_max_coumns] =
+    { L"Name", L"Value", L"%", L"Uses", L"Misses", L"Absorbs", L"Crits", L"Misses %", L"Absorbs %", L"Crit %", L"Absorbed", L"Absorbed %" };
+
+    for ( size_t i = 0; i < lvc_max_coumns; ++i ) {
+        col.pszText = const_cast<wchar_t*>(ColumnNames[i]);
+        col.iSubItem = i;
+        col.iOrder = i;
+        ListView_InsertColumn(list_view, i, &col);
+    }
 
     _wnd->callback([=](dialog* window_, UINT uMsg, WPARAM wParam, LPARAM lParam) -> LRESULT {
         return os_callback_handler(window_, uMsg, wParam, lParam);

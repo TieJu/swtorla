@@ -1,6 +1,6 @@
 #include "data_display_mode.h"
 
-void data_display_entity_dmg_done::update_display(combat_analizer& analizer_, ui_element_manager& ui_element_manager_, change_display_mode_callback clb) {
+void data_display_entity_dmg_done::update_display(combat_analizer& analizer_, ui_element_manager<main_ui>& ui_element_manager_, change_display_mode_callback clb) {
     if ( analizer_.count_encounters() < _encounter ) {
         ui_element_manager_.show_only_num_rows(0);
         return;
@@ -16,7 +16,7 @@ void data_display_entity_dmg_done::update_display(combat_analizer& analizer_, ui
 
     auto player_records = encounter.select<combat_log_entry>( [=](const combat_log_entry& e_) {return e_; } )
         .where([=](const combat_log_entry& e_) {
-            return e_.src == _entity_name && e_.src_minion == _minion_name;
+            return e_.src == *_entity_name && e_.src_minion == _minion_name;
     }).commit < std::vector < combat_log_entry >> ( );
 
     if ( player_records.empty() ) {
@@ -79,9 +79,25 @@ void data_display_entity_dmg_done::update_display(combat_analizer& analizer_, ui
             display->_minion_name = _minion_name;
             clb(display);
         });
+
+        auto& view = ui_element_manager_.list_view_element(dmg_row.ability);
+        view.value(lvc_value, std::to_wstring(dmg_row.effect_value));
+        view.value(lvc_perc, std::to_wstring(double( dmg_row.effect_value ) / total_damage * 100.0));
+        view.value(lvc_applys, std::to_wstring(dmg_row.hits));
+        view.value(lvc_misses, std::to_wstring(dmg_row.misses));
+        view.value(lvc_crits, std::to_wstring(dmg_row.crits));
+        view.value(lvc_misses_perc, std::to_wstring(double(dmg_row.misses) / dmg_row.hits * 100.0));
+        view.value(lvc_crit_perc, std::to_wstring(double(dmg_row.crits) / dmg_row.hits * 100.0));
+        /*
+        lvc_absorbs,
+        lvc_absorbs_perc,
+        lvc_absorbs_value,
+        lvc_absorbs_value_perc,*/
     }
 
     ui_element_manager_.show_only_num_rows(player_damage.size());
+    ui_element_manager_.update_list_view();
+
 
     auto dps = ( double( total_damage ) / epleased ) * 1000.0;
     auto hps = ( double( total_heal ) / epleased ) * 1000.0;
@@ -103,7 +119,7 @@ void data_display_entity_dmg_done::update_display(combat_analizer& analizer_, ui
     ui_element_manager_.info_text(final_text);
 }
 
-void data_display_entity_skill_dmg_done::update_display(combat_analizer& analizer_, ui_element_manager& ui_element_manager_, change_display_mode_callback clb) {
+void data_display_entity_skill_dmg_done::update_display(combat_analizer& analizer_, ui_element_manager<main_ui>& ui_element_manager_, change_display_mode_callback clb) {
     if ( analizer_.count_encounters() < _encounter ) {
         ui_element_manager_.show_only_num_rows(0);
         return;
@@ -119,7 +135,7 @@ void data_display_entity_skill_dmg_done::update_display(combat_analizer& analize
 
     auto player_records = encounter.select<combat_log_entry>( [=](const combat_log_entry& e_) {return e_; } )
         .where([=](const combat_log_entry& e_) {
-            return e_.src == _entity_name && e_.src_minion == _minion_name && e_.ability == _ability_name;
+            return e_.src == *_entity_name && e_.src_minion == _minion_name && e_.ability == _ability_name;
     }).commit < std::vector < combat_log_entry >> ( );
 
     if ( player_records.empty() ) {
