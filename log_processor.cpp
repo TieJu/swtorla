@@ -79,7 +79,7 @@ char* log_processor::process_bytes(char* from_, char* to_) {
 
 void log_processor::run() {
     state t_state = state::sleep;
-    auto wait_ms = std::chrono::microseconds(overlapped_min_wait_ms);
+    auto wait_ms = std::chrono::milliseconds(overlapped_min_wait_ms);
 
     std::array<char, 1024 * 4> read_buffer;
     DWORD bytes_read;
@@ -92,7 +92,7 @@ void log_processor::run() {
             t_state = wait(t_state);
         } else {
             t_state = wait_for(t_state, wait_ms);
-            wait_ms = std::min(wait_ms + wait_ms, std::chrono::microseconds(overlapped_max_wait_ms));
+            wait_ms = std::min(wait_ms + wait_ms, std::chrono::milliseconds(overlapped_max_wait_ms));
         }
 
         if ( t_state == state::shutdown ) {
@@ -110,13 +110,13 @@ void log_processor::run() {
                 if ( ::ReadFile(*_file_handle, from, to - from, &bytes_read, nullptr) ) {
                     //BOOST_LOG_TRIVIAL(debug) << L"[log_processor] read compledet, got " << bytes_read << " bytes read";
                     if ( bytes_read > 0 ) {
-                        wait_ms = std::max(wait_ms / 2, std::chrono::microseconds(overlapped_min_wait_ms));
+                        wait_ms = std::max(wait_ms / 2, std::chrono::milliseconds(overlapped_min_wait_ms));
                         from = process_bytes(read_buffer.data(), from + bytes_read);
                         continue;
                     }
                 }
 
-                wait_ms = std::min(wait_ms + wait_ms, std::chrono::microseconds(overlapped_max_wait_ms));
+                wait_ms = std::min(wait_ms + wait_ms, std::chrono::milliseconds(overlapped_max_wait_ms));
                 break;
             }
         }
