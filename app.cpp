@@ -748,14 +748,11 @@ void app::operator()() {
         }
     }
 
-    _ui.reset(new main_ui(get_log_dir(), *this));
+    _ui.reset(new main_ui(get_log_dir(), *this, _analizer, _string_map, _char_list));
 
     _ui->reciver<check_update_event>( [=](check_update_event e_) {
         *e_.target = std::move(run_update());
     } );
-
-    _ui->send(set_analizer_event
-    { &_analizer, &_string_map, &_char_list });
 
     while ( _ui->handle_os_events() ) {
     }

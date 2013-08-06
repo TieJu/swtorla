@@ -11,12 +11,6 @@
 #include "ui_element_manager.h"
 #include "data_display_mode.h"
 
-struct set_analizer_event {
-    combat_analizer*            anal;
-    string_to_id_string_map*    smap;
-    character_list*             names;
-};
-
 class app;
 
 class main_ui
@@ -28,7 +22,7 @@ class main_ui
     std::unique_ptr<dialog>                         _wnd;
     std::future<bool>                               _update_state;
     UINT_PTR                                        _timer;
-    combat_analizer*                                _analizer;
+    combat_analizer&                                _analizer;
     string_id                                       _player_id;
     app&                                            _app;
 
@@ -43,7 +37,6 @@ class main_ui
     INT_PTR about_dlg_handler(dialog* dlg_, UINT msg_, WPARAM w_param_, LPARAM l_param_);
 
     void update_stat_display();
-    void set_analizer(const set_analizer_event& e_);
     void display_log_dir_select(display_log_dir_select_event);
     virtual void on_event(const any& v_);
 public:
@@ -65,7 +58,7 @@ protected:
     void on_stop();
 
 public:
-    main_ui(const std::wstring& log_path_,app& app_);
+    main_ui(const std::wstring& log_path_, app& app_,combat_analizer& c_anal_,string_to_id_string_map& s_map_,character_list& c_list_);
     virtual ~main_ui();
 
     void update_main_player(string_id player_id_) {

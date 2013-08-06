@@ -184,11 +184,8 @@ INT_PTR main_ui::about_dlg_handler(dialog* dlg_, UINT msg_, WPARAM w_param_, LPA
 
 void main_ui::update_stat_display() {
     if ( _data_display ) {
-        if ( !_analizer ) {
-            return;
-        }
-        _data_display->_encounter = _analizer->count_encounters() - 1;
-        _data_display->update_display(*_analizer, _ui_elements,[=](data_display_mode* mode_) {
+        _data_display->_encounter = _analizer.count_encounters() - 1;
+        _data_display->update_display(_analizer, _ui_elements,[=](data_display_mode* mode_) {
             _ui_elements.clear();
             _data_display.reset(mode_);
         });
@@ -379,12 +376,6 @@ void main_ui::update_stat_display() {
 #endif
 }
 
-void main_ui::set_analizer(const set_analizer_event& e_) {
-    _analizer = e_.anal;
-    _ui_elements.lookup_info().smap = e_.smap;
-    _ui_elements.lookup_info().names = e_.names;
-}
-
 void main_ui::display_log_dir_select(display_log_dir_select_event) {
     //display_dir_select();
 }
@@ -392,8 +383,7 @@ void main_ui::display_log_dir_select(display_log_dir_select_event) {
 void main_ui::on_event(const any& v_) {
 #define do_handle_event(type,handler) handle_event<type>(v_,[=](const type& e_) { handler(e_); })
 #define do_handle_event_e(event_) do_handle_event(event_##_event,event_)
-    if ( !do_handle_event_e(display_log_dir_select)
-        && !do_handle_event_e(set_analizer) ) {
+    if ( !do_handle_event_e(display_log_dir_select) ) {
         post_event(v_);
     }
 }
@@ -711,8 +701,12 @@ void main_ui::on_stop() {
     _data_display.reset();
 }
 
-main_ui::main_ui(const std::wstring& log_path_,app& app_) : _app(app_) {
+main_ui::main_ui(const std::wstring& log_path_, app& app_, combat_analizer& c_anal_, string_to_id_string_map& s_map_, character_list& c_list_)
+    : _app(app_), _analizer(c_anal_) {
     _wnd.reset(new dialog(GetModuleHandleW(nullptr), MAKEINTRESOURCEW(IDD_MAIN_WINDOW), nullptr));
+
+    _ui_elements.lookup_info().smap = &s_map_;
+    _ui_elements.lookup_info().names = &c_list_;
 
     _ui_elements.mainui(this);
 
