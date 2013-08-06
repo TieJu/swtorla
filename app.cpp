@@ -754,7 +754,7 @@ void app::operator()() {
         _config.put(L"log.path", log_path);
     }
 
-    _ui.reset(new main_ui(log_path));
+    _ui.reset(new main_ui(log_path,this));
 
     _ui->reciver<set_log_dir_event>( [=](set_log_dir_event e_) {
         std::wstring str(e_.path);
@@ -822,4 +822,10 @@ void app::operator()() {
 
     while ( _ui->handle_os_events() ) {
     }
+}
+
+void app::set_log_dir(const wchar_t* path_) {
+    std::wstring str(path_);
+    BOOST_LOG_TRIVIAL(debug) << L"log path updated to " << str;
+    _config.put(L"log.path", str);
 }

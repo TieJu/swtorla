@@ -19,14 +19,6 @@
 
 struct quit_event {};
 
-struct set_log_dir_event {
-    wchar_t*        path;
-};
-
-struct get_log_dir_event {
-    std::wstring*   target;
-};
-
 struct display_log_dir_select_event {};
 
 struct start_tracking {

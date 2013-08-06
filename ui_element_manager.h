@@ -45,23 +45,6 @@ struct string_id_lookup {
 
 #define SKILL_BASE_ID 2000
 
-enum list_view_column {
-    lvc_name,
-    lvc_value,
-    lvc_perc,
-    lvc_applys,
-    lvc_misses,
-    lvc_absorbs,
-    lvc_crits,
-    lvc_misses_perc,
-    lvc_absorbs_perc,
-    lvc_crit_perc,
-    lvc_absorbs_value,
-    lvc_absorbs_value_perc,
-
-    lvc_max_coumns,
-};
-
 class ui_data_row {
     string_id_lookup                    _slookup;
     std::unique_ptr<window>             _name;
@@ -191,29 +174,6 @@ public:
     }
 };
 
-class ui_list_element {
-    string_id       _name;
-    std::wstring    _values[lvc_max_coumns];
-
-
-public:
-    ui_list_element(string_id name_) : _name(name_) {}
-    const std::wstring& value(unsigned index_) const {
-        return _values[index_];
-    }
-    void value(unsigned index_, std::wstring text_) {
-        _values[index_] = std::move(text_);
-    }
-
-    string_id name() const {
-        return _name;
-    }
-
-    void name(string_id name_) {
-        _name = name_;
-    }
-};
-
 
 template<typename MainUI>
 class ui_element_manager {
@@ -229,7 +189,6 @@ private:
     bool                                                _enable_solo;
     bool                                                _enable_raid;
     MainUI*                                             _main_ui;
-    std::vector<ui_list_element>                        _elements;
 
     void callback_for(const wchar_t* str) {
         auto at = _info_callbacks.find(str);
@@ -315,25 +274,6 @@ public:
                 auto link_info = reinterpret_cast<const NMLINK*>( lParam );
                 callback_for(link_info->item.szID);
                 callback_for(link_info->item.szUrl);
-            } else if(notify_info->idFrom == IDC_MAIN_DISPLAY_LIST) {
-                if ( notify_info->code == LVN_GETDISPINFO ) {
-                    auto plvdi = reinterpret_cast<NMLVDISPINFO*>( lParam );
-                    plvdi->item.pszText = const_cast<wchar_t*>(_elements[plvdi->item.iItem].value(plvdi->item.iSubItem).c_str());
-                } else if ( notify_info->code == NM_CLICK ) {
-                    auto lpnmitem = reinterpret_cast<NMITEMACTIVATE*>( lParam );
-                    if ( lpnmitem->iItem == -1 ) {
-                        LVHITTESTINFO info{};
-                        info.pt = lpnmitem->ptAction;
-                         ListView_SubItemHitTest(notify_info->hwndFrom, &info);
-                         lpnmitem->iItem = info.iItem;
-                         lpnmitem->iSubItem = info.iSubItem;
-                    }/*
-                    if ( lpnmitem->iItem != -1 ) {
-                        ::MessageBoxW(nullptr, ( _elements[lpnmitem->iItem].value(lvc_name) + L": " + _elements[lpnmitem->iItem].value(lpnmitem->iSubItem) ).c_str(), L"Item clicked", 0);
-                    } else {
-                        ::MessageBoxW(nullptr, L"But i can not find the selected onde...", L"Item clicked", 0);
-                    }*/
-                }
             }
         } else if ( WM_COMMAND == uMsg ) {
             auto id = LOWORD(wParam);
@@ -380,43 +320,5 @@ public:
 
     void info_callback(const std::wstring& name_, info_link_callback clb) {
         _info_callbacks[name_] = clb;
-    }
-
-    ui_list_element& list_view_element(string_id name_) {
-        auto at = std::find_if(begin(_elements), end(_elements), [=](const ui_list_element& e_) {
-            return e_.name() == name_;
-        });
-
-        if ( at == end(_elements) ) {
-            auto list_view = ::GetDlgItem(_parent, IDC_MAIN_DISPLAY_LIST);
-
-            auto item_id = std::distance(begin(_elements), at);
-            at = _elements.emplace(end(_elements), name_);
-            LVITEMW item{};
-
-            item.mask = LVIF_TEXT | LVIF_PARAM | LVIF_STATE;
-            item.iItem = item_id;
-            item.lParam = item_id * lvc_max_coumns;
-            item.pszText = LPSTR_TEXTCALLBACKW;
-            ListView_InsertItem(list_view, &item);
-
-            for ( size_t i = 1; i < lvc_max_coumns; ++i ) {
-                item.lParam = item_id * lvc_max_coumns + i;
-                item.iSubItem = i;
-                ListView_InsertItem(list_view, &item);
-            }
-
-            at->value(lvc_name, _slookup(name_));
-            for ( size_t i = 1; i < lvc_max_coumns; ++i ) {
-                at->value(i, L"0");
-            }
-        }
-
-        return *at;
-    }
-
-    void update_list_view() {
-        ListView_RedrawItems(::GetDlgItem(_parent, IDC_MAIN_DISPLAY_LIST), 0, _elements.size());
-        UpdateWindow(::GetDlgItem(_parent, IDC_MAIN_DISPLAY_LIST));
     }
 };

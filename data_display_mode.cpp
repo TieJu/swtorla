@@ -79,24 +79,9 @@ void data_display_entity_dmg_done::update_display(combat_analizer& analizer_, ui
             display->_minion_name = _minion_name;
             clb(display);
         });
-
-        auto& view = ui_element_manager_.list_view_element(dmg_row.ability);
-        view.value(lvc_value, std::to_wstring(dmg_row.effect_value));
-        view.value(lvc_perc, std::to_wstring(double( dmg_row.effect_value ) / total_damage * 100.0));
-        view.value(lvc_applys, std::to_wstring(dmg_row.hits));
-        view.value(lvc_misses, std::to_wstring(dmg_row.misses));
-        view.value(lvc_crits, std::to_wstring(dmg_row.crits));
-        view.value(lvc_misses_perc, std::to_wstring(double(dmg_row.misses) / dmg_row.hits * 100.0));
-        view.value(lvc_crit_perc, std::to_wstring(double(dmg_row.crits) / dmg_row.hits * 100.0));
-        /*
-        lvc_absorbs,
-        lvc_absorbs_perc,
-        lvc_absorbs_value,
-        lvc_absorbs_value_perc,*/
     }
 
     ui_element_manager_.show_only_num_rows(player_damage.size());
-    ui_element_manager_.update_list_view();
 
 
     auto dps = ( double( total_damage ) / epleased ) * 1000.0;

@@ -1,5 +1,6 @@
 #include "main_ui.h"
 
+#include "app.h"
 
 #include <sstream>
 #include <boost/scope_exit.hpp>
@@ -613,6 +614,7 @@ void main_ui::display_dir_select(HWND edit_) {
         wchar_t path_buffer[MAX_PATH * 2]{};
 
         if ( SHGetPathFromIDListW(pidlFolder, path_buffer) ) {
+            _app.set_log_dir(path_buffer);
             invoke_event_handlers(set_log_dir_event{ path_buffer });
             ::SetWindowTextW(edit_, path_buffer);
         }
@@ -719,7 +721,7 @@ void main_ui::on_stop() {
     _data_display.reset();
 }
 
-main_ui::main_ui(const std::wstring& log_path_) {
+main_ui::main_ui(const std::wstring& log_path_,app& app_) : _app(app_) {
     _wnd.reset(new dialog(GetModuleHandleW(nullptr), MAKEINTRESOURCEW(IDD_MAIN_WINDOW), nullptr));
 
     _ui_elements.mainui(this);
@@ -733,27 +735,7 @@ main_ui::main_ui(const std::wstring& log_path_) {
     auto icon = ::LoadIconW(GetModuleHandleW(nullptr), MAKEINTRESOURCEW(IDI_ICON1));
     ::SendMessageW(_wnd->native_handle(), WM_SETICON, ICON_BIG, (LPARAM)icon);
     ::SendMessageW(_wnd->native_handle(), WM_SETICON, ICON_SMALL, (LPARAM)icon);
-
-    auto list_view = ::GetDlgItem(_wnd->native_handle(), IDC_MAIN_DISPLAY_LIST);
-    //::ShowWindow(list_view, SW_HIDE);
-    //::EnableWindow(list_view, FALSE);
-
-    LVCOLUMNW col{};
-
-    col.mask = LVCF_WIDTH | LVCF_TEXT | LVCF_FMT | LVCF_SUBITEM;
-    col.fmt = LVCFMT_LEFT;
-    col.cx = 100;
-
-    const wchar_t* ColumnNames[lvc_max_coumns] =
-    { L"Name", L"Value", L"%", L"Uses", L"Misses", L"Absorbs", L"Crits", L"Misses %", L"Absorbs %", L"Crit %", L"Absorbed", L"Absorbed %" };
-
-    for ( size_t i = 0; i < lvc_max_coumns; ++i ) {
-        col.pszText = const_cast<wchar_t*>(ColumnNames[i]);
-        col.iSubItem = i;
-        col.iOrder = i;
-        ListView_InsertColumn(list_view, i, &col);
-    }
-
+    
     _wnd->callback([=](dialog* window_, UINT uMsg, WPARAM wParam, LPARAM lParam) -> LRESULT {
         return os_callback_handler(window_, uMsg, wParam, lParam);
     });

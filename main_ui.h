@@ -17,6 +17,8 @@ struct set_analizer_event {
     character_list*             names;
 };
 
+class app;
+
 class main_ui
 : public ui_base {
     friend class ui_element_manager<main_ui>;
@@ -28,6 +30,7 @@ class main_ui
     UINT_PTR                                        _timer;
     combat_analizer*                                _analizer;
     string_id                                       _player_id;
+    app&                                            _app;
 
     HWND post_param() {
         return _wnd->native_window_handle();
@@ -62,7 +65,7 @@ protected:
     void on_stop();
 
 public:
-    main_ui(const std::wstring& log_path_);
+    main_ui(const std::wstring& log_path_,app& app_);
     virtual ~main_ui();
 
     void update_main_player(string_id player_id_) {
