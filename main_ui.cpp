@@ -1,6 +1,5 @@
-#include "main_ui.h"
-
 #include "app.h"
+#include "main_ui.h"
 
 #include <sstream>
 #include <boost/scope_exit.hpp>
@@ -29,8 +28,7 @@ bool main_ui::show_options_dlg() {
         return options_dlg_handler(dlg_, msg_, w_param_, l_param_);
     });
 
-    program_config cfg;
-    invoke_event_handlers(get_program_config_event{ &cfg });
+    auto cfg = _app.get_program_config();
 
     auto path_edit = ::GetDlgItem(options.native_handle(), IDC_OPTIONS_COMBAT_LOG);
     ::SetWindowTextW(path_edit, cfg.log_path.c_str());
@@ -80,19 +78,23 @@ bool main_ui::show_options_dlg() {
     return do_restart;
 }
 
-void main_ui::gather_options_state(dialog* dlg_, program_config& cfg_) {
+program_config main_ui::gather_options_state(dialog* dlg_) {
+    program_config cfg;
+
     auto path_edit = ::GetDlgItem(dlg_->native_handle(), IDC_OPTIONS_COMBAT_LOG);
-    cfg_.log_path.resize(::GetWindowTextLengthW(path_edit), L' ');
-    ::GetWindowTextW(path_edit, const_cast<wchar_t*>( cfg_.log_path.c_str() ), cfg_.log_path.length() + 1);
+    cfg.log_path.resize(::GetWindowTextLengthW(path_edit), L' ');
+    ::GetWindowTextW(path_edit, const_cast<wchar_t*>( cfg.log_path.c_str() ), cfg.log_path.length() + 1);
 
     auto auto_update = ::GetDlgItem(dlg_->native_handle(), IDC_OPTIONS_AUTO_UPDATE);
-    cfg_.check_for_updates = BST_CHECKED == ::SendMessageW(auto_update, BM_GETCHECK, 0, 0);
+    cfg.check_for_updates = BST_CHECKED == ::SendMessageW(auto_update, BM_GETCHECK, 0, 0);
 
     auto update_info = ::GetDlgItem(dlg_->native_handle(), IDC_OPTIONS_SHOW_UPDATE_INFO);
-    cfg_.show_update_info = BST_CHECKED == ::SendMessageW(update_info, BM_GETCHECK, 0, 0);
+    cfg.show_update_info = BST_CHECKED == ::SendMessageW(update_info, BM_GETCHECK, 0, 0);
 
     auto debug_level = ::GetDlgItem(dlg_->native_handle(), IDC_OPTIONS_DEBUG_LEVEL);
-    cfg_.log_level = ::SendMessageW(debug_level, CB_GETCURSEL, 0, 0);
+    cfg.log_level = ::SendMessageW(debug_level, CB_GETCURSEL, 0, 0);
+
+    return cfg;
 }
 
 INT_PTR main_ui::options_dlg_handler(dialog* dlg_, UINT msg_, WPARAM w_param_, LPARAM l_param_) {
@@ -114,18 +116,10 @@ INT_PTR main_ui::options_dlg_handler(dialog* dlg_, UINT msg_, WPARAM w_param_, L
                 invoke_event_handlers(check_update_event{ &_update_state });
                 break;
             case IDC_OPTIONS_APPLY:
-                {
-                    program_config cfg;
-                    gather_options_state(dlg_, cfg);
-                    invoke_event_handlers( set_program_config_event{ cfg } );
-                }
+                _app.set_program_config(gather_options_state(dlg_));
                 break;
             case IDC_OPTIONS_OK:
-                {
-                    program_config cfg;
-                    gather_options_state(dlg_, cfg);
-                    invoke_event_handlers( set_program_config_event{ cfg } );
-                }
+                _app.set_program_config(gather_options_state(dlg_));
             case IDC_OPTIONS_CANCEL:
                 ::PostQuitMessage(0);
                 break;
@@ -615,7 +609,6 @@ void main_ui::display_dir_select(HWND edit_) {
 
         if ( SHGetPathFromIDListW(pidlFolder, path_buffer) ) {
             _app.set_log_dir(path_buffer);
-            invoke_event_handlers(set_log_dir_event{ path_buffer });
             ::SetWindowTextW(edit_, path_buffer);
         }
     }

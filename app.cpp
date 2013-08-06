@@ -748,32 +748,7 @@ void app::operator()() {
         }
     }
 
-    auto log_path = _config.get<std::wstring>( L"log.path", L"" );
-    if ( log_path.empty() ) {
-        log_path = find_swtor_log_path();
-        _config.put(L"log.path", log_path);
-    }
-
-    _ui.reset(new main_ui(log_path,this));
-
-    _ui->reciver<set_log_dir_event>( [=](set_log_dir_event e_) {
-        std::wstring str(e_.path);
-        BOOST_LOG_TRIVIAL(debug) << L"log path updated to " << str;
-        _config.put(L"log.path", str);
-    } );
-
-    _ui->reciver<get_log_dir_event>( [=](get_log_dir_event e_) {
-        *e_.target = _config.get<std::wstring>( L"log.path", L"" );
-        if ( e_.target->empty() ) {
-            BOOST_LOG_TRIVIAL(debug) << L"swtor log path is empty, trying to find it";
-            *e_.target = find_swtor_log_path();
-            if ( e_.target->empty() ) {
-                BOOST_LOG_TRIVIAL(debug) << L"unable to locate swtor log path, loging ingame enabled?";
-            } else {
-                BOOST_LOG_TRIVIAL(debug) << L"swtor log path located at " << *e_.target;
-            }
-        }
-    } );
+    _ui.reset(new main_ui(get_log_dir(), *this));
 
     _ui->reciver<start_tracking>( [=](start_tracking e_) {
         *e_.ok = true;
@@ -796,23 +771,6 @@ void app::operator()() {
         *e_.ver = _version;
     } );
 
-    _ui->reciver<get_program_config_event>( [=](get_program_config_event e_) {
-        e_.cfg->check_for_updates = _config.get<bool>( L"update.auto_check", true );
-        e_.cfg->show_update_info = _config.get<bool>( L"update.show_info", true );
-        e_.cfg->log_level = _config.get<int>( L"app.log.level", 4 );
-        e_.cfg->log_path = _config.get<std::wstring>( L"log.path", L"" );
-    } );
-
-    _ui->reciver<set_program_config_event>( [=](const set_program_config_event& e_) {
-        _config.put(L"update.auto_check", e_.cfg.check_for_updates);
-        _config.put(L"update.show_info", e_.cfg.show_update_info);
-        _config.put(L"app.log.level", e_.cfg.log_level);
-        _config.put(L"log.path", e_.cfg.log_path);
-        write_config(_config_path);
-
-        setup_from_config();
-    } );
-
     _ui->reciver<check_update_event>( [=](check_update_event e_) {
         *e_.target = std::move(run_update());
     } );
@@ -828,4 +786,38 @@ void app::set_log_dir(const wchar_t* path_) {
     std::wstring str(path_);
     BOOST_LOG_TRIVIAL(debug) << L"log path updated to " << str;
     _config.put(L"log.path", str);
+}
+
+std::wstring app::get_log_dir() {
+    auto path = _config.get<std::wstring>( L"log.path", L"" );
+    if ( path.empty() ) {
+        BOOST_LOG_TRIVIAL(debug) << L"swtor log path is empty, trying to find it";
+        path = find_swtor_log_path();
+        if ( path.empty() ) {
+            BOOST_LOG_TRIVIAL(debug) << L"unable to locate swtor log path, loging ingame enabled?";
+        } else {
+            BOOST_LOG_TRIVIAL(debug) << L"swtor log path located at " << path;
+        }
+    }
+    return path;
+}
+
+void app::set_program_config(const program_config& cfg_) {
+    _config.put(L"update.auto_check", cfg_.check_for_updates);
+    _config.put(L"update.show_info", cfg_.show_update_info);
+    _config.put(L"app.log.level", cfg_.log_level);
+    _config.put(L"log.path", cfg_.log_path);
+    write_config(_config_path);
+
+    setup_from_config();
+}
+program_config app::get_program_config() {
+    program_config cfg;
+
+    cfg.check_for_updates = _config.get<bool>( L"update.auto_check", true );
+    cfg.show_update_info = _config.get<bool>( L"update.show_info", true );
+    cfg.log_level = _config.get<int>( L"app.log.level", 4 );
+    cfg.log_path = _config.get<std::wstring>( L"log.path", L"" );
+
+    return cfg;
 }

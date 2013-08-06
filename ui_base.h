@@ -44,14 +44,6 @@ struct program_config {
     int             log_level;
 };
 
-struct get_program_config_event {
-    program_config* cfg;
-};
-
-struct set_program_config_event {
-    program_config cfg; // for some fucking reason, destructing this will crash...
-};
-
 struct check_update_event {
     std::future<bool>*  target;
 };

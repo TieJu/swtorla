@@ -37,7 +37,7 @@ class main_ui
     }
 
     bool show_options_dlg();
-    void gather_options_state(dialog* dlg_, program_config& cfg_);
+    program_config gather_options_state(dialog* dlg_);
     INT_PTR options_dlg_handler(dialog* dlg_, UINT msg_, WPARAM w_param_, LPARAM l_param_);
     void show_about_dlg();
     INT_PTR about_dlg_handler(dialog* dlg_, UINT msg_, WPARAM w_param_, LPARAM l_param_);

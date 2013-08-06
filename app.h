@@ -70,5 +70,7 @@ protected:
     friend class main_ui;
     void set_log_dir(const wchar_t* path_);
     std::wstring get_log_dir();
+    void set_program_config(const program_config& cfg_);
+    program_config get_program_config();
 };
 
