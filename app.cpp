@@ -767,10 +767,6 @@ void app::operator()() {
         _log_reader.stop();
     } );
 
-    _ui->reciver<get_program_version_event>( [=](get_program_version_event e_) {
-        *e_.ver = _version;
-    } );
-
     _ui->reciver<check_update_event>( [=](check_update_event e_) {
         *e_.target = std::move(run_update());
     } );
@@ -811,6 +807,7 @@ void app::set_program_config(const program_config& cfg_) {
 
     setup_from_config();
 }
+
 program_config app::get_program_config() {
     program_config cfg;
 
@@ -820,4 +817,8 @@ program_config app::get_program_config() {
     cfg.log_path = _config.get<std::wstring>( L"log.path", L"" );
 
     return cfg;
+}
+
+program_version app::get_program_version() {
+    return _version;
 }

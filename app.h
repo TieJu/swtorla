@@ -72,5 +72,6 @@ protected:
     std::wstring get_log_dir();
     void set_program_config(const program_config& cfg_);
     program_config get_program_config();
+    program_version get_program_version();
 };
 

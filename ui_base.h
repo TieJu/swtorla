@@ -21,20 +21,12 @@ struct quit_event {};
 
 struct display_log_dir_select_event {};
 
-struct start_tracking {
-    bool* ok;
-};
-struct stop_tracking {};
 
 struct program_version {
     int     major;
     int     minor;
     int     patch;
     int     build;
-};
-
-struct get_program_version_event {
-    program_version*    ver;
 };
 
 struct program_config {

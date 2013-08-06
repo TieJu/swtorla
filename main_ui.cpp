@@ -141,8 +141,7 @@ void main_ui::show_about_dlg() {
         return about_dlg_handler(dlg_, msg_, w_param_, l_param_);
     });
 
-    program_version version_num;
-    invoke_event_handlers(get_program_version_event{ &version_num });
+    auto version_num = _app.get_program_version();
 
     std::wstringstream verstr;
     verstr << version_num.major << L"." << version_num.minor << L"." << version_num.patch << " Build " << version_num.build;
