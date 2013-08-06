@@ -73,5 +73,7 @@ protected:
     void set_program_config(const program_config& cfg_);
     program_config get_program_config();
     program_version get_program_version();
+    bool start_tracking();
+    void stop_tracking();
 };
 

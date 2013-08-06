@@ -688,8 +688,7 @@ LRESULT main_ui::os_callback_handler(dialog* window_, UINT uMsg, WPARAM wParam, 
 }
 
 void main_ui::on_start_solo() {
-    bool ok = false;
-    invoke_event_handlers(start_tracking{ &ok });
+    auto ok = _app.start_tracking();
     if ( ok ) {
         _timer = SetTimer(_wnd->native_window_handle(), _timer, 1000, nullptr);
         auto itfc = new data_display_entity_dmg_done;
@@ -705,8 +704,7 @@ void main_ui::on_start_raid() {
 }
 
 void main_ui::on_stop() {
-    invoke_event_handlers(stop_tracking
-    {});
+    _app.stop_tracking();
     KillTimer(_wnd->native_window_handle(), _timer);
     _ui_elements.enable_stop(false);
     _ui_elements.clear();

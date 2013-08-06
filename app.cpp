@@ -750,23 +750,6 @@ void app::operator()() {
 
     _ui.reset(new main_ui(get_log_dir(), *this));
 
-    _ui->reciver<start_tracking>( [=](start_tracking e_) {
-        *e_.ok = true;
-        auto log_path = _config.get<std::wstring>( L"log.path", L"" );
-        _dir_watcher.reset(new dir_watcher(log_path));
-        _dir_watcher->add_handler([=](const std::wstring& file_) {
-            _log_reader.stop();
-            _log_reader.start(log_path + L"\\" + file_);
-        });
-        auto file = find_path_for_lates_log_file(log_path);
-        _log_reader.start(file);
-    } );
-
-    _ui->reciver<stop_tracking>( [=](stop_tracking) {
-        _dir_watcher.reset();
-        _log_reader.stop();
-    } );
-
     _ui->reciver<check_update_event>( [=](check_update_event e_) {
         *e_.target = std::move(run_update());
     } );
@@ -821,4 +804,21 @@ program_config app::get_program_config() {
 
 program_version app::get_program_version() {
     return _version;
+}
+
+bool app::start_tracking() {
+    auto log_path = _config.get<std::wstring>( L"log.path", L"" );
+    _dir_watcher.reset(new dir_watcher(log_path));
+    _dir_watcher->add_handler([=](const std::wstring& file_) {
+        _log_reader.stop();
+        _log_reader.start(log_path + L"\\" + file_);
+    });
+    auto file = find_path_for_lates_log_file(log_path);
+    _log_reader.start(file);
+    return true;
+}
+
+void app::stop_tracking() {
+    _dir_watcher.reset();
+    _log_reader.stop();
 }
