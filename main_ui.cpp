@@ -661,18 +661,18 @@ LRESULT main_ui::os_callback_handler(dialog* window_, UINT uMsg, WPARAM wParam, 
         case IDC_MAIN_DISPLAY_MODE:
             if ( code == CBN_SELCHANGE ) {
                 auto index = ::SendMessageW(::GetDlgItem(window_->native_handle(), IDC_MAIN_DISPLAY_MODE), CB_GETCURSEL, 0, 0);
-                if ( index == 0 ) {
-                    auto itfc = new data_display_entity_dmg_done;
-                    itfc->_entity_name = &_player_id;
-                    itfc->_minion_name = string_id(-1);
-                    itfc->_last_update = std::chrono::high_resolution_clock::now();
-                    _data_display.reset(itfc);
-                } else if ( index == 1 ) {
-                    auto itfc = new data_display_entity_healing_done;
-                    itfc->_entity_name = &_player_id;
-                    itfc->_minion_name = string_id(-1);
-                    itfc->_last_update = std::chrono::high_resolution_clock::now();
-                    _data_display.reset(itfc);
+                if ( _data_display ) {
+                    if ( index == 0 ) {
+                        auto itfc = new data_display_entity_dmg_done;
+                        itfc->_entity_name = &_player_id;
+                        itfc->_minion_name = string_id(-1);
+                        _data_display.reset(itfc);
+                    } else if ( index == 1 ) {
+                        auto itfc = new data_display_entity_healing_done;
+                        itfc->_entity_name = &_player_id;
+                        itfc->_minion_name = string_id(-1);
+                        _data_display.reset(itfc);
+                    }
                 }
             }
             break;
@@ -696,13 +696,11 @@ void main_ui::on_start_solo() {
             auto itfc = new data_display_entity_dmg_done;
             itfc->_entity_name = &_player_id;
             itfc->_minion_name = string_id(-1);
-            itfc->_last_update = std::chrono::high_resolution_clock::now();
             _data_display.reset(itfc);
         } else if ( index == 1 ) {
             auto itfc = new data_display_entity_healing_done;
             itfc->_entity_name = &_player_id;
             itfc->_minion_name = string_id(-1);
-            itfc->_last_update = std::chrono::high_resolution_clock::now();
             _data_display.reset(itfc);
         }
     }
