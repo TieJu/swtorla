@@ -113,7 +113,7 @@ INT_PTR main_ui::options_dlg_handler(dialog* dlg_, UINT msg_, WPARAM w_param_, L
                 display_dir_select(::GetDlgItem(dlg_->native_handle(), IDC_OPTIONS_COMBAT_LOG));
                 break;
             case IDC_OPTIONS_UPDATE_NOW:
-                invoke_event_handlers(check_update_event{ &_update_state });
+                _update_state = _app.check_for_updates();
                 break;
             case IDC_OPTIONS_APPLY:
                 _app.set_program_config(gather_options_state(dlg_));

@@ -750,10 +750,6 @@ void app::operator()() {
 
     _ui.reset(new main_ui(get_log_dir(), *this, _analizer, _string_map, _char_list));
 
-    _ui->reciver<check_update_event>( [=](check_update_event e_) {
-        *e_.target = std::move(run_update());
-    } );
-
     while ( _ui->handle_os_events() ) {
     }
 }
@@ -818,4 +814,8 @@ bool app::start_tracking() {
 void app::stop_tracking() {
     _dir_watcher.reset();
     _log_reader.stop();
+}
+
+std::future<bool> app::check_for_updates() {
+    return run_update();
 }

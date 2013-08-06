@@ -75,5 +75,6 @@ protected:
     program_version get_program_version();
     bool start_tracking();
     void stop_tracking();
+    std::future<bool> check_for_updates();
 };
 

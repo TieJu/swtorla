@@ -36,10 +36,6 @@ struct program_config {
     int             log_level;
 };
 
-struct check_update_event {
-    std::future<bool>*  target;
-};
-
 class ui_base
 : protected win32_event_queue<ui_base, 128>
 , protected event_router<128> {
