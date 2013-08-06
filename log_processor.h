@@ -31,27 +31,49 @@ struct close_log_event {
 
 };
 
-class log_processor
-: public event_thread<log_processor> {
+class log_processor {
     enum {
-        buffer_size = 1024 * 8,
-        overlapped_min_wait_ms = 250,
-        overlapped_max_wait_ms = 5000,
+        buffer_size             = 1024 * 8,
+        overlapped_min_wait_ms  = 250,
+        overlapped_max_wait_ms  = 5000,
     };
+    enum class state {
+        sleep,
+        processing,
+        open_file,
+        shutdown,
+    };
+    std::thread                                 _thread;
     handle_wrap<HANDLE, INVALID_HANDLE_VALUE>   _file_handle;
     std::array<std::array<char, buffer_size>, 2>_buffer;
     string_to_id_string_map*                    _string_map;
     character_list*                             _char_list;
-    bool                                        _stop;
     std::function<void(const combat_log_entry&)>_entry_processor;
+    std::wstring                                _path;
+    state                                       _next_state;
+    std::mutex                                  _sleep_mutex;
+    std::condition_variable                     _sleep_signal;
+
 
     friend class event_thread<log_processor>;
 
-    void on_unhandled_event(const any& a_) {}
-    void on_stop_thread(stop_thread_event);
-    void on_open_log(const open_log_event& e_);
-    void on_close_log(close_log_event);
-    void handle_event(const any& a_);
+    template<class Rep, class Period>
+    state wait_for(state state_, const std::chrono::duration<Rep, Period>& rel_time_) {
+        std::unique_lock<std::mutex> lock(_sleep_mutex);
+        while ( state_ == _next_state ) {
+            if ( std::cv_status::timeout == _sleep_signal.wait_for(lock, rel_time_) )  {
+                break;
+            }
+        }
+
+        state_ = _next_state;
+
+        return _next_state;
+    }
+    state wait(state state_);
+    void wake();
+
+    void open_log(const std::wstring& path_);
     char* process_bytes(char* from_, char* to_);
 
 protected:

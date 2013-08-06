@@ -23,12 +23,25 @@
 #undef max
 #endif
 
-void log_processor::on_stop_thread(stop_thread_event) {
+
+log_processor::state log_processor::wait(state state_) {
+    std::unique_lock<std::mutex> lock(_sleep_mutex);
+    while ( state_ == _next_state ) {
+        _sleep_signal.wait( lock );
+    }
+
+    state_ = _next_state;
+
+    return _next_state;
 }
 
-void log_processor::on_open_log(const open_log_event& e_) {
-    BOOST_LOG_TRIVIAL(debug) << L"[log_processor] reading file " << e_.path;
-    _file_handle.reset(::CreateFileW(e_.path.c_str()
+void log_processor::wake() {
+    _sleep_signal.notify_all();
+}
+
+void log_processor::open_log(const std::wstring& path_) {
+    BOOST_LOG_TRIVIAL(debug) << L"[log_processor] reading file " << path_;
+    _file_handle.reset(::CreateFileW(path_.c_str()
                                     , GENERIC_READ
                                     , FILE_SHARE_READ | FILE_SHARE_WRITE
                                     , nullptr
@@ -36,22 +49,6 @@ void log_processor::on_open_log(const open_log_event& e_) {
                                     , 0//FILE_FLAG_OVERLAPPED// | FILE_FLAG_SEQUENTIAL_SCAN
                                     , nullptr)
                       , [](HANDLE file_) { ::CloseHandle(file_); });
-    _stop = false;
-}
-void log_processor::on_close_log(close_log_event) {
-    BOOST_LOG_TRIVIAL(debug) << L"[log_processor] file closed";
-    _stop = true;
-    _file_handle.reset();
-}
-
-void log_processor::handle_event(const any& a_) {
-#define do_handle_event(type_,handler_) do_handle_event<type_>(a_,[=](const type_& e_) { handler_(e_); })
-#define do_handle_event_e(event_) do_handle_event(event_##_event,on_##event_)
-    if ( !do_handle_event_e(close_log)
-      && !do_handle_event_e(open_log)
-      && !do_handle_event_e(stop_thread) ) {
-        on_unhandled_event(a_);
-    }
 }
 
 char* log_processor::process_bytes(char* from_, char* to_) {
@@ -81,51 +78,74 @@ char* log_processor::process_bytes(char* from_, char* to_) {
 }
 
 void log_processor::run() {
-    if ( _stop ) {
-        get_events(( HWND ) - 1, 0, 0, [=](const MSG& msg) { return msg.message != APP_EVENT; });
-    } else {
-        peek_events(( HWND ) - 1);
-    }
+    state t_state = state::sleep;
+    auto wait_ms = std::chrono::microseconds(overlapped_min_wait_ms);
+
     std::array<char, 1024 * 4> read_buffer;
     DWORD bytes_read;
     char* from = read_buffer.data();
     char* to = from + read_buffer.size();
-    DWORD wait_ms = overlapped_min_wait_ms;
-    
-    while ( !_stop ) {
-        if ( ::ReadFile(*_file_handle, from, to - from, &bytes_read, nullptr) ) {
-            //BOOST_LOG_TRIVIAL(debug) << L"[log_processor] read compledet, got " << bytes_read << " bytes read";
-            if ( bytes_read > 0 ) {
-                wait_ms = std::max<DWORD>( wait_ms >> 1, overlapped_min_wait_ms );
-                from = process_bytes(read_buffer.data(), from + bytes_read);
-            } else {
-                peek_events(( HWND ) - 1);
-                ::Sleep(wait_ms);
-                wait_ms = std::min<DWORD>( wait_ms + wait_ms, overlapped_max_wait_ms );
-            }
+
+    for ( ;; ) {
+        if ( t_state == state::sleep ) {
+            _file_handle.reset();
+            t_state = wait(t_state);
         } else {
-            if ( ERROR_HANDLE_EOF != GetLastError() ) {
+            t_state = wait_for(t_state, wait_ms);
+            wait_ms = std::min(wait_ms + wait_ms, std::chrono::microseconds(overlapped_max_wait_ms));
+        }
+
+        if ( t_state == state::shutdown ) {
+            break;
+        }
+
+        if ( t_state == state::open_file ) {
+            std::lock_guard<std::mutex> lock(_sleep_mutex);
+            open_log(_path);
+            _next_state = state::processing;
+        }
+
+        if ( t_state == state::processing ) {
+            for ( ;; ) {
+                if ( ::ReadFile(*_file_handle, from, to - from, &bytes_read, nullptr) ) {
+                    //BOOST_LOG_TRIVIAL(debug) << L"[log_processor] read compledet, got " << bytes_read << " bytes read";
+                    if ( bytes_read > 0 ) {
+                        wait_ms = std::max(wait_ms / 2, std::chrono::microseconds(overlapped_min_wait_ms));
+                        from = process_bytes(read_buffer.data(), from + bytes_read);
+                        continue;
+                    }
+                }
+
+                wait_ms = std::min(wait_ms + wait_ms, std::chrono::microseconds(overlapped_max_wait_ms));
                 break;
             }
         }
-        peek_events(( HWND ) - 1);
     }
-
-    
 }
 
 log_processor::log_processor() {
-    _stop = true;
+    _next_state = state::sleep;
+    _thread = std::thread([=]() {
+        run();
+    });
 }
 
 log_processor::~log_processor() {
     stop();
+    _next_state = state::shutdown;
+    wake();
+    _thread.join();
 }
 
 void log_processor::start(const std::wstring& path) {
-    post_event(open_log_event{ path });
+    std::lock_guard<std::mutex> lock(_sleep_mutex);
+    _path = path;
+    _next_state = state::open_file;
+    wake();
 }
 
 void log_processor::stop() {
-    post_event(close_log_event{});
+    std::lock_guard<std::mutex> lock(_sleep_mutex);
+    _next_state = state::sleep;
+    wake();
 }

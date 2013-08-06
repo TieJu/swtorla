@@ -11,6 +11,7 @@
 #include <Windows.h>
 
 #include "win32_event_queue.h"
+#include "event_queue.h"
 
 struct stop_thread_event {};
 
@@ -46,8 +47,8 @@ protected:
         return _thread_id;
     }
     
-    void on_event(const any& v_) {
-        static_cast<Derived*>( this )->handle_event(v_);
+    bool on_event(const any& v_) {
+        return static_cast<Derived*>( this )->handle_event(v_);
     }
     event_thread() : _thread_id(0) {
         _thread = std::thread([=]() {
