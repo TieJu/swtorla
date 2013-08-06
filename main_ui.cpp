@@ -383,7 +383,7 @@ void main_ui::on_event(const any& v_) {
 bool main_ui::handle_os_events() {
     MSG msg
     {};
-    if ( GetMessageW(&msg, _wnd->native_window_handle(), 0, 0) ) {
+    if ( GetMessageW(&msg, nullptr, 0, 0) ) {
         TranslateMessage(&msg);
         DispatchMessage(&msg);
         return true;
@@ -658,6 +658,24 @@ LRESULT main_ui::os_callback_handler(dialog* window_, UINT uMsg, WPARAM wParam, 
         case ID_FILE_EXIT:
             ::PostQuitMessage(0);
             break;
+        case IDC_MAIN_DISPLAY_MODE:
+            if ( code == CBN_SELCHANGE ) {
+                auto index = ::SendMessageW(::GetDlgItem(window_->native_handle(), IDC_MAIN_DISPLAY_MODE), CB_GETCURSEL, 0, 0);
+                if ( index == 0 ) {
+                    auto itfc = new data_display_entity_dmg_done;
+                    itfc->_entity_name = &_player_id;
+                    itfc->_minion_name = string_id(-1);
+                    itfc->_last_update = std::chrono::high_resolution_clock::now();
+                    _data_display.reset(itfc);
+                } else if ( index == 1 ) {
+                    auto itfc = new data_display_entity_healing_done;
+                    itfc->_entity_name = &_player_id;
+                    itfc->_minion_name = string_id(-1);
+                    itfc->_last_update = std::chrono::high_resolution_clock::now();
+                    _data_display.reset(itfc);
+                }
+            }
+            break;
         }
     } else if ( uMsg == WM_TIMER ) {
         //if ( wParam == _timer ) {
@@ -673,11 +691,20 @@ void main_ui::on_start_solo() {
     auto ok = _app.start_tracking();
     if ( ok ) {
         _timer = SetTimer(_wnd->native_window_handle(), _timer, 1000, nullptr);
-        auto itfc = new data_display_entity_dmg_done;
-        itfc->_entity_name = &_player_id;
-        itfc->_minion_name = string_id(-1);
-        itfc->_last_update = std::chrono::high_resolution_clock::now();
-        _data_display.reset(itfc);
+        auto index = ::SendMessageW(::GetDlgItem(_wnd->native_handle(), IDC_MAIN_DISPLAY_MODE), CB_GETCURSEL, 0, 0);
+        if ( index == 0 ) {
+            auto itfc = new data_display_entity_dmg_done;
+            itfc->_entity_name = &_player_id;
+            itfc->_minion_name = string_id(-1);
+            itfc->_last_update = std::chrono::high_resolution_clock::now();
+            _data_display.reset(itfc);
+        } else if ( index == 1 ) {
+            auto itfc = new data_display_entity_healing_done;
+            itfc->_entity_name = &_player_id;
+            itfc->_minion_name = string_id(-1);
+            itfc->_last_update = std::chrono::high_resolution_clock::now();
+            _data_display.reset(itfc);
+        }
     }
 }
 
@@ -715,6 +742,11 @@ main_ui::main_ui(const std::wstring& log_path_, app& app_, combat_analizer& c_an
     _wnd->callback([=](dialog* window_, UINT uMsg, WPARAM wParam, LPARAM lParam) -> LRESULT {
         return os_callback_handler(window_, uMsg, wParam, lParam);
     });
+
+    auto display_mode = ::GetDlgItem(_wnd->native_handle(), IDC_MAIN_DISPLAY_MODE);
+    ::SendMessageW(display_mode, CB_ADDSTRING, 0, (LPARAM)L"Damage");
+    ::SendMessageW(display_mode, CB_ADDSTRING, 0, (LPARAM)L"Healing");
+    ::SendMessageW(display_mode, CB_SETCURSEL, 0, 0);
 }
 
 main_ui::~main_ui() {

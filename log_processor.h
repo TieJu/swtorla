@@ -19,23 +19,11 @@
 
 #include "event_thread.h"
 
-struct combat_log_entry_event {
-    combat_log_entry    entry;
-};
-
-struct open_log_event {
-    std::wstring        path;
-};
-
-struct close_log_event {
-
-};
-
 class log_processor {
     enum {
         buffer_size             = 1024 * 8,
         overlapped_min_wait_ms  = 250,
-        overlapped_max_wait_ms  = 5000,
+        overlapped_max_wait_ms  = 2500,
     };
     enum class state {
         sleep,
@@ -58,18 +46,7 @@ class log_processor {
     friend class event_thread<log_processor>;
 
     template<class Rep, class Period>
-    state wait_for(state state_, const std::chrono::duration<Rep, Period>& rel_time_) {
-        std::unique_lock<std::mutex> lock(_sleep_mutex);
-        while ( state_ == _next_state ) {
-            if ( std::cv_status::timeout == _sleep_signal.wait_for(lock, rel_time_) )  {
-                break;
-            }
-        }
-
-        state_ = _next_state;
-
-        return _next_state;
-    }
+    state wait_for(state state_, const std::chrono::duration<Rep, Period>& rel_time_);
     state wait(state state_);
     void wake();
 

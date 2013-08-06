@@ -28,7 +28,9 @@ struct data_display_entity_base : public data_display_mode {
 struct data_display_entity_dmg_done : public data_display_entity_base {
     virtual void update_display(combat_analizer& analizer_, ui_element_manager<main_ui>& ui_element_manager_, change_display_mode_callback clb) override;
 };
-struct data_display_entity_healing_done : public data_display_entity_base {};
+struct data_display_entity_healing_done : public data_display_entity_base {
+    virtual void update_display(combat_analizer& analizer_, ui_element_manager<main_ui>& ui_element_manager_, change_display_mode_callback clb) override;
+};
 struct data_display_entity_dmg_recived : public data_display_entity_base {};
 struct data_display_entity_healing_recived : public data_display_entity_base {};
 
@@ -40,4 +42,6 @@ struct data_display_entity_skill_dmg_done : public data_display_entity_skill_bas
     virtual void update_display(combat_analizer& analizer_, ui_element_manager<main_ui>& ui_element_manager_, change_display_mode_callback clb) override;
 };
 
-struct data_display_entity_skill_healing_done : public data_display_entity_skill_base {};
+struct data_display_entity_skill_healing_done : public data_display_entity_skill_base {
+    virtual void update_display(combat_analizer& analizer_, ui_element_manager<main_ui>& ui_element_manager_, change_display_mode_callback clb) override;
+};

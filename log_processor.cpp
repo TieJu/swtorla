@@ -23,6 +23,19 @@
 #undef max
 #endif
 
+template<class Rep, class Period>
+log_processor::state log_processor::wait_for(state state_, const std::chrono::duration<Rep, Period>& rel_time_) {
+    std::unique_lock<std::mutex> lock(_sleep_mutex);
+    while ( state_ == _next_state ) {
+        if ( std::cv_status::timeout == _sleep_signal.wait_for(lock, rel_time_) ) {
+            break;
+        }
+    }
+
+    state_ = _next_state;
+
+    return _next_state;
+}
 
 log_processor::state log_processor::wait(state state_) {
     std::unique_lock<std::mutex> lock(_sleep_mutex);
@@ -81,7 +94,7 @@ void log_processor::run() {
     state t_state = state::sleep;
     auto wait_ms = std::chrono::milliseconds(overlapped_min_wait_ms);
 
-    std::array<char, 1024 * 4> read_buffer;
+    std::array<char, buffer_size> read_buffer;
     DWORD bytes_read;
     char* from = read_buffer.data();
     char* to = from + read_buffer.size();
@@ -116,7 +129,6 @@ void log_processor::run() {
                     }
                 }
 
-                wait_ms = std::min(wait_ms + wait_ms, std::chrono::milliseconds(overlapped_max_wait_ms));
                 break;
             }
         }
