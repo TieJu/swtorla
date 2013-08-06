@@ -376,16 +376,8 @@ void main_ui::update_stat_display() {
 #endif
 }
 
-void main_ui::display_log_dir_select(display_log_dir_select_event) {
-    //display_dir_select();
-}
-
 void main_ui::on_event(const any& v_) {
-#define do_handle_event(type,handler) handle_event<type>(v_,[=](const type& e_) { handler(e_); })
-#define do_handle_event_e(event_) do_handle_event(event_##_event,event_)
-    if ( !do_handle_event_e(display_log_dir_select) ) {
-        post_event(v_);
-    }
+    post_event(v_);
 }
 
 bool main_ui::handle_os_events() {

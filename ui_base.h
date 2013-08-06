@@ -19,9 +19,6 @@
 
 struct quit_event {};
 
-struct display_log_dir_select_event {};
-
-
 struct program_version {
     int     major;
     int     minor;

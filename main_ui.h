@@ -37,7 +37,6 @@ class main_ui
     INT_PTR about_dlg_handler(dialog* dlg_, UINT msg_, WPARAM w_param_, LPARAM l_param_);
 
     void update_stat_display();
-    void display_log_dir_select(display_log_dir_select_event);
     virtual void on_event(const any& v_);
 public:
     virtual bool handle_os_events();
