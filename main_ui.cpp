@@ -207,7 +207,7 @@ void main_ui::update_stat_display() {
 
     auto player_records = encounter.select<combat_log_entry>( [=](const combat_log_entry& e_) {return e_; } )
         .where([=](const combat_log_entry& e_) {
-            return e_.src == 0 && e_.src_minion == string_id(-1) && e_.ability != string_id(-1);
+            return e_.src == 0 && e_.src_minion == string_id(0) && e_.ability != string_id(0);
     }).commit < std::vector < combat_log_entry >> ( );
 
     if ( player_records.empty() ) {
@@ -352,7 +352,7 @@ void main_ui::update_stat_display() {
         row.value->hide();
         row.bar->hide();
         row.perc->hide();
-        row.skill_name = string_id(-1);
+        row.skill_name = string_id(0);
     }
     */
     auto dps = ( double( total_damage ) / epleased ) * 1000.0;
@@ -665,12 +665,12 @@ LRESULT main_ui::os_callback_handler(dialog* window_, UINT uMsg, WPARAM wParam, 
                     if ( index == 0 ) {
                         auto itfc = new data_display_entity_dmg_done;
                         itfc->_entity_name = &_player_id;
-                        itfc->_minion_name = string_id(-1);
+                        itfc->_minion_name = string_id(0);
                         _data_display.reset(itfc);
                     } else if ( index == 1 ) {
                         auto itfc = new data_display_entity_healing_done;
                         itfc->_entity_name = &_player_id;
-                        itfc->_minion_name = string_id(-1);
+                        itfc->_minion_name = string_id(0);
                         _data_display.reset(itfc);
                     }
                 }
@@ -695,12 +695,12 @@ void main_ui::on_start_solo() {
         if ( index == 0 ) {
             auto itfc = new data_display_entity_dmg_done;
             itfc->_entity_name = &_player_id;
-            itfc->_minion_name = string_id(-1);
+            itfc->_minion_name = string_id(0);
             _data_display.reset(itfc);
         } else if ( index == 1 ) {
             auto itfc = new data_display_entity_healing_done;
             itfc->_entity_name = &_player_id;
-            itfc->_minion_name = string_id(-1);
+            itfc->_minion_name = string_id(0);
             _data_display.reset(itfc);
         }
     }

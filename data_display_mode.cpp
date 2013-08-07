@@ -44,7 +44,7 @@ void data_display_entity_dmg_done::update_display(combat_analizer& analizer_, ui
         return ex;
     }, player_records )
         .where([=](const combat_log_entry& e_) {
-            return e_.effect_action == ssc_ApplyEffect && e_.effect_type == ssc_Damage && e_.ability != string_id(-1);
+            return e_.effect_action == ssc_ApplyEffect && e_.effect_type == ssc_Damage && e_.ability != string_id(0);
     }).group_by([=](const combat_log_entry_ex& lhs_, const combat_log_entry_ex& rhs_) {
         return lhs_.ability == rhs_.ability;
     }, [=](const combat_log_entry_ex& lhs_, const combat_log_entry_ex& rhs_) {
@@ -148,7 +148,7 @@ void data_display_entity_healing_done::update_display(combat_analizer& analizer_
         return ex;
     }, player_records )
         .where([=](const combat_log_entry& e_) {
-            return e_.effect_action == ssc_ApplyEffect && e_.effect_type == ssc_Heal && e_.ability != string_id(-1);
+            return e_.effect_action == ssc_ApplyEffect && e_.effect_type == ssc_Heal && e_.ability != string_id(0);
     }).group_by([=](const combat_log_entry_ex& lhs_, const combat_log_entry_ex& rhs_) {
         return lhs_.ability == rhs_.ability;
     }, [=](const combat_log_entry_ex& lhs_, const combat_log_entry_ex& rhs_) {

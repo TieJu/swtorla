@@ -28,7 +28,7 @@ log_processor::state log_processor::wait_for(state state_, const std::chrono::du
     std::unique_lock<std::mutex> lock(_sleep_mutex);
     while ( state_ == _next_state ) {
         if ( std::cv_status::timeout == _sleep_signal.wait_for(lock, rel_time_) ) {
-            break;
+            return state_;
         }
     }
 
@@ -116,6 +116,7 @@ void log_processor::run() {
             std::lock_guard<std::mutex> lock(_sleep_mutex);
             open_log(_path);
             _next_state = state::processing;
+            t_state = state::processing;
         }
 
         if ( t_state == state::processing ) {

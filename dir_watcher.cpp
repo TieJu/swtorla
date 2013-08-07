@@ -1,4 +1,4 @@
-#include "dir_watcher.h"
+#include "app.h"
 
 #include <boost/scope_exit.hpp>
 
@@ -12,11 +12,9 @@
 #include <boost/log/sources/record_ostream.hpp>
 
 void dir_watcher::on_added_file(const wchar_t* begin_, const wchar_t* end_) {
-    BOOST_LOG_TRIVIAL(debug) << L"added file " << std::wstring(begin_, end_);
     std::wstring name(begin_, end_);
-    for ( auto& clb : _add_callbacks ) {
-        clb(name);
-    }
+    BOOST_LOG_TRIVIAL(debug) << L"added file " << name;
+    _app.on_new_log_file(name);
 }
 void dir_watcher::on_removed_file(const wchar_t* begin_, const wchar_t* end_) {
     BOOST_LOG_TRIVIAL(debug) << L"removed file " << std::wstring(begin_, end_);
@@ -89,7 +87,7 @@ void dir_watcher::thread_entry(const std::wstring& name_) {
 
     OVERLAPPED state{};
     DWORD read_bytes;
-    const DWORD filter_mask = FILE_NOTIFY_CHANGE_LAST_WRITE | FILE_NOTIFY_CHANGE_SIZE | FILE_NOTIFY_CHANGE_FILE_NAME;
+    const DWORD filter_mask = /*FILE_NOTIFY_CHANGE_LAST_WRITE | FILE_NOTIFY_CHANGE_SIZE |*/ FILE_NOTIFY_CHANGE_FILE_NAME;
 
     BOOST_LOG_TRIVIAL(debug) << L"creating sync event";
     state.hEvent = CreateEvent(nullptr, TRUE, FALSE, nullptr);
@@ -136,8 +134,9 @@ void dir_watcher::thread_entry(const std::wstring& name_) {
 
 }
 
-dir_watcher::dir_watcher(const std::wstring& path)
+dir_watcher::dir_watcher(const std::wstring& path,app& app_)
     : _file_handle(INVALID_HANDLE_VALUE)
+    , _app(app_)
     , _handler_thread([=]() {
         try {
             thread_entry(path);

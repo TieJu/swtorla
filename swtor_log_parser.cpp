@@ -124,7 +124,7 @@ static string_id register_name(const char* from_, const char* to_, character_lis
     });
 
     if ( loc != end(char_list_) ) {
-        return std::distance(begin(char_list_), loc);
+        return std::distance(begin(char_list_), loc) + 1;
     }
 
     if ( str.empty() ) {
@@ -132,13 +132,13 @@ static string_id register_name(const char* from_, const char* to_, character_lis
     }
     char_list_.push_back(str);
 
-    return char_list_.size() - 1;
+    return char_list_.size();
 }
 
 static std::tuple<string_id, string_id, unsigned long long> read_entity_name(const char*& from_, const char* to_, string_to_id_string_map& string_map_, character_list& char_list_) {
     expect_char(from_, to_, '[');
     if ( check_char(from_, to_, ']') ) {
-        return std::make_tuple(string_id(-1), string_id(-1), ( unsigned long long )(-1));
+        return std::make_tuple(string_id(0), string_id(0), ( unsigned long long )(-1));
     }
     auto start = from_;
     size_t level = 1;
@@ -163,7 +163,7 @@ static std::tuple<string_id, string_id, unsigned long long> read_entity_name(con
             return std::make_tuple(owner, minion, ( unsigned long long )( -1 ));
         } else {
             auto owner = register_name(start, from_ - 1, char_list_);
-            return std::make_tuple(owner, string_id(-1), ( unsigned long long )( -1 ));
+            return std::make_tuple(owner, string_id(0), ( unsigned long long )( -1 ));
         }
     } else {
         auto id_start = find_char(start, to_, '{');
@@ -176,7 +176,7 @@ static std::tuple<string_id, string_id, unsigned long long> read_entity_name(con
         skip_spaces(id_start, from_);
         expect_char(id_start, from_, ':');
         auto id = parse_number<unsigned long long>( id_start, from_ );
-        return std::make_tuple(mob, string_id(-1), id);
+        return std::make_tuple(mob, string_id(0), id);
     }
 }
 
@@ -185,7 +185,7 @@ static string_id read_localized_string(const char*& from_, const char* to_, stri
     expect_char(from_, to_, start_char_);
     skip_spaces(from_, to_);
     if ( check_char(from_, to_, end_char_) ) {
-        return string_id(-1);
+        return string_id(0);
     }
 
     // localized strings can contain [ and ] ....

@@ -40,6 +40,7 @@ class app : boost::noncopyable {
     string_to_id_string_map         _string_map;
     character_list                  _char_list;
     combat_analizer                 _analizer;
+    std::wstring                    _current_log_file;
 
     std::string load_update_info(const std::string& name_);
     std::future<void> show_update_info(const std::string& name_);
@@ -76,5 +77,14 @@ protected:
     bool start_tracking();
     void stop_tracking();
     std::future<bool> check_for_updates();
+
+protected:
+    friend class dir_watcher;
+    void on_new_log_file(const std::wstring& file_);
+
+    void change_log_file(const std::wstring& file_,bool relative_ = true);
+
+    void archive_log(const std::wstring& file_);
+    void remove_log(const std::wstring& file_);
 };
 

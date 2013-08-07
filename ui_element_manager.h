@@ -31,12 +31,12 @@ struct string_id_lookup {
     character_list*             names;
 
     bool is_name(string_id id_) const {
-        return id_ < names->size();
+        return id_ <= names->size() && id_ > 0;
     }
 
     const std::wstring& operator( )( string_id id_ ) const {
         if ( is_name(id_) ) {
-            return ( *names )[id_];
+            return ( *names )[id_ - 1];
         } else {
             return ( *smap )[id_];
         }

@@ -23,11 +23,6 @@
 
 #define CRASH_FILE_NAME "./crash.dump"
 
-struct loaded_patch_data_event {};
-struct loaded_patch_file_event {};
-struct update_done_event {};
-struct enter_main_window_event {};
-
 int get_build_from_name(const std::string& name_) {
     int c_ver = 0;
     sscanf_s(name_.c_str(), "updates/%d.update", &c_ver);
@@ -248,6 +243,73 @@ void app::setup_from_config() {
     }
 }
 
+inline unsigned store_bit(char* blob_, unsigned bit_offset_, bool bit_) {
+    blob_[bit_offset_ / 8] |= ( bit_ ? 1 : 0 ) << ( bit_offset_ % 8 );
+    return bit_offset_ + 1;
+}
+
+inline unsigned store_bits(char* blob_, unsigned bit_offset_, char* src_, unsigned bits_) {
+    unsigned bit = 0;
+    for ( ; bit < bits_; ++bit ) {
+        bit_offset_ = store_bit(blob_, bit_offset_, src_[bit / 8] & ( 1 << ( bit % 8 ) ));
+    }
+    return bit_offset_;
+}
+
+inline unsigned bit_pack_int(char* blob_,unsigned bit_offset_, bool value_) {
+    bit_offset_ = store_bit(blob_, bit_offset_, 0);
+    bit_offset_ = store_bit(blob_, bit_offset_, value_);
+    return bit_offset_;
+}
+
+namespace detail {
+template<typename IntType>
+inline unsigned count_bits(IntType value_) {
+    unsigned bits = 1;
+    value_ >>= 1;
+    while ( value_ ) {
+        ++bits;
+        value_ >>= 1;
+    }
+    return bits;
+    // for some odd reaseon
+    // for ( ; value_ >> bits; ++bits ) will cause infinite loops ....
+}
+}
+template<typename IntType>
+inline unsigned count_bits(IntType value_) {
+    // needs explicit cast to unsigned, or sign extending will ruin your day with a infinite loops...
+    return detail::count_bits(static_cast<typename std::make_unsigned<IntType>::type>( value_ ));
+}
+
+template<typename IntType>
+inline unsigned bit_pack_int(char* blob_, unsigned bit_offset_, IntType value_) {
+    auto bits = count_bits(value_) - 1;
+
+    bit_offset_ = store_bits(blob_, bit_offset_, reinterpret_cast<char*>( &bits ), 6);
+    bit_offset_ = store_bits(blob_, bit_offset_, reinterpret_cast<char*>( &value_ ), bits + 1);
+
+    return bit_offset_;
+}
+
+template<typename IntType>
+inline char* pack_int(char* from_, char* to_, IntType value_) {
+    do {
+        *from_ = char( value_ & 0x7F );
+        value_ >>= 7;
+        if ( value_ ) {
+            *from_ |= 0x80;
+        }
+        ++from_;
+    } while ( value_ && from_ < to_ );
+    return from_;
+}
+
+inline char* pack_int(char* from_, char* to_, bool value_) {
+    *from_ = value_ ? 1 : 0;
+    return from_ + 1;
+}
+
 void app::log_entry_handler(const combat_log_entry& e_) {
     _analizer.add_entry(e_);
 
@@ -256,6 +318,69 @@ void app::log_entry_handler(const combat_log_entry& e_) {
     if ( e_.effect_action == ssc_Event && e_.effect_type == ssc_EnterCombat ) {
         _ui->update_main_player(e_.src);
     }
+    //
+    //// compress test
+    //char buffer[sizeof(e_)];
+    //auto from = std::begin(buffer);
+    //auto to = std::end(buffer);
+
+    //auto get_length_of = [=](char* res_) {
+    //    return std::distance(from, res_);
+    //};
+
+    //long long length = 0;
+    //length += get_length_of(pack_int(from, to, e_.time_index.hours));
+    //length += get_length_of(pack_int(from, to, e_.time_index.minutes));
+    //length += get_length_of(pack_int(from, to, e_.time_index.seconds));
+    //length += get_length_of(pack_int(from, to, e_.time_index.milseconds));
+
+    //length += get_length_of(pack_int(from, to, e_.src));
+    //length += get_length_of(pack_int(from, to, e_.src_minion));
+    //length += get_length_of(pack_int(from, to, e_.src_id));
+
+    //length += get_length_of(pack_int(from, to, e_.dst));
+    //length += get_length_of(pack_int(from, to, e_.dst_minion));
+    //length += get_length_of(pack_int(from, to, e_.dst_id));
+
+    //length += get_length_of(pack_int(from, to, e_.ability));
+
+    //length += get_length_of(pack_int(from, to, e_.effect_action));
+    //length += get_length_of(pack_int(from, to, e_.effect_type));
+    //length += get_length_of(pack_int(from, to, e_.effect_value));
+    //length += get_length_of(pack_int(from, to, e_.was_crit_effect));
+    //length += get_length_of(pack_int(from, to, e_.effect_value_type));
+    //length += get_length_of(pack_int(from, to, e_.effect_value2));
+    //length += get_length_of(pack_int(from, to, e_.was_crit_effect2));
+    //length += get_length_of(pack_int(from, to, e_.effect_value_type2));
+    //length += get_length_of(pack_int(from, to, e_.effect_thread));
+
+    //unsigned bit_length = 0;
+    //bit_length = ( bit_pack_int(from, bit_length, e_.time_index.hours) );
+    //bit_length = ( bit_pack_int(from, bit_length, e_.time_index.minutes) );
+    //bit_length = ( bit_pack_int(from, bit_length, e_.time_index.seconds) );
+    //bit_length = ( bit_pack_int(from, bit_length, e_.time_index.milseconds) );
+
+    //bit_length = ( bit_pack_int(from, bit_length, e_.src) );
+    //bit_length = ( bit_pack_int(from, bit_length, e_.src_minion) );
+    //bit_length = ( bit_pack_int(from, bit_length, e_.src_id) );
+
+    //bit_length = ( bit_pack_int(from, bit_length, e_.dst) );
+    //bit_length = ( bit_pack_int(from, bit_length, e_.dst_minion) );
+    //bit_length = ( bit_pack_int(from, bit_length, e_.dst_id) );
+
+    //bit_length = ( bit_pack_int(from, bit_length, e_.ability) );
+
+    //bit_length = ( bit_pack_int(from, bit_length, e_.effect_action) );
+    //bit_length = ( bit_pack_int(from, bit_length, e_.effect_type) );
+    //bit_length = ( bit_pack_int(from, bit_length, e_.effect_value) );
+    //bit_length = ( bit_pack_int(from, bit_length, e_.was_crit_effect) );
+    //bit_length = ( bit_pack_int(from, bit_length, e_.effect_value_type) );
+    //bit_length = ( bit_pack_int(from, bit_length, e_.effect_value2) );
+    //bit_length = ( bit_pack_int(from, bit_length, e_.was_crit_effect2) );
+    //bit_length = ( bit_pack_int(from, bit_length, e_.effect_value_type2) );
+    //bit_length = ( bit_pack_int(from, bit_length, e_.effect_thread) );
+
+    //BOOST_LOG_TRIVIAL(debug) << L"bit packing " << ( bit_length / 8 ) << " vs byte packing " << length << " vs uncompressed " << sizeof( e_ );
 }
 
 std::string app::check_update(update_dialog& dlg_) {
@@ -636,13 +761,10 @@ program_version app::get_program_version() {
 
 bool app::start_tracking() {
     auto log_path = _config.get<std::wstring>( L"log.path", L"" );
-    _dir_watcher.reset(new dir_watcher(log_path));
-    _dir_watcher->add_handler([=](const std::wstring& file_) {
-        _log_reader.stop();
-        _log_reader.start(log_path + L"\\" + file_);
-    });
+    _dir_watcher.reset(new dir_watcher(log_path,*this));
     auto file = find_path_for_lates_log_file(log_path);
-    _log_reader.start(file);
+    change_log_file(file,false);
+    _log_reader.start(_current_log_file);
     return true;
 }
 
@@ -653,4 +775,38 @@ void app::stop_tracking() {
 
 std::future<bool> app::check_for_updates() {
     return run_update();
+}
+
+void app::on_new_log_file(const std::wstring& file_) {
+    _log_reader.stop();
+    change_log_file(file_);
+    _log_reader.start(_current_log_file);
+}
+
+void app::change_log_file(const std::wstring& file_, bool relative_ /*= true*/) {
+    if ( !_current_log_file.empty() ) {
+        archive_log(_current_log_file);
+        remove_log(_current_log_file);
+    }
+
+    if ( relative_ ) {
+        auto log_path = _config.get<std::wstring>( L"log.path", L"" );
+        _current_log_file = log_path + L"\\" + file_;
+    } else {
+        _current_log_file = file_;
+    }
+}
+
+void app::archive_log(const std::wstring& file_) {
+    if ( !_config.get<bool>( L"log.archive", false ) ) {
+        return;
+    }
+    // TODO: add code that stores the log file in an archive (.zip)
+}
+
+void app::remove_log(const std::wstring& file_) {
+    if ( !_config.get<bool>( L"log.remove", false ) ) {
+        return;
+    }
+    // TODO: add code that removes the log file from disc
 }
