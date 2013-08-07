@@ -17,14 +17,10 @@
 #include "win32_event_queue.h"
 #include "event_router.h"
 
+#include "program_version.h"
+
 struct quit_event {};
 
-struct program_version {
-    int     major;
-    int     minor;
-    int     patch;
-    int     build;
-};
 
 struct program_config {
     std::wstring    log_path;

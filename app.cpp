@@ -28,61 +28,6 @@ struct loaded_patch_file_event {};
 struct update_done_event {};
 struct enter_main_window_event {};
 
-
-std::wstring get_version_param(LPCVOID block, const wchar_t* entry) {
-    UINT vLen;
-    DWORD langD;
-    BOOL retVal;
-
-    LPVOID retbuf = NULL;
-
-    static wchar_t fileEntry[256];
-
-    swprintf_s(fileEntry, L"\\VarFileInfo\\Translation");
-    retVal = VerQueryValue(block, fileEntry, &retbuf, &vLen);
-    if ( retVal && vLen == 4 ) {
-        memcpy(&langD, retbuf, 4);
-        swprintf_s(fileEntry, L"\\StringFileInfo\\%02X%02X%02X%02X\\%s",
-                 ( langD & 0xff00 ) >> 8, langD & 0xff, ( langD & 0xff000000 ) >> 24,
-                 ( langD & 0xff0000 ) >> 16, entry);
-    } else {
-        swprintf_s(fileEntry, L"\\StringFileInfo\\%04X04B0\\%s",
-                   GetUserDefaultLangID(), entry);
-    }
-
-    if ( VerQueryValue(block, fileEntry, &retbuf, &vLen ) ) {
-        return reinterpret_cast<const wchar_t*>(retbuf);
-    }
-    return std::wstring();
-}
-
-program_version find_version_info() {
-    program_version info{};
-
-    auto h_version_res = FindResource(nullptr, MAKEINTRESOURCE(VS_VERSION_INFO), RT_VERSION);
-
-    if ( !h_version_res ) {
-        return info;
-    }
-
-    auto h_loaded_version = LoadResource(nullptr, h_version_res);
-
-    if ( !h_loaded_version ) {
-        return info;
-    }
-
-    auto h_locked_version = LockResource(h_loaded_version);
-
-    auto version = get_version_param(h_locked_version, L"ProductVersion");
-
-    swscanf_s(version.c_str(), L"%d.%d.%d.Build%d", &info.major, &info.minor, &info.patch, &info.build);
-
-    UnlockResource(h_loaded_version);
-    FreeResource(h_loaded_version);
-
-    return info;
-}
-
 int get_build_from_name(const std::string& name_) {
     int c_ver = 0;
     sscanf_s(name_.c_str(), "updates/%d.update", &c_ver);
@@ -598,7 +543,7 @@ app::app(const char* caption_, const char* config_path_)
     
     send_crashreport(CRASH_FILE_NAME);
 
-    _version = find_version_info();
+    _version = find_version_info(MAKEINTRESOURCEW(VS_VERSION_INFO));
 
     BOOST_LOG_TRIVIAL(info) << L"SW:ToR log analizer version " << _version.major << L"." << _version.minor << L"." << _version.patch << L" Build " << _version.build;
 
