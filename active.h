@@ -9,7 +9,7 @@ class active {
 protected:
     enum class state {
         sleep,
-        shutown,
+        shutdown,
         run,
         init,
     };
@@ -65,7 +65,7 @@ protected:
     }
 
     ~active() {
-        change_state(state::shutown);
+        change_state(state::shutdown);
         _thread.join();
     }
 };

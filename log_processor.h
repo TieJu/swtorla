@@ -1,6 +1,7 @@
 #pragma once
 
 #include "handle_wrap.h"
+#include "active.h"
 
 #include <string>
 #include <thread>
@@ -19,41 +20,26 @@
 
 #include "event_thread.h"
 
-class log_processor {
+class log_processor
+: public active<log_processor> {
     enum {
         buffer_size             = 1024 * 8,
         overlapped_min_wait_ms  = 250,
         overlapped_max_wait_ms  = 2500,
     };
-    enum class state {
-        sleep,
-        processing,
-        open_file,
-        shutdown,
-    };
-    std::thread                                 _thread;
+
     handle_wrap<HANDLE, INVALID_HANDLE_VALUE>   _file_handle;
     std::array<std::array<char, buffer_size>, 2>_buffer;
     string_to_id_string_map*                    _string_map;
     character_list*                             _char_list;
     std::function<void(const combat_log_entry&)>_entry_processor;
     std::wstring                                _path;
-    state                                       _next_state;
-    std::mutex                                  _sleep_mutex;
-    std::condition_variable                     _sleep_signal;
-
-
-    friend class event_thread<log_processor>;
-
-    template<class Rep, class Period>
-    state wait_for(state state_, const std::chrono::duration<Rep, Period>& rel_time_);
-    state wait(state state_);
-    void wake();
 
     void open_log(const std::wstring& path_);
     char* process_bytes(char* from_, char* to_);
 
 protected:
+    friend class active<log_processor>;
     void run();
 
 public:

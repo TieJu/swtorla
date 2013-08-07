@@ -23,35 +23,6 @@
 #undef max
 #endif
 
-template<class Rep, class Period>
-log_processor::state log_processor::wait_for(state state_, const std::chrono::duration<Rep, Period>& rel_time_) {
-    std::unique_lock<std::mutex> lock(_sleep_mutex);
-    while ( state_ == _next_state ) {
-        if ( std::cv_status::timeout == _sleep_signal.wait_for(lock, rel_time_) ) {
-            return state_;
-        }
-    }
-
-    state_ = _next_state;
-
-    return _next_state;
-}
-
-log_processor::state log_processor::wait(state state_) {
-    std::unique_lock<std::mutex> lock(_sleep_mutex);
-    while ( state_ == _next_state ) {
-        _sleep_signal.wait( lock );
-    }
-
-    state_ = _next_state;
-
-    return _next_state;
-}
-
-void log_processor::wake() {
-    _sleep_signal.notify_all();
-}
-
 void log_processor::open_log(const std::wstring& path_) {
     BOOST_LOG_TRIVIAL(debug) << L"[log_processor] reading file " << path_;
     _file_handle.reset(::CreateFileW(path_.c_str()
@@ -112,14 +83,13 @@ void log_processor::run() {
             break;
         }
 
-        if ( t_state == state::open_file ) {
-            std::lock_guard<std::mutex> lock(_sleep_mutex);
+        if ( t_state == state::init ) {
             open_log(_path);
-            _next_state = state::processing;
-            t_state = state::processing;
+            change_state(state::run);
+            t_state = state::run;
         }
 
-        if ( t_state == state::processing ) {
+        if ( t_state == state::run ) {
             for ( ;; ) {
                 if ( ::ReadFile(*_file_handle, from, to - from, &bytes_read, nullptr) ) {
                     //BOOST_LOG_TRIVIAL(debug) << L"[log_processor] read compledet, got " << bytes_read << " bytes read";
@@ -137,28 +107,16 @@ void log_processor::run() {
 }
 
 log_processor::log_processor() {
-    _next_state = state::sleep;
-    _thread = std::thread([=]() {
-        run();
-    });
 }
 
 log_processor::~log_processor() {
-    stop();
-    _next_state = state::shutdown;
-    wake();
-    _thread.join();
 }
 
 void log_processor::start(const std::wstring& path) {
-    std::lock_guard<std::mutex> lock(_sleep_mutex);
     _path = path;
-    _next_state = state::open_file;
-    wake();
+    change_state(state::init);
 }
 
 void log_processor::stop() {
-    std::lock_guard<std::mutex> lock(_sleep_mutex);
-    _next_state = state::sleep;
-    wake();
+    change_state(state::sleep);
 }

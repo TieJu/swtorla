@@ -159,7 +159,7 @@ private:
                 t_state = wait_for(t_state, std::chrono::milliseconds(10));
             }
 
-            if ( t_state == state::shutown ) {
+            if ( t_state == state::shutdown ) {
                 break;
             }
 
