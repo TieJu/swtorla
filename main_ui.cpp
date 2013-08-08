@@ -672,6 +672,16 @@ LRESULT main_ui::os_callback_handler(dialog* window_, UINT uMsg, WPARAM wParam, 
                         itfc->_entity_name = &_player_id;
                         itfc->_minion_name = string_id(0);
                         _data_display.reset(itfc);
+                    } else if ( index == 2 ) {
+                        auto itfc = new data_display_entity_dmg_recived;
+                        itfc->_entity_name = &_player_id;
+                        itfc->_minion_name = string_id(0);
+                        _data_display.reset(itfc);
+                    } else if ( index == 3 ) {
+                        auto itfc = new data_display_entity_healing_recived;
+                        itfc->_entity_name = &_player_id;
+                        itfc->_minion_name = string_id(0);
+                        _data_display.reset(itfc);
                     }
                 }
             }
@@ -699,6 +709,16 @@ void main_ui::on_start_solo() {
             _data_display.reset(itfc);
         } else if ( index == 1 ) {
             auto itfc = new data_display_entity_healing_done;
+            itfc->_entity_name = &_player_id;
+            itfc->_minion_name = string_id(0);
+            _data_display.reset(itfc);
+        } else if ( index == 2 ) {
+            auto itfc = new data_display_entity_dmg_recived;
+            itfc->_entity_name = &_player_id;
+            itfc->_minion_name = string_id(0);
+            _data_display.reset(itfc);
+        } else if ( index == 3 ) {
+            auto itfc = new data_display_entity_healing_recived;
             itfc->_entity_name = &_player_id;
             itfc->_minion_name = string_id(0);
             _data_display.reset(itfc);
@@ -742,8 +762,10 @@ main_ui::main_ui(const std::wstring& log_path_, app& app_, combat_analizer& c_an
     });
 
     auto display_mode = ::GetDlgItem(_wnd->native_handle(), IDC_MAIN_DISPLAY_MODE);
-    ::SendMessageW(display_mode, CB_ADDSTRING, 0, (LPARAM)L"Damage");
-    ::SendMessageW(display_mode, CB_ADDSTRING, 0, (LPARAM)L"Healing");
+    ::SendMessageW(display_mode, CB_ADDSTRING, 0, (LPARAM)L"Damage Done");
+    ::SendMessageW(display_mode, CB_ADDSTRING, 0, (LPARAM)L"Healing Done");
+    ::SendMessageW(display_mode, CB_ADDSTRING, 0, (LPARAM)L"Damage Recived");
+    ::SendMessageW(display_mode, CB_ADDSTRING, 0, (LPARAM)L"Healing Recived");
     ::SendMessageW(display_mode, CB_SETCURSEL, 0, 0);
 }
 

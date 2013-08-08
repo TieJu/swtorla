@@ -4,6 +4,7 @@
 #include <mutex>
 #include <condition_variable>
 
+// rename to deamon
 template<typename Derived>
 class active {
 protected:
@@ -48,12 +49,14 @@ protected:
         return state_;
     }
 
+    // updates a state and wakes the background thread
     void change_state(state state_) {
         std::unique_lock<std::mutex> lock(_mutex);
         _state = state_;
         wake();
     }
 
+    // wakes the waiting background thread
     void wake() {
         _cond.notify_one();
     }
