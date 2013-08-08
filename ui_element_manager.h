@@ -209,7 +209,7 @@ public:
         const auto line_h = MulDiv(14, base_y, 8);
         const auto id = _rows.size();
 
-        r.top += MulDiv(34 + 39, base_y, 8) + ( id * line_h );
+        r.top += MulDiv(85, base_y, 8) + ( id * line_h );
         r.left += 8;
         r.right -= 8;
         r.bottom -= 8;
