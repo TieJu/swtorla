@@ -60,4 +60,8 @@ public:
     size_t count_encounters() {
         return _encounters.size();
     }
+
+    void clear() {
+        _encounters.clear();
+    }
 };
