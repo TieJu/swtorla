@@ -763,7 +763,7 @@ bool app::start_tracking() {
     auto log_path = _config.get<std::wstring>( L"log.path", L"" );
     _dir_watcher.reset(new dir_watcher(log_path,*this));
     auto file = find_path_for_lates_log_file(log_path);
-    change_log_file(file,false);
+    change_log_file(file, false);
     _log_reader.start(_current_log_file);
     return true;
 }
@@ -771,6 +771,7 @@ bool app::start_tracking() {
 void app::stop_tracking() {
     _dir_watcher.reset();
     _log_reader.stop();
+    _analizer.clear();
 }
 
 std::future<bool> app::check_for_updates() {
@@ -779,6 +780,7 @@ std::future<bool> app::check_for_updates() {
 
 void app::on_new_log_file(const std::wstring& file_) {
     _log_reader.stop();
+    _analizer.clear();
     change_log_file(file_);
     _log_reader.start(_current_log_file);
 }
@@ -801,6 +803,12 @@ void app::archive_log(const std::wstring& file_) {
     if ( !_config.get<bool>( L"log.archive", false ) ) {
         return;
     }
+
+    bool archive_per_file = _config.get<bool>( L"log.one_archive_per_file", false );
+
+    if ( archive_per_file ) {
+    } else {
+    }
     // TODO: add code that stores the log file in an archive (.zip)
 }
 
@@ -808,5 +816,13 @@ void app::remove_log(const std::wstring& file_) {
     if ( !_config.get<bool>( L"log.remove", false ) ) {
         return;
     }
-    // TODO: add code that removes the log file from disc
+
+    unsigned a;
+    for ( a = 0; a < 25; ++a ) {
+        if ( FALSE == ::DeleteFileW(file_.c_str()) ) {
+            BOOST_LOG_TRIVIAL(debug) << L"Deleting file " << file_ << " failed...";
+            continue;
+        }
+        break;
+    }
 }
