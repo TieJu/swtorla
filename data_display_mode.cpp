@@ -1,6 +1,6 @@
-#include "data_display_mode.h"
+#include "main_ui.h"
 
-void data_display_entity_dmg_done::update_display(combat_analizer& analizer_, ui_element_manager<main_ui>& ui_element_manager_, change_display_mode_callback clb) {
+void data_display_entity_dmg_done::update_display(combat_analizer& analizer_, ui_element_manager<main_ui>& ui_element_manager_, main_ui& ui_) {
     if ( analizer_.count_encounters() < _encounter ) {
         ui_element_manager_.show_only_num_rows(0);
         return;
@@ -16,20 +16,13 @@ void data_display_entity_dmg_done::update_display(combat_analizer& analizer_, ui
 
     auto player_records = encounter.select<combat_log_entry>( [=](const combat_log_entry& e_) {return e_; } )
         .where([=](const combat_log_entry& e_) {
-            return e_.src == *_entity_name && e_.src_minion == _minion_name;
+            return e_.src == _entity_name && e_.src_minion == _minion_name;
     }).commit < std::vector < combat_log_entry >> ( );
 
     if ( player_records.empty() ) {
         ui_element_manager_.show_only_num_rows(0);
         return;
     }
-
-    auto& first = player_records.front();
-    auto& last = player_records.back();
-
-    unsigned long long start_time = first.time_index.milseconds + first.time_index.seconds * 1000 + first.time_index.minutes * 1000 * 60 + first.time_index.hours * 1000 * 60 * 60;
-    unsigned long long end_time = last.time_index.milseconds + last.time_index.seconds * 1000 + last.time_index.minutes * 1000 * 60 + last.time_index.hours * 1000 * 60 * 60;
-    unsigned long long epleased = end_time - start_time;
 
     long long total_heal = 0;
     long long total_damage = 0;
@@ -71,22 +64,22 @@ void data_display_entity_dmg_done::update_display(combat_analizer& analizer_, ui
         display_row.value_max(total_damage);
         display_row.value(dmg_row.effect_value);
 
-        display_row.callback([=](string_id skill_name_) {
+        display_row.callback([=, &ui_](string_id skill_name_) {
             auto display = new data_display_entity_skill_dmg_done;
             display->_ability_name = skill_name_;
             display->_encounter = _encounter;
             display->_entity_name = _entity_name;
             display->_minion_name = _minion_name;
-            clb(display);
+            ui_.change_display_mode_with_history(display);
         });
     }
 
     ui_element_manager_.show_only_num_rows(player_damage.size());
 
-
-    auto dps = ( double( total_damage ) / epleased ) * 1000.0;
-    auto hps = ( double( total_heal ) / epleased ) * 1000.0;
-    auto ep = epleased / 1000.0;
+    auto epleased = std::chrono::duration_cast<std::chrono::milliseconds>(encounter.get_combat_length());
+    auto dps = ( double( total_damage ) / epleased.count() ) * 1000.0;
+    auto hps = ( double( total_heal ) / epleased.count() ) * 1000.0;
+    auto ep = epleased.count() / 1000.0;
 
     auto dps_text = std::to_wstring(dps) + L" dps";
     auto hps_text = std::to_wstring(hps) + L" hps";
@@ -94,17 +87,23 @@ void data_display_entity_dmg_done::update_display(combat_analizer& analizer_, ui
     auto heal_text = L"Healing: " + std::to_wstring(total_heal);
     auto dur_text = L"Duration: " + std::to_wstring(ep) + L" seconds";
 
-    auto final_text = dps_text + L"\r\n"
+    auto final_text = L"<a id=\"back_to_entity_view\">Back</a>"
+        L"\r\nDamage done by " + ui_element_manager_.lookup_info()( _entity_name ) + L"\r\n"
+        + dps_text + L"\r\n"
         + hps_text + L"\r\n"
         + damage_text + L"\r\n"
         + heal_text + L"\r\n"
-        + dur_text + L"\r\n";
+        + dur_text + L"\r\n"
+        ;
 
     ui_element_manager_.enable_stop(true);
     ui_element_manager_.info_text(final_text);
+    ui_element_manager_.info_callback(L"back_to_entity_view", [=, &ui_]() {
+        ui_.data_display_mode_go_history_back();
+    });
 }
 
-void data_display_entity_healing_done::update_display(combat_analizer& analizer_, ui_element_manager<main_ui>& ui_element_manager_, change_display_mode_callback clb) {
+void data_display_entity_healing_done::update_display(combat_analizer& analizer_, ui_element_manager<main_ui>& ui_element_manager_, main_ui& ui_) {
     if ( analizer_.count_encounters() < _encounter ) {
         ui_element_manager_.show_only_num_rows(0);
         return;
@@ -120,20 +119,13 @@ void data_display_entity_healing_done::update_display(combat_analizer& analizer_
 
     auto player_records = encounter.select<combat_log_entry>( [=](const combat_log_entry& e_) {return e_; } )
         .where([=](const combat_log_entry& e_) {
-            return e_.src == *_entity_name && e_.src_minion == _minion_name;
+            return e_.src == _entity_name && e_.src_minion == _minion_name;
     }).commit < std::vector < combat_log_entry >> ( );
 
     if ( player_records.empty() ) {
         ui_element_manager_.show_only_num_rows(0);
         return;
     }
-
-    auto& first = player_records.front();
-    auto& last = player_records.back();
-
-    unsigned long long start_time = first.time_index.milseconds + first.time_index.seconds * 1000 + first.time_index.minutes * 1000 * 60 + first.time_index.hours * 1000 * 60 * 60;
-    unsigned long long end_time = last.time_index.milseconds + last.time_index.seconds * 1000 + last.time_index.minutes * 1000 * 60 + last.time_index.hours * 1000 * 60 * 60;
-    unsigned long long epleased = end_time - start_time;
 
     long long total_heal = 0;
     long long total_damage = 0;
@@ -175,22 +167,22 @@ void data_display_entity_healing_done::update_display(combat_analizer& analizer_
         display_row.value_max(total_damage);
         display_row.value(hps_row.effect_value);
 
-        display_row.callback([=](string_id skill_name_) {
+        display_row.callback([=, &ui_](string_id skill_name_) {
             auto display = new data_display_entity_skill_healing_done;
             display->_ability_name = skill_name_;
             display->_encounter = _encounter;
             display->_entity_name = _entity_name;
             display->_minion_name = _minion_name;
-            clb(display);
+            ui_.change_display_mode_with_history(display);
         });
     }
 
     ui_element_manager_.show_only_num_rows(player_damage.size());
 
-
-    auto dps = ( double( total_damage ) / epleased ) * 1000.0;
-    auto hps = ( double( total_heal ) / epleased ) * 1000.0;
-    auto ep = epleased / 1000.0;
+    auto epleased = std::chrono::duration_cast<std::chrono::milliseconds>( encounter.get_combat_length() );
+    auto dps = ( double( total_damage ) / epleased.count() ) * 1000.0;
+    auto hps = ( double( total_heal ) / epleased.count() ) * 1000.0;
+    auto ep = epleased.count() / 1000.0;
 
     auto dps_text = std::to_wstring(dps) + L" dps";
     auto hps_text = std::to_wstring(hps) + L" hps";
@@ -198,7 +190,9 @@ void data_display_entity_healing_done::update_display(combat_analizer& analizer_
     auto heal_text = L"Healing: " + std::to_wstring(total_heal);
     auto dur_text = L"Duration: " + std::to_wstring(ep) + L" seconds";
 
-    auto final_text = dps_text + L"\r\n"
+    auto final_text = L"<a id=\"back_to_entity_view\">Back</a>"
+        L"\r\nHealing done by " + ui_element_manager_.lookup_info()( _entity_name ) + L"\r\n"
+        + dps_text + L"\r\n"
         + hps_text + L"\r\n"
         + damage_text + L"\r\n"
         + heal_text + L"\r\n"
@@ -206,9 +200,12 @@ void data_display_entity_healing_done::update_display(combat_analizer& analizer_
 
     ui_element_manager_.enable_stop(true);
     ui_element_manager_.info_text(final_text);
+    ui_element_manager_.info_callback(L"back_to_entity_view", [=, &ui_]() {
+        ui_.data_display_mode_go_history_back();
+    });
 }
 
-void data_display_entity_dmg_recived::update_display(combat_analizer& analizer_, ui_element_manager<main_ui>& ui_element_manager_, change_display_mode_callback clb) {
+void data_display_entity_dmg_recived::update_display(combat_analizer& analizer_, ui_element_manager<main_ui>& ui_element_manager_, main_ui& ui_) {
     if ( analizer_.count_encounters() < _encounter ) {
         ui_element_manager_.show_only_num_rows(0);
         return;
@@ -224,20 +221,13 @@ void data_display_entity_dmg_recived::update_display(combat_analizer& analizer_,
 
     auto player_records = encounter.select<combat_log_entry>( [=](const combat_log_entry& e_) {return e_; } )
         .where([=](const combat_log_entry& e_) {
-            return e_.dst == *_entity_name && e_.dst_minion == _minion_name;
+            return e_.dst == _entity_name && e_.dst_minion == _minion_name;
     }).commit < std::vector < combat_log_entry >> ( );
 
     if ( player_records.empty() ) {
         ui_element_manager_.show_only_num_rows(0);
         return;
     }
-
-    auto& first = player_records.front();
-    auto& last = player_records.back();
-
-    unsigned long long start_time = first.time_index.milseconds + first.time_index.seconds * 1000 + first.time_index.minutes * 1000 * 60 + first.time_index.hours * 1000 * 60 * 60;
-    unsigned long long end_time = last.time_index.milseconds + last.time_index.seconds * 1000 + last.time_index.minutes * 1000 * 60 + last.time_index.hours * 1000 * 60 * 60;
-    unsigned long long epleased = end_time - start_time;
 
     long long total_heal = 0;
     long long total_damage = 0;
@@ -279,22 +269,22 @@ void data_display_entity_dmg_recived::update_display(combat_analizer& analizer_,
         display_row.value_max(total_damage);
         display_row.value(dmg_row.effect_value);
 
-        display_row.callback([=](string_id skill_name_) {
+        display_row.callback([=, &ui_](string_id skill_name_) {
             auto display = new data_display_entity_skill_dmg_recived;
             display->_ability_name = skill_name_;
             display->_encounter = _encounter;
             display->_entity_name = _entity_name;
             display->_minion_name = _minion_name;
-            clb(display);
+            ui_.change_display_mode_with_history(display);
         });
     }
 
     ui_element_manager_.show_only_num_rows(player_damage.size());
 
-
-    auto dps = ( double( total_damage ) / epleased ) * 1000.0;
-    auto hps = ( double( total_heal ) / epleased ) * 1000.0;
-    auto ep = epleased / 1000.0;
+    auto epleased = std::chrono::duration_cast<std::chrono::milliseconds>( encounter.get_combat_length() );
+    auto dps = ( double( total_damage ) / epleased.count() ) * 1000.0;
+    auto hps = ( double( total_heal ) / epleased.count() ) * 1000.0;
+    auto ep = epleased.count() / 1000.0;
 
     auto dps_text = std::to_wstring(dps) + L" dps";
     auto hps_text = std::to_wstring(hps) + L" hps";
@@ -302,7 +292,9 @@ void data_display_entity_dmg_recived::update_display(combat_analizer& analizer_,
     auto heal_text = L"Healing: " + std::to_wstring(total_heal);
     auto dur_text = L"Duration: " + std::to_wstring(ep) + L" seconds";
 
-    auto final_text = dps_text + L"\r\n"
+    auto final_text = L"<a id=\"back_to_entity_view\">Back</a>"
+        L"\r\nDamage recived by " + ui_element_manager_.lookup_info()( _entity_name ) + L"\r\n"
+        + dps_text + L"\r\n"
         + hps_text + L"\r\n"
         + damage_text + L"\r\n"
         + heal_text + L"\r\n"
@@ -310,9 +302,12 @@ void data_display_entity_dmg_recived::update_display(combat_analizer& analizer_,
 
     ui_element_manager_.enable_stop(true);
     ui_element_manager_.info_text(final_text);
+    ui_element_manager_.info_callback(L"back_to_entity_view", [=, &ui_]() {
+        ui_.data_display_mode_go_history_back();
+    });
 }
 
-void data_display_entity_healing_recived::update_display(combat_analizer& analizer_, ui_element_manager<main_ui>& ui_element_manager_, change_display_mode_callback clb) {
+void data_display_entity_healing_recived::update_display(combat_analizer& analizer_, ui_element_manager<main_ui>& ui_element_manager_, main_ui& ui_) {
     if ( analizer_.count_encounters() < _encounter ) {
         ui_element_manager_.show_only_num_rows(0);
         return;
@@ -328,20 +323,13 @@ void data_display_entity_healing_recived::update_display(combat_analizer& analiz
 
     auto player_records = encounter.select<combat_log_entry>( [=](const combat_log_entry& e_) {return e_; } )
         .where([=](const combat_log_entry& e_) {
-            return e_.dst == *_entity_name && e_.dst_minion == _minion_name;
+            return e_.dst == _entity_name && e_.dst_minion == _minion_name;
     }).commit < std::vector < combat_log_entry >> ( );
 
     if ( player_records.empty() ) {
         ui_element_manager_.show_only_num_rows(0);
         return;
     }
-
-    auto& first = player_records.front();
-    auto& last = player_records.back();
-
-    unsigned long long start_time = first.time_index.milseconds + first.time_index.seconds * 1000 + first.time_index.minutes * 1000 * 60 + first.time_index.hours * 1000 * 60 * 60;
-    unsigned long long end_time = last.time_index.milseconds + last.time_index.seconds * 1000 + last.time_index.minutes * 1000 * 60 + last.time_index.hours * 1000 * 60 * 60;
-    unsigned long long epleased = end_time - start_time;
 
     long long total_heal = 0;
     long long total_damage = 0;
@@ -383,22 +371,22 @@ void data_display_entity_healing_recived::update_display(combat_analizer& analiz
         display_row.value_max(total_damage);
         display_row.value(hps_row.effect_value);
 
-        display_row.callback([=](string_id skill_name_) {
+        display_row.callback([=, &ui_](string_id skill_name_) {
             auto display = new data_display_entity_skill_healing_recived;
             display->_ability_name = skill_name_;
             display->_encounter = _encounter;
             display->_entity_name = _entity_name;
             display->_minion_name = _minion_name;
-            clb(display);
+            ui_.change_display_mode_with_history(display);
         });
     }
 
     ui_element_manager_.show_only_num_rows(player_damage.size());
 
-
-    auto dps = ( double( total_damage ) / epleased ) * 1000.0;
-    auto hps = ( double( total_heal ) / epleased ) * 1000.0;
-    auto ep = epleased / 1000.0;
+    auto epleased = std::chrono::duration_cast<std::chrono::milliseconds>( encounter.get_combat_length() );
+    auto dps = ( double( total_damage ) / epleased.count() ) * 1000.0;
+    auto hps = ( double( total_heal ) / epleased.count() ) * 1000.0;
+    auto ep = epleased.count() / 1000.0;
 
     auto dps_text = std::to_wstring(dps) + L" dps";
     auto hps_text = std::to_wstring(hps) + L" hps";
@@ -406,7 +394,9 @@ void data_display_entity_healing_recived::update_display(combat_analizer& analiz
     auto heal_text = L"Healing: " + std::to_wstring(total_heal);
     auto dur_text = L"Duration: " + std::to_wstring(ep) + L" seconds";
 
-    auto final_text = dps_text + L"\r\n"
+    auto final_text = L"<a id=\"back_to_entity_view\">Back</a>"
+        L"\r\nHealing recived by " + ui_element_manager_.lookup_info()( _entity_name ) + L"\r\n"
+        + dps_text + L"\r\n"
         + hps_text + L"\r\n"
         + damage_text + L"\r\n"
         + heal_text + L"\r\n"
@@ -414,9 +404,12 @@ void data_display_entity_healing_recived::update_display(combat_analizer& analiz
 
     ui_element_manager_.enable_stop(true);
     ui_element_manager_.info_text(final_text);
+    ui_element_manager_.info_callback(L"back_to_entity_view", [=, &ui_]() {
+        ui_.data_display_mode_go_history_back();
+    });
 }
 
-void data_display_entity_skill_dmg_done::update_display(combat_analizer& analizer_, ui_element_manager<main_ui>& ui_element_manager_, change_display_mode_callback clb) {
+void data_display_entity_skill_dmg_done::update_display(combat_analizer& analizer_, ui_element_manager<main_ui>& ui_element_manager_, main_ui& ui_) {
     if ( analizer_.count_encounters() < _encounter ) {
         ui_element_manager_.show_only_num_rows(0);
         return;
@@ -432,7 +425,7 @@ void data_display_entity_skill_dmg_done::update_display(combat_analizer& analize
 
     auto player_records = encounter.select<combat_log_entry>( [=](const combat_log_entry& e_) {return e_; } )
         .where([=](const combat_log_entry& e_) {
-            return e_.src == *_entity_name && e_.src_minion == _minion_name && e_.ability == _ability_name;
+            return e_.src == _entity_name && e_.src_minion == _minion_name && e_.ability == _ability_name;
     }).commit < std::vector < combat_log_entry >> ( );
 
     if ( player_records.empty() ) {
@@ -480,23 +473,26 @@ void data_display_entity_skill_dmg_done::update_display(combat_analizer& analize
         display_row.name(dmg_row.dst);
         display_row.value_max(total_damage);
         display_row.value(dmg_row.effect_value);
-        display_row.callback([](string_id) {});
+        display_row.callback([=, &ui_](string_id) {
+            auto display = new data_display_entity_dmg_recived;
+            display->_encounter = _encounter;
+            display->_entity_name = dmg_row.dst;
+            display->_minion_name = dmg_row.dst_minion;
+            ui_.change_display_mode_with_history(display);
+        });
     }
 
     ui_element_manager_.show_only_num_rows(player_damage.size());
 
     ui_element_manager_.enable_stop(true);
-    ui_element_manager_.info_text(L"<a id=\"back_to_entity_view\">Back</a>");
-    ui_element_manager_.info_callback(L"back_to_entity_view", [=]() {
-        auto display = new data_display_entity_dmg_done;
-        display->_encounter = _encounter;
-        display->_entity_name = _entity_name;
-        display->_minion_name = _minion_name;
-        clb(display);
+    ui_element_manager_.info_text(L"<a id=\"back_to_entity_view\">Back</a>"
+                                  L"\r\nDamage done with " + ui_element_manager_.lookup_info()( _ability_name ) + L" by " + ui_element_manager_.lookup_info()( _entity_name ) + L"\r\n");
+    ui_element_manager_.info_callback(L"back_to_entity_view", [=, &ui_]() {
+        ui_.data_display_mode_go_history_back();
     });
 }
 
-void data_display_entity_skill_healing_done::update_display(combat_analizer& analizer_, ui_element_manager<main_ui>& ui_element_manager_, change_display_mode_callback clb) {
+void data_display_entity_skill_healing_done::update_display(combat_analizer& analizer_, ui_element_manager<main_ui>& ui_element_manager_, main_ui& ui_) {
     if ( analizer_.count_encounters() < _encounter ) {
         ui_element_manager_.show_only_num_rows(0);
         return;
@@ -512,7 +508,7 @@ void data_display_entity_skill_healing_done::update_display(combat_analizer& ana
 
     auto player_records = encounter.select<combat_log_entry>( [=](const combat_log_entry& e_) {return e_; } )
         .where([=](const combat_log_entry& e_) {
-            return e_.src == *_entity_name && e_.src_minion == _minion_name && e_.ability == _ability_name;
+            return e_.src == _entity_name && e_.src_minion == _minion_name && e_.ability == _ability_name;
     }).commit < std::vector < combat_log_entry >> ( );
 
     if ( player_records.empty() ) {
@@ -560,23 +556,26 @@ void data_display_entity_skill_healing_done::update_display(combat_analizer& ana
         display_row.name(heal_row.dst);
         display_row.value_max(total_damage);
         display_row.value(heal_row.effect_value);
-        display_row.callback([](string_id) {});
+        display_row.callback([=, &ui_](string_id) {
+            auto display = new data_display_entity_healing_recived;
+            display->_encounter = _encounter;
+            display->_entity_name = heal_row.dst;
+            display->_minion_name = heal_row.dst_minion;
+            ui_.change_display_mode_with_history(display);
+        });
     }
 
     ui_element_manager_.show_only_num_rows(player_damage.size());
 
     ui_element_manager_.enable_stop(true);
-    ui_element_manager_.info_text(L"<a id=\"back_to_entity_view\">Back</a>");
-    ui_element_manager_.info_callback(L"back_to_entity_view", [=]() {
-        auto display = new data_display_entity_dmg_done;
-        display->_encounter = _encounter;
-        display->_entity_name = _entity_name;
-        display->_minion_name = _minion_name;
-        clb(display);
+    ui_element_manager_.info_text(L"<a id=\"back_to_entity_view\">Back</a>"
+                                  L"\r\nHealing done with " + ui_element_manager_.lookup_info()( _ability_name ) + L" by " + ui_element_manager_.lookup_info()( _entity_name ) + L"\r\n");
+    ui_element_manager_.info_callback(L"back_to_entity_view", [=, &ui_]() {
+        ui_.data_display_mode_go_history_back();
     });
 }
 
-void data_display_entity_skill_dmg_recived::update_display(combat_analizer& analizer_, ui_element_manager<main_ui>& ui_element_manager_, change_display_mode_callback clb) {
+void data_display_entity_skill_dmg_recived::update_display(combat_analizer& analizer_, ui_element_manager<main_ui>& ui_element_manager_, main_ui& ui_) {
     if ( analizer_.count_encounters() < _encounter ) {
         ui_element_manager_.show_only_num_rows(0);
         return;
@@ -592,7 +591,7 @@ void data_display_entity_skill_dmg_recived::update_display(combat_analizer& anal
 
     auto player_records = encounter.select<combat_log_entry>( [=](const combat_log_entry& e_) {return e_; } )
         .where([=](const combat_log_entry& e_) {
-            return e_.dst == *_entity_name && e_.dst_minion == _minion_name && e_.ability == _ability_name;
+            return e_.dst == _entity_name && e_.dst_minion == _minion_name && e_.ability == _ability_name;
     }).commit < std::vector < combat_log_entry >> ( );
 
     if ( player_records.empty() ) {
@@ -640,23 +639,26 @@ void data_display_entity_skill_dmg_recived::update_display(combat_analizer& anal
         display_row.name(dmg_row.src);
         display_row.value_max(total_damage);
         display_row.value(dmg_row.effect_value);
-        display_row.callback([](string_id) {});
+        display_row.callback([=, &ui_](string_id) {
+            auto display = new data_display_entity_dmg_done;
+            display->_encounter = _encounter;
+            display->_entity_name = dmg_row.src;
+            display->_minion_name = dmg_row.src_minion;
+            ui_.change_display_mode_with_history(display);
+        });
     }
 
     ui_element_manager_.show_only_num_rows(player_damage.size());
 
     ui_element_manager_.enable_stop(true);
-    ui_element_manager_.info_text(L"<a id=\"back_to_entity_view\">Back</a>");
-    ui_element_manager_.info_callback(L"back_to_entity_view", [=]() {
-        auto display = new data_display_entity_dmg_recived;
-        display->_encounter = _encounter;
-        display->_entity_name = _entity_name;
-        display->_minion_name = _minion_name;
-        clb(display);
+    ui_element_manager_.info_text(L"<a id=\"back_to_entity_view\">Back</a>"
+                                  L"\r\nDamage recived through " + ui_element_manager_.lookup_info()( _ability_name ) + L" by " + ui_element_manager_.lookup_info()( _entity_name ) + L"\r\n");
+    ui_element_manager_.info_callback(L"back_to_entity_view", [=, &ui_]() {
+        ui_.data_display_mode_go_history_back();
     });
 }
 
-void data_display_entity_skill_healing_recived::update_display(combat_analizer& analizer_, ui_element_manager<main_ui>& ui_element_manager_, change_display_mode_callback clb) {
+void data_display_entity_skill_healing_recived::update_display(combat_analizer& analizer_, ui_element_manager<main_ui>& ui_element_manager_, main_ui& ui_) {
     if ( analizer_.count_encounters() < _encounter ) {
         ui_element_manager_.show_only_num_rows(0);
         return;
@@ -672,7 +674,7 @@ void data_display_entity_skill_healing_recived::update_display(combat_analizer& 
 
     auto player_records = encounter.select<combat_log_entry>( [=](const combat_log_entry& e_) {return e_; } )
         .where([=](const combat_log_entry& e_) {
-            return e_.dst == *_entity_name && e_.dst_minion == _minion_name && e_.ability == _ability_name;
+            return e_.dst == _entity_name && e_.dst_minion == _minion_name && e_.ability == _ability_name;
     }).commit < std::vector < combat_log_entry >> ( );
 
     if ( player_records.empty() ) {
@@ -720,18 +722,21 @@ void data_display_entity_skill_healing_recived::update_display(combat_analizer& 
         display_row.name(heal_row.src);
         display_row.value_max(total_damage);
         display_row.value(heal_row.effect_value);
-        display_row.callback([](string_id) {});
+        display_row.callback([=, &ui_](string_id) {
+            auto display = new data_display_entity_healing_done;
+            display->_encounter = _encounter;
+            display->_entity_name = heal_row.src;
+            display->_minion_name = heal_row.src_minion;
+            ui_.change_display_mode_with_history(display);
+        });
     }
 
     ui_element_manager_.show_only_num_rows(player_damage.size());
 
     ui_element_manager_.enable_stop(true);
-    ui_element_manager_.info_text(L"<a id=\"back_to_entity_view\">Back</a>");
-    ui_element_manager_.info_callback(L"back_to_entity_view", [=]() {
-        auto display = new data_display_entity_healing_recived;
-        display->_encounter = _encounter;
-        display->_entity_name = _entity_name;
-        display->_minion_name = _minion_name;
-        clb(display);
+    ui_element_manager_.info_text(L"<a id=\"back_to_entity_view\">Back</a>"
+                                  L"\r\nHealing recived through " + ui_element_manager_.lookup_info()( _ability_name ) + L" by " + ui_element_manager_.lookup_info()( _entity_name ) + L"\r\n");
+    ui_element_manager_.info_callback(L"back_to_entity_view", [=, &ui_]() {
+        ui_.data_display_mode_go_history_back();
     });
 }

@@ -182,13 +182,13 @@ INT_PTR main_ui::about_dlg_handler(dialog* dlg_, UINT msg_, WPARAM w_param_, LPA
     return FALSE;
 }
 
-void main_ui::update_stat_display() {
+void main_ui::update_stat_display(bool force_ /*= false*/) {
     if ( _data_display ) {
+        if ( force_ ) {
+            _data_display->_last_update = decltype( _data_display->_last_update ){};
+        }
         _data_display->_encounter = _analizer.count_encounters() - 1;
-        _data_display->update_display(_analizer, _ui_elements,[=](data_display_mode* mode_) {
-            _ui_elements.clear();
-            _data_display.reset(mode_);
-        });
+        _data_display->update_display(_analizer, _ui_elements, *this);
     }
 #if 0
     if ( !_analizer || _analizer->count_encounters() < 1 ) {
@@ -662,27 +662,7 @@ LRESULT main_ui::os_callback_handler(dialog* window_, UINT uMsg, WPARAM wParam, 
             if ( code == CBN_SELCHANGE ) {
                 auto index = ::SendMessageW(::GetDlgItem(window_->native_handle(), IDC_MAIN_DISPLAY_MODE), CB_GETCURSEL, 0, 0);
                 if ( _data_display ) {
-                    if ( index == 0 ) {
-                        auto itfc = new data_display_entity_dmg_done;
-                        itfc->_entity_name = &_player_id;
-                        itfc->_minion_name = string_id(0);
-                        _data_display.reset(itfc);
-                    } else if ( index == 1 ) {
-                        auto itfc = new data_display_entity_healing_done;
-                        itfc->_entity_name = &_player_id;
-                        itfc->_minion_name = string_id(0);
-                        _data_display.reset(itfc);
-                    } else if ( index == 2 ) {
-                        auto itfc = new data_display_entity_dmg_recived;
-                        itfc->_entity_name = &_player_id;
-                        itfc->_minion_name = string_id(0);
-                        _data_display.reset(itfc);
-                    } else if ( index == 3 ) {
-                        auto itfc = new data_display_entity_healing_recived;
-                        itfc->_entity_name = &_player_id;
-                        itfc->_minion_name = string_id(0);
-                        _data_display.reset(itfc);
-                    }
+                    set_display_mode(index);
                 }
             }
             break;
@@ -702,27 +682,7 @@ void main_ui::on_start_solo() {
     if ( ok ) {
         _timer = SetTimer(_wnd->native_window_handle(), _timer, 1000, nullptr);
         auto index = ::SendMessageW(::GetDlgItem(_wnd->native_handle(), IDC_MAIN_DISPLAY_MODE), CB_GETCURSEL, 0, 0);
-        if ( index == 0 ) {
-            auto itfc = new data_display_entity_dmg_done;
-            itfc->_entity_name = &_player_id;
-            itfc->_minion_name = string_id(0);
-            _data_display.reset(itfc);
-        } else if ( index == 1 ) {
-            auto itfc = new data_display_entity_healing_done;
-            itfc->_entity_name = &_player_id;
-            itfc->_minion_name = string_id(0);
-            _data_display.reset(itfc);
-        } else if ( index == 2 ) {
-            auto itfc = new data_display_entity_dmg_recived;
-            itfc->_entity_name = &_player_id;
-            itfc->_minion_name = string_id(0);
-            _data_display.reset(itfc);
-        } else if ( index == 3 ) {
-            auto itfc = new data_display_entity_healing_recived;
-            itfc->_entity_name = &_player_id;
-            itfc->_minion_name = string_id(0);
-            _data_display.reset(itfc);
-        }
+        set_display_mode(index);
     }
 }
 
@@ -736,6 +696,30 @@ void main_ui::on_stop() {
     _ui_elements.enable_stop(false);
     _ui_elements.clear();
     _data_display.reset();
+}
+
+void main_ui::set_display_mode(unsigned mode_) {
+    if ( mode_ == 0 ) {
+        auto itfc = new data_display_entity_dmg_done;
+        itfc->_entity_name = _player_id;
+        itfc->_minion_name = string_id(0);
+        change_display_mode_reset_history(itfc);
+    } else if ( mode_ == 1 ) {
+        auto itfc = new data_display_entity_healing_done;
+        itfc->_entity_name = _player_id;
+        itfc->_minion_name = string_id(0);
+        change_display_mode_reset_history(itfc);
+    } else if ( mode_ == 2 ) {
+        auto itfc = new data_display_entity_dmg_recived;
+        itfc->_entity_name = _player_id;
+        itfc->_minion_name = string_id(0);
+        change_display_mode_reset_history(itfc);
+    } else if ( mode_ == 3 ) {
+        auto itfc = new data_display_entity_healing_recived;
+        itfc->_entity_name = _player_id;
+        itfc->_minion_name = string_id(0);
+        change_display_mode_reset_history(itfc);
+    }
 }
 
 main_ui::main_ui(const std::wstring& log_path_, app& app_, combat_analizer& c_anal_, string_to_id_string_map& s_map_, character_list& c_list_)
@@ -771,4 +755,42 @@ main_ui::main_ui(const std::wstring& log_path_, app& app_, combat_analizer& c_an
 
 main_ui::~main_ui() {
     KillTimer(_wnd->native_window_handle(), _timer);
+}
+
+
+void main_ui::update_main_player(string_id player_id_) {
+    if ( _player_id == player_id_ ) {
+        return;
+    }
+
+    _player_id = player_id_;
+
+    if ( _data_display ) {
+        auto index = ::SendMessageW(::GetDlgItem(_wnd->native_handle(), IDC_MAIN_DISPLAY_MODE), CB_GETCURSEL, 0, 0);
+        set_display_mode(index);
+    }
+}
+
+void main_ui::change_display_mode(data_display_mode* mode_) {
+    _data_display.reset(mode_);
+    update_stat_display(true);
+}
+
+void main_ui::change_display_mode_with_history(data_display_mode* mode_) {
+    if ( _data_display ) {
+        _data_display_history.emplace_back(_data_display.release());
+    }
+    change_display_mode(mode_);
+}
+
+void main_ui::change_display_mode_reset_history(data_display_mode* mode_) {
+    _data_display_history.clear();
+    change_display_mode(mode_);
+}
+
+void main_ui::data_display_mode_go_history_back() {
+    if ( !_data_display_history.empty() ) {
+        change_display_mode(_data_display_history.back().release());
+        _data_display_history.pop_back();
+    }
 }

@@ -19,6 +19,7 @@ class main_ui
 
     ui_element_manager<main_ui>                     _ui_elements;
     std::unique_ptr<data_display_mode>              _data_display;
+    std::vector<std::unique_ptr<data_display_mode>> _data_display_history;
     std::unique_ptr<dialog>                         _wnd;
     std::future<bool>                               _update_state;
     UINT_PTR                                        _timer;
@@ -36,7 +37,7 @@ class main_ui
     void show_about_dlg();
     INT_PTR about_dlg_handler(dialog* dlg_, UINT msg_, WPARAM w_param_, LPARAM l_param_);
 
-    void update_stat_display();
+    void update_stat_display(bool force_ = false);
     virtual void on_event(const any& v_);
 public:
     virtual bool handle_os_events();
@@ -56,11 +57,15 @@ protected:
     void on_start_raid();
     void on_stop();
 
+    void set_display_mode(unsigned mode_);
+
 public:
     main_ui(const std::wstring& log_path_, app& app_,combat_analizer& c_anal_,string_to_id_string_map& s_map_,character_list& c_list_);
     virtual ~main_ui();
 
-    void update_main_player(string_id player_id_) {
-        _player_id = player_id_;
-    }
+    void update_main_player(string_id player_id_);
+    void change_display_mode(data_display_mode* mode_);
+    void change_display_mode_with_history(data_display_mode* mode_);
+    void change_display_mode_reset_history(data_display_mode* mode_);
+    void data_display_mode_go_history_back();
 };
