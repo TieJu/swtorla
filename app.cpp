@@ -8,6 +8,7 @@
 #include <boost/property_tree/json_parser.hpp>
 
 #include <boost/array.hpp>
+#include <boost/scope_exit.hpp>
 
 
 #include "to_string.h"
@@ -18,6 +19,8 @@
 #include "to_string.h"
 #include "update_info_dialog.h"
 
+#include "archive_zip.h"
+
 #define PATCH_FILE_NAME "patch.bin"
 #define WPATCH_FILE_NAME L"patch.bin"
 
@@ -27,6 +30,191 @@ int get_build_from_name(const std::string& name_) {
     int c_ver = 0;
     sscanf_s(name_.c_str(), "updates/%d.update", &c_ver);
     return c_ver;
+}
+
+std::wstring GetStringRegKey(HKEY key_, const wchar_t* name_, const wchar_t* default_ = nullptr) {
+    wchar_t szBuffer[512];
+    DWORD dwBufferSize = sizeof( szBuffer );
+    ULONG nError;
+    nError = RegQueryValueExW(key_, name_, 0, NULL, (LPBYTE)szBuffer, &dwBufferSize);
+    if ( ERROR_SUCCESS == nError ) {
+        return szBuffer;
+    } else if ( default_ ) {
+        return default_;
+    } else {
+        return std::wstring();
+    }
+}
+
+std::wstring app::scan_install_key(HKEY key_, const wchar_t* name_match_, bool partial_only_) {
+    DWORD max_length = 0;
+    DWORD max_bytes = 0;
+    ::RegQueryInfoKeyW(key_, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, &max_length, &max_bytes, nullptr, nullptr);
+    std::vector<wchar_t> name_buffer(max_length + 1);
+    std::vector<BYTE> data_buffer(max_bytes);
+    DWORD type;
+    std::wstring name;
+    bool had_dipslay_name = false;
+    for ( DWORD index = 0, data_length = data_buffer.size(), name_length = name_buffer.size()
+         ; ERROR_SUCCESS == ::RegEnumValueW(key_, index, name_buffer.data(), &name_length, nullptr, &type, data_buffer.data(), &data_length)
+         ; ++index, data_length = data_buffer.size(), name_length = name_buffer.size() ) {
+        if ( !wcscmp(L"DisplayName", name_buffer.data()) ) {
+            if ( partial_only_ ) {
+                if ( wcsncmp(name_match_, reinterpret_cast<const wchar_t*>( data_buffer.data() ), wcslen(name_match_)) ) {
+                    return std::wstring();
+                }
+                had_dipslay_name = true;
+            } else {
+                if ( wcscmp(name_match_, reinterpret_cast<const wchar_t*>(data_buffer.data())) ) {
+                    return std::wstring();
+                }
+                had_dipslay_name = true;
+            }
+        } else if ( !wcscmp(L"InstallLocation", name_buffer.data()) ) {
+            name = reinterpret_cast<wchar_t*>(data_buffer.data());
+        }
+    }
+
+    if ( !had_dipslay_name ) {
+        return std::wstring();
+    }
+
+    return name;
+}
+
+void app::find_7z_path_registry() {
+    auto target = _config.get<std::wstring>( L"external.compress.7zip.path", L"" );
+    if ( !target.empty() ) {
+        return;
+    }
+    const wchar_t* reg_path = L"SOFTWARE\\7-Zip";
+
+    HKEY key;
+    if ( ERROR_SUCCESS != ::RegOpenKeyExW(HKEY_LOCAL_MACHINE, reg_path, 0, KEY_READ, &key) ) {
+        return;
+    }
+    BOOST_SCOPE_EXIT_ALL(= ) {
+        ::RegCloseKey(key);
+    };
+
+    target = GetStringRegKey(key, L"Path");
+    if ( !target.empty() ) {
+        target += L"7z.exe";
+        BOOST_LOG_TRIVIAL(debug) << L"Found 7zip, path to console program is: " << target;
+        _config.put(L"external.compress.7zip.path", target);
+    }
+}
+
+void app::find_7z_program_path_guess() {}
+void app::find_7z_start_menu() {}
+
+void app::find_rar_path_registry() {
+    auto target = _config.get<std::wstring>( L"external.compress.rar.path", L"" );
+    if ( !target.empty() ) {
+        return;
+    }
+    const wchar_t* install_info = L"Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall";
+
+    HKEY key;
+    if ( ERROR_SUCCESS != ::RegOpenKeyExW(HKEY_LOCAL_MACHINE, install_info, 0, KEY_READ, &key) ) {
+        return;
+    }
+    BOOST_SCOPE_EXIT_ALL(= ) {
+        ::RegCloseKey(key);
+    };
+
+    DWORD max_length = 0;
+    ::RegQueryInfoKeyW(key, nullptr, nullptr, nullptr, nullptr, &max_length, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
+    std::vector<wchar_t> name_buffer(max_length + 1);
+    for ( DWORD index = 0; ERROR_SUCCESS == ::RegEnumKeyW(key, index, name_buffer.data(), name_buffer.size()); ++index ) {
+        std::wstring path(install_info);
+        path += L"\\";
+        path += name_buffer.data();
+
+        HKEY key;
+        if ( ERROR_SUCCESS != ::RegOpenKeyExW(HKEY_LOCAL_MACHINE, path.c_str(), 0, KEY_READ, &key) ) {
+            continue;
+        }        
+        BOOST_SCOPE_EXIT_ALL(= ) {
+            ::RegCloseKey(key);
+        };
+        target = scan_install_key(key,L"WinRAR", true);
+        if ( !target.empty() ) {
+            target += L"Rar.exe";
+            BOOST_LOG_TRIVIAL(debug) << L"Found winrar, path to console program is: " << target;
+            _config.put(L"external.compress.rar.path", target);
+            break;
+        }
+    }
+}
+
+void app::find_rar_program_path_guess() {}
+void app::find_rar_start_menue() {}
+
+void app::find_compress_software_start_menu() {
+    find_7z_program_path_guess();
+
+    find_rar_program_path_guess();
+}
+
+void app::find_compress_software_path_guess() {
+    find_7z_start_menu();
+
+    find_rar_start_menue();
+}
+
+void app::find_compress_software_registry() {
+    find_7z_path_registry();
+
+    find_rar_path_registry();
+}
+
+void app::find_compress_software() {
+    find_compress_software_registry();
+
+    find_compress_software_start_menu();
+
+    find_compress_software_path_guess();
+/*
+
+    auto start_programs = find_start_programs_path();
+    BOOST_LOG_TRIVIAL(debug) << L"looking for files at " << start_programs;
+
+    auto search = start_programs + L"\\*";
+
+    WIN32_FIND_DATAW info{};
+    auto handle = FindFirstFileW(search.c_str(), &info);
+
+    if ( handle != INVALID_HANDLE_VALUE ) {
+        BOOST_SCOPE_EXIT_ALL(= ) {
+            FindClose(handle);
+        };
+
+        auto last_info = info;
+
+        do {
+            BOOST_LOG_TRIVIAL(debug) << L"file found " << info.cFileName;
+        } while ( FindNextFileW(handle, &info) );
+    }
+    
+    start_programs = find_start_common_programs_path();
+    BOOST_LOG_TRIVIAL(debug) << L"looking for files at " << start_programs;
+
+    search = start_programs + L"\\*";
+
+    handle = FindFirstFileW(search.c_str(), &info);
+
+    if ( handle != INVALID_HANDLE_VALUE ) {
+        BOOST_SCOPE_EXIT_ALL(= ) {
+            FindClose(handle);
+        };
+
+        auto last_info = info;
+
+        do {
+            BOOST_LOG_TRIVIAL(debug) << L"file found " << info.cFileName;
+        } while ( FindNextFileW(handle, &info) );
+    }*/
 }
 
 std::string app::load_update_info(const std::string& name_) {
@@ -243,73 +431,6 @@ void app::setup_from_config() {
     }
 }
 
-inline unsigned store_bit(char* blob_, unsigned bit_offset_, bool bit_) {
-    blob_[bit_offset_ / 8] |= ( bit_ ? 1 : 0 ) << ( bit_offset_ % 8 );
-    return bit_offset_ + 1;
-}
-
-inline unsigned store_bits(char* blob_, unsigned bit_offset_, char* src_, unsigned bits_) {
-    unsigned bit = 0;
-    for ( ; bit < bits_; ++bit ) {
-        bit_offset_ = store_bit(blob_, bit_offset_, src_[bit / 8] & ( 1 << ( bit % 8 ) ));
-    }
-    return bit_offset_;
-}
-
-inline unsigned bit_pack_int(char* blob_,unsigned bit_offset_, bool value_) {
-    bit_offset_ = store_bit(blob_, bit_offset_, 0);
-    bit_offset_ = store_bit(blob_, bit_offset_, value_);
-    return bit_offset_;
-}
-
-namespace detail {
-template<typename IntType>
-inline unsigned count_bits(IntType value_) {
-    unsigned bits = 1;
-    value_ >>= 1;
-    while ( value_ ) {
-        ++bits;
-        value_ >>= 1;
-    }
-    return bits;
-    // for some odd reaseon
-    // for ( ; value_ >> bits; ++bits ) will cause infinite loops ....
-}
-}
-template<typename IntType>
-inline unsigned count_bits(IntType value_) {
-    // needs explicit cast to unsigned, or sign extending will ruin your day with a infinite loops...
-    return detail::count_bits(static_cast<typename std::make_unsigned<IntType>::type>( value_ ));
-}
-
-template<typename IntType>
-inline unsigned bit_pack_int(char* blob_, unsigned bit_offset_, IntType value_) {
-    auto bits = count_bits(value_) - 1;
-
-    bit_offset_ = store_bits(blob_, bit_offset_, reinterpret_cast<char*>( &bits ), 6);
-    bit_offset_ = store_bits(blob_, bit_offset_, reinterpret_cast<char*>( &value_ ), bits + 1);
-
-    return bit_offset_;
-}
-
-template<typename IntType>
-inline char* pack_int(char* from_, char* to_, IntType value_) {
-    do {
-        *from_ = char( value_ & 0x7F );
-        value_ >>= 7;
-        if ( value_ ) {
-            *from_ |= 0x80;
-        }
-        ++from_;
-    } while ( value_ && from_ < to_ );
-    return from_;
-}
-
-inline char* pack_int(char* from_, char* to_, bool value_) {
-    *from_ = value_ ? 1 : 0;
-    return from_ + 1;
-}
-
 void app::log_entry_handler(const combat_log_entry& e_) {
     _analizer.add_entry(e_);
 
@@ -318,6 +439,23 @@ void app::log_entry_handler(const combat_log_entry& e_) {
     if ( e_.effect_action == ssc_Event && e_.effect_type == ssc_EnterCombat ) {
         _ui->update_main_player(e_.src);
     }
+#if 0
+    auto packed = compress(e_);
+    auto& buf = std::get<0>( packed );
+    auto unpacked = uncompress(buf.data(), 0);
+    BOOST_LOG_TRIVIAL(debug) << L"compressed log entry from "
+                             << ( sizeof( e_ ) * 8 )
+                             << " bits ( "
+                             << sizeof( e_ )
+                             << L" ) down to "
+                             << std::get<1>( packed )
+                             << L" bits ( "
+                             << ((std::get<1>(packed) + 7) / 8)
+                             << L")";
+    if ( memcmp(&std::get<0>( unpacked ), &e_, sizeof( e_ )) ) {
+        BOOST_LOG_TRIVIAL(debug) << L"compress / decompress error!";
+    }
+#endif
     //
     //// compress test
     //char buffer[sizeof(e_)];
@@ -659,6 +797,7 @@ void app::send_crashreport(const char* path_) {
     (void)path_;
 }
 
+#include "zip_file.h"
 app::app(const char* caption_, const char* config_path_)
 : _config_path(config_path_) {
     boost::log::add_file_log(boost::log::keywords::file_name = "app.log"
@@ -787,8 +926,9 @@ void app::on_new_log_file(const std::wstring& file_) {
 
 void app::change_log_file(const std::wstring& file_, bool relative_ /*= true*/) {
     if ( !_current_log_file.empty() ) {
-        archive_log(_current_log_file);
-        remove_log(_current_log_file);
+        if ( archive_log(_current_log_file) ) {
+            remove_log(_current_log_file);
+        }
     }
 
     if ( relative_ ) {
@@ -799,17 +939,91 @@ void app::change_log_file(const std::wstring& file_, bool relative_ /*= true*/) 
     }
 }
 
-void app::archive_log(const std::wstring& file_) {
+std::wstring app::get_archive_name_from_log_name(const std::wstring& name_) {
+    return name_ + L".zip";
+}
+
+bool app::archive_log(const std::wstring& file_) {
+#if 0
     if ( !_config.get<bool>( L"log.archive", false ) ) {
-        return;
+        return true;
     }
 
-    bool archive_per_file = _config.get<bool>( L"log.one_archive_per_file", false );
+    bool archive_per_file = _config.get<bool>( L"log.archive_file_seperate", false );
 
+    std::wstring arch_name;
+    bool append = !archive_per_file;
     if ( archive_per_file ) {
+        arch_name = get_archive_name_from_log_name(file_);
     } else {
+        arch_name = _config.get<std::wstring>( L"log.archive_name", L"logs.zip" );
     }
-    // TODO: add code that stores the log file in an archive (.zip)
+
+    archive_zip zip(arch_name, archive_zip::open_mode::write, append);
+    if ( !zip.is_open() ) {
+        zip.open(arch_name, archive_zip::open_mode::write, false);
+        if ( !zip.is_open() ) {
+            BOOST_LOG_TRIVIAL(debug) << L"can not open archive " << arch_name << " for writing";
+            return false;
+        }
+    }
+    auto length = ::WideCharToMultiByte(CP_UTF8, 0, file_.c_str(), file_.length(), nullptr, 0, nullptr, nullptr);
+    std::string mbname(length, ' ');
+    ::WideCharToMultiByte(CP_UTF8, 0, file_.c_str(), file_.length(), const_cast<char*>( mbname.c_str() ), mbname.length(), nullptr, nullptr);
+
+    auto last_slash = mbname.find_last_of('\\');
+    std::string local_name;
+    if ( last_slash != std::wstring::npos ) {
+        local_name = mbname.substr(last_slash + 1);
+    } else {
+        local_name = mbname;
+    }
+    // TODO: get actual file time
+    if ( !zip.create_file(local_name.c_str(), std::chrono::system_clock::now()) ) {
+        BOOST_LOG_TRIVIAL(debug) << L"can not add log file " << local_name << L" (" << file_ << L") to archive " << arch_name;
+        return false;
+    }
+
+    std::ifstream file(mbname, std::ios_base::in | std::ios_base::binary);
+    std::array<char, 1024 * 4> buffer;
+    while ( file.read(buffer.data(), buffer.size()) ) {
+        zip.write_file(buffer.data(), buffer.size());
+    }
+    zip.write_file(buffer.data(), file.gcount());
+    zip.close_file();
+    return true;
+#endif
+    if ( !_config.get<bool>( L"log.archive", false ) ) {
+        return true;
+    }
+    
+    bool archive_per_file = _config.get<bool>( L"log.archive_file_seperate", false );
+
+    std::wstring arch_name;
+    bool append = !archive_per_file;
+    if ( archive_per_file ) {
+        arch_name = get_archive_name_from_log_name(file_);
+    } else {
+        arch_name = _config.get<std::wstring>( L"log.archive_name", L"logs.zip" );
+    }
+
+    STARTUPINFO si
+    {};
+    PROCESS_INFORMATION pi
+    {};
+
+    si.cb = sizeof( si );
+
+    std::wstring command = L"7z.exe a ";
+    command += L"\"";
+    command += arch_name;
+    command += L"\" \"";
+    command += file_;
+    command += L"\"";
+    BOOST_LOG_TRIVIAL(debug) << L"running 7z.exe with " << command;
+    CreateProcessW(nullptr, const_cast<wchar_t*>( command.c_str() ), nullptr, nullptr, FALSE, CREATE_NO_WINDOW, nullptr, nullptr, &si, &pi);
+
+    return true;
 }
 
 void app::remove_log(const std::wstring& file_) {

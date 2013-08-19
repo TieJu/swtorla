@@ -1,5 +1,7 @@
 #include "swtor_log_parser.h"
 
+#include "int_compress.h"
+
 #include <type_traits>
 
 #include <boost/log/core.hpp>
@@ -138,7 +140,7 @@ static string_id register_name(const char* from_, const char* to_, character_lis
 static std::tuple<string_id, string_id, unsigned long long> read_entity_name(const char*& from_, const char* to_, string_to_id_string_map& string_map_, character_list& char_list_) {
     expect_char(from_, to_, '[');
     if ( check_char(from_, to_, ']') ) {
-        return std::make_tuple(string_id(0), string_id(0), ( unsigned long long )(-1));
+        return std::make_tuple(string_id(0), string_id(0), 0);
     }
     auto start = from_;
     size_t level = 1;
@@ -160,10 +162,10 @@ static std::tuple<string_id, string_id, unsigned long long> read_entity_name(con
             // if this is direclty put as param to register_string, strange things will happen...
             auto name_end = id_start - 2;
             auto minion = register_string(parse_number<string_id>( id_start, from_ ), sep, name_end, string_map_);
-            return std::make_tuple(owner, minion, ( unsigned long long )( -1 ));
+            return std::make_tuple(owner, minion, 0ULL);
         } else {
             auto owner = register_name(start, from_ - 1, char_list_);
-            return std::make_tuple(owner, string_id(0), ( unsigned long long )( -1 ));
+            return std::make_tuple(owner, string_id(0), 0ULL);
         }
     } else {
         auto id_start = find_char(start, to_, '{');
@@ -359,4 +361,150 @@ combat_log_entry parse_combat_log_line(const char* from_, const char* to_, strin
     }
 
     return e;
+}
+
+char read_bit(const void* buffer_, size_t offset_) {
+    return ( reinterpret_cast<const char*>( buffer_ )[offset_ / 8] >> ( offset_ % 8 ) ) & 1;
+}
+
+void write_bit(void* buffer_, size_t offset_, bool set_) {
+    reinterpret_cast<char*>( buffer_ )[offset_ / 8] |= ( set_ ? 1 : 0 ) << ( offset_ % 8 );
+}
+
+void transfer_bits(const void* src_, size_t src_offset_, void* dst_, size_t dst_offset_, size_t length_) {
+    auto dst_ptr = reinterpret_cast<char*>( dst_ );
+    for ( size_t i = 0; i < length_; ++i ) {
+        write_bit(dst_ptr, dst_offset_ + i, read_bit(src_,src_offset_ + i) ? true : false);
+    }
+}
+
+// returns uncompressed log entry and the number of bits read from buffer_
+std::tuple<combat_log_entry, size_t> uncompress(const void* buffer_, size_t offset_bits_) {
+    combat_log_entry entry{};
+    short flags = 0;
+
+    auto blob = reinterpret_cast<const char*>( buffer_ );
+
+    // format:
+    // 9 bits optional mask (see log_entry_optional_elements, if a bit is set, the value is present)
+    // compressed time (uses interger bit compression)
+    // compressed src
+    // [optional] compressed src minion
+    // [optional] compressed src id
+    // [optional] compressed dst
+    // [optional] compressed dst minion
+    // [optional] compressed dst id
+    // compressed ability
+    // compressed effect action
+    // compressed effect type
+    // compressed effect value
+    // effect was crit bit
+    // [optional] compressed effect value type
+    // [optional] compressed effect value 2
+    // [optional] effect was crit bit2
+    // [optional] compressed effect value type2
+    // [optional] effect thread
+    offset_bits_ = read_bits(blob, offset_bits_, reinterpret_cast<char*>( &flags ), 9);
+    offset_bits_ = bit_unpack_int(blob, offset_bits_, entry.time_index.hours);
+    offset_bits_ = bit_unpack_int(blob, offset_bits_, entry.time_index.minutes);
+    offset_bits_ = bit_unpack_int(blob, offset_bits_, entry.time_index.seconds);
+    offset_bits_ = bit_unpack_int(blob, offset_bits_, entry.time_index.milseconds);
+    offset_bits_ = bit_unpack_int(blob, offset_bits_, entry.src);
+    if ( flags & ( 1 << src_minion ) ) {
+        offset_bits_ = bit_unpack_int(blob, offset_bits_, entry.src_minion);
+    }
+    if ( flags & ( 1 << src_id ) ) {
+        offset_bits_ = bit_unpack_int(blob, offset_bits_, entry.src_id);
+    }
+    if ( flags & ( 1 << dst ) ) {
+        offset_bits_ = bit_unpack_int(blob, offset_bits_, entry.dst);
+    } else {
+        entry.dst = entry.src;
+    }
+    if ( flags & ( 1 << dst_minion ) ) {
+        offset_bits_ = bit_unpack_int(blob, offset_bits_, entry.dst_minion);
+    }
+    if ( flags & ( 1 << dst_id ) ) {
+        offset_bits_ = bit_unpack_int(blob, offset_bits_, entry.dst_id);
+    }
+    offset_bits_ = bit_unpack_int(blob, offset_bits_, entry.ability);
+    offset_bits_ = bit_unpack_int(blob, offset_bits_, entry.effect_action);
+    offset_bits_ = bit_unpack_int(blob, offset_bits_, entry.effect_type);
+    offset_bits_ = bit_unpack_int(blob, offset_bits_, entry.effect_value);
+    offset_bits_ = bit_unpack_int(blob, offset_bits_, entry.was_crit_effect);
+    if ( flags & ( 1 << effect_value_type ) ) {
+        offset_bits_ = bit_unpack_int(blob, offset_bits_, entry.effect_value_type);
+    }
+    if ( flags & ( 1 << effect_value_2 ) ) {
+        offset_bits_ = bit_unpack_int(blob, offset_bits_, entry.effect_value2);
+        offset_bits_ = bit_unpack_int(blob, offset_bits_, entry.was_crit_effect2);
+
+        if ( flags & ( 1 << effect_value_type2 ) ) {
+            offset_bits_ = bit_unpack_int(blob, offset_bits_, entry.effect_value_type2);
+        }
+    }
+    if ( flags & ( 1 << effect_thread ) ) {
+        offset_bits_ = bit_unpack_int(blob, offset_bits_, entry.effect_thread);
+    }
+    return std::make_tuple(entry, offset_bits_);
+
+}
+// returns compressed log entry an an array and the number of bits used in that array
+std::tuple<std::array<char, sizeof( combat_log_entry ) + 3>, size_t> compress(const combat_log_entry& e_) {
+    std::array<char, sizeof( combat_log_entry ) + 3> result;
+    size_t bit_offset = 9;
+    short flags = 0;
+
+    bit_offset = bit_pack_int(result.data(), bit_offset, e_.time_index.hours);
+    bit_offset = bit_pack_int(result.data(), bit_offset, e_.time_index.minutes);
+    bit_offset = bit_pack_int(result.data(), bit_offset, e_.time_index.seconds);
+    bit_offset = bit_pack_int(result.data(), bit_offset, e_.time_index.milseconds);
+    bit_offset = bit_pack_int(result.data(), bit_offset, e_.src);
+    if ( e_.src_minion ) {
+        bit_offset = bit_pack_int(result.data(), bit_offset, e_.src_minion);
+        flags |= 1 << src_minion;
+    }
+    if ( e_.src_id ) {
+        bit_offset = bit_pack_int(result.data(), bit_offset, e_.src_id);
+        flags |= 1 << src_id;
+    }
+    if ( e_.src != e_.dst ) {
+        bit_offset = bit_pack_int(result.data(), bit_offset, e_.dst);
+        flags |= 1 << dst;
+    }
+    if ( e_.dst_minion ) {
+        bit_offset = bit_pack_int(result.data(), bit_offset, e_.dst_minion);
+        flags |= 1 << dst_minion;
+    }
+    if ( e_.dst_id ) {
+        bit_offset = bit_pack_int(result.data(), bit_offset, e_.dst_id);
+        flags |= 1 << dst_id;
+    }
+    bit_offset = bit_pack_int(result.data(), bit_offset, e_.ability);
+    bit_offset = bit_pack_int(result.data(), bit_offset, e_.effect_action);
+    bit_offset = bit_pack_int(result.data(), bit_offset, e_.effect_type);
+    bit_offset = bit_pack_int(result.data(), bit_offset, e_.effect_value);
+    bit_offset = bit_pack_int(result.data(), bit_offset, e_.was_crit_effect);
+    if ( e_.effect_value_type ) {
+        bit_offset = bit_pack_int(result.data(), bit_offset, e_.effect_value_type);
+        flags |= 1 << effect_value_type;
+    }
+    if ( e_.effect_value2 ) {
+        bit_offset = bit_pack_int(result.data(), bit_offset, e_.effect_value2);
+        bit_offset = bit_pack_int(result.data(), bit_offset, e_.was_crit_effect2);
+        flags |= 1 << effect_value_2;
+
+        if ( e_.effect_value_type2 ) {
+            bit_offset = bit_pack_int(result.data(), bit_offset, e_.effect_value_type2);
+            flags |= 1 << effect_value_type2;
+        }
+    }
+    if ( e_.effect_thread ) {
+        bit_offset = bit_pack_int(result.data(), bit_offset, e_.effect_thread);
+        flags |= 1 << effect_thread;
+    }
+
+    store_bits(result.data(), 0, reinterpret_cast<char*>( &flags ), 9);
+
+    return std::make_tuple(result, bit_offset);
 }

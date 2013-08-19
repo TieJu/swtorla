@@ -62,6 +62,7 @@ public:
     }
 
     void clear() {
+        _record = false;
         _encounters.clear();
     }
 };

@@ -18,7 +18,7 @@ std::wstring find_swtor_log_path() {
     std::wstring path;
     
     wchar_t base_loc[MAX_PATH * 2]{};
-    if ( SHGetSpecialFolderPath(nullptr, base_loc, CSIDL_PERSONAL, FALSE) ) {
+    if ( SHGetSpecialFolderPathW(nullptr, base_loc, CSIDL_PERSONAL, FALSE) ) {
         path = base_loc;
         path += L"\\Star Wars - The Old Republic\\CombatLogs";
     }
@@ -50,5 +50,23 @@ std::wstring find_path_for_lates_log_file(const std::wstring& path_) {
 
         return path_ + L"\\" + last_info.cFileName;
     }
+    return std::wstring();
+}
+
+std::wstring find_start_programs_path() {
+    wchar_t base_loc[MAX_PATH * 2]{};
+    if ( SHGetSpecialFolderPathW(nullptr, base_loc, CSIDL_PROGRAMS, FALSE) ) {
+        return base_loc;
+    }
+
+    return std::wstring();
+}
+
+std::wstring find_start_common_programs_path() {
+    wchar_t base_loc[MAX_PATH * 2]{};
+    if ( SHGetSpecialFolderPathW(nullptr, base_loc, CSIDL_COMMON_PROGRAMS, FALSE) ) {
+        return base_loc;
+    }
+
     return std::wstring();
 }

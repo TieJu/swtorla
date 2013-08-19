@@ -30,17 +30,29 @@
 #include "update_dialog.h"
 
 class app : boost::noncopyable {
-    const char*                     _config_path;
-    boost::property_tree::wptree    _config;
-    boost::asio::io_service         _io_service;
-    std::unique_ptr<main_ui>        _ui;
-    program_version                 _version;
-    std::unique_ptr<dir_watcher>    _dir_watcher;
-    log_processor                   _log_reader;
-    string_to_id_string_map         _string_map;
-    character_list                  _char_list;
-    combat_analizer                 _analizer;
-    std::wstring                    _current_log_file;
+    const char*                                             _config_path;
+    boost::property_tree::wptree                            _config;
+    boost::asio::io_service                                 _io_service;
+    std::unique_ptr<main_ui>                                _ui;
+    program_version                                         _version;
+    std::unique_ptr<dir_watcher>                            _dir_watcher;
+    log_processor                                           _log_reader;
+    string_to_id_string_map                                 _string_map;
+    character_list                                          _char_list;
+    combat_analizer                                         _analizer;
+    std::wstring                                            _current_log_file;
+
+    std::wstring scan_install_key(HKEY key_,const wchar_t* name_maptch_,bool partial_only_);
+    void find_7z_path_registry();
+    void find_7z_program_path_guess();
+    void find_7z_start_menu();
+    void find_rar_path_registry();
+    void find_rar_program_path_guess();
+    void find_rar_start_menue();
+    void find_compress_software_start_menu();
+    void find_compress_software_path_guess();
+    void find_compress_software_registry();
+    void find_compress_software();
 
     std::string load_update_info(const std::string& name_);
     std::future<void> show_update_info(const std::string& name_);
@@ -84,7 +96,8 @@ protected:
 
     void change_log_file(const std::wstring& file_,bool relative_ = true);
 
-    void archive_log(const std::wstring& file_);
+    std::wstring get_archive_name_from_log_name(const std::wstring& name_);
+    bool archive_log(const std::wstring& file_);
     void remove_log(const std::wstring& file_);
 };
 
