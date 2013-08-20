@@ -824,8 +824,16 @@ app::app(const char* caption_, const char* config_path_)
     _log_reader.targets(_string_map, _char_list);
     _log_reader.processor([=](const combat_log_entry& e_) { log_entry_handler(e_); });
 
+    auto my_ips = get_local_ip_addresses();
+
     upnp upntest(nullptr);
-    upntest.map_tcp(5001, 5001, L"192.168.178.28");
+    std::vector<std::wstring> mapped_ips;
+    for ( const auto& ip : my_ips ) {
+        if ( upntest.map_tcp(5001, 5001, ip) ) {
+            mapped_ips.push_back(ip);
+        }
+    }
+    //upntest.map_tcp(5001, 5001, L"192.168.178.28");
 }
 
 

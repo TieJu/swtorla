@@ -32,6 +32,7 @@
 #include "client.h"
 
 #include "upnp.h"
+#include "local_ip.h"
 
 class app : boost::noncopyable {
     const char*                                             _config_path;
