@@ -96,4 +96,8 @@ public:
     bool empty() const {
         return _handle == empty_value;
     }
+
+    explicit operator bool( ) const {
+        return !empty();
+    }
 };

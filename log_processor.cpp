@@ -107,6 +107,7 @@ void log_processor::run() {
 }
 
 log_processor::log_processor() {
+    active<log_processor>::start();
 }
 
 log_processor::~log_processor() {

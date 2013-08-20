@@ -23,19 +23,7 @@ public:
     virtual bool on_combat_event(net_protocol* client_, const combat_log_entry& e_) = 0;
 };
 
-class net_protocol_client_interface {
-protected:
-    net_protocol_client_interface() {}
-
-public:
-    virtual ~net_protocol_client_interface() {}
-
-    virtual bool on_string_lookup(string_id ident_) = 0;
-    virtual bool on_string_info(string_id ident_, const wchar_t* string_start_, const wchar_t* string_end_) = 0;
-    virtual bool on_set_name(string_id ident_, const wchar_t* name_start_, const wchar_t* name_end_) = 0;
-    virtual bool on_remove_name(string_id ident_) = 0;
-    virtual bool on_combat_event(const combat_log_entry& e_) = 0;
-};
+class client;
 
 class net_protocol {
 public:
@@ -77,7 +65,7 @@ private:
     };
 #pragma pack(pop)
     net_protocol_server_interface*  _sv;
-    net_protocol_client_interface*  _cl;
+    client*                         _cl;
     boost::asio::ip::tcp::socket    _socket;
     boost::asio::ip::tcp::acceptor  _accept;
     std::vector<char>               _read_buffer;
@@ -108,11 +96,16 @@ public:
         return from_;
     }
 
+    bool connect(boost::asio::ip::tcp::endpoint peer_) {
+            boost::system::error_code ec;
+            return bool(_socket.connect(peer_, ec));
+    }
+
     void disconnect();
     bool listen(const boost::asio::ip::tcp::endpoint& end_point_);
     bool accpet(boost::asio::ip::tcp::socket& target_);
     void server(net_protocol_server_interface* is_);
-    void client(net_protocol_client_interface* ic_);
+    void client(client* ic_);
     connection_status register_at_server(const std::wstring& name_);
     connection_status unregister_at_server(string_id name_id_);
     connection_status lookup_string(string_id string_id_);
