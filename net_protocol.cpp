@@ -1,5 +1,6 @@
 #include "net_protocol.h"
-#if 0
+#include "client.h"
+
 const char* net_protocol::on_client_register(const char* from_, const char* to_) {
     if ( _sv ) {
         _sv->on_client_register(this, reinterpret_cast<const wchar_t*>( from_ ), reinterpret_cast<const wchar_t*>( to_ ));
@@ -165,7 +166,7 @@ void net_protocol::server(net_protocol_server_interface* is_) {
     _sv = is_;
 }
 
-void net_protocol::client(net_protocol_client_interface* ic_) {
+void net_protocol::set_client(client* ic_) {
     _cl = ic_;
 }
 
@@ -203,19 +204,6 @@ net_protocol::connection_status net_protocol::lookup_string(string_id string_id_
     };
 
     return write_buffes(bufs);
-}
-
-net_protocol::connection_status net_protocol::broadcast_names(const character_list& list_) {
-    packet_header header = { 0, command::server_name_broadcast };
-    for ( const auto& name : list_ ) {
-        header.packet_length += ( name.length() + 1 ) * sizeof(wchar_t);
-    }
-
-    auto status = write_buffes(boost::asio::buffer(&header, sizeof( header )));
-    for ( const auto& name : list_ ) {
-        status = write_buffes(boost::asio::buffer(name.c_str(), ( name.length() + 1 ) * sizeof(wchar_t)));
-    }
-    return status;
 }
 
 net_protocol::connection_status net_protocol::request_string_resolve(string_id string_id_) {
@@ -310,4 +298,3 @@ net_protocol::connection_status net_protocol::read_from_port() {
 
     return connection_status::connected;
 }
-#endif

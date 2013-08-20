@@ -17,7 +17,7 @@ void client::run() {
 
         if ( rs == state::init ) {
             _link.reset(new net_protocol(*_service));
-            _link->client(this);
+            _link->set_client(this);
             _link->connect(_peer);
         }
 
@@ -110,7 +110,7 @@ client& client::operator=(client && other_) {
     _strings = other_._strings;
     _chars = other_._chars;
     _cli = other_._cli;
-    *this;
+    return *this;
 }
 
 void client::connect(boost::asio::ip::tcp::endpoint server_) {

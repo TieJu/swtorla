@@ -105,7 +105,7 @@ public:
     bool listen(const boost::asio::ip::tcp::endpoint& end_point_);
     bool accpet(boost::asio::ip::tcp::socket& target_);
     void server(net_protocol_server_interface* is_);
-    void client(client* ic_);
+    void set_client(client* ic_);
     connection_status register_at_server(const std::wstring& name_);
     connection_status unregister_at_server(string_id name_id_);
     connection_status lookup_string(string_id string_id_);

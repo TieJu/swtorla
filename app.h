@@ -29,6 +29,10 @@
 #include "combat_analizer.h"
 #include "update_dialog.h"
 
+#include "client.h"
+
+#include "upnp.h"
+
 class app : boost::noncopyable {
     const char*                                             _config_path;
     boost::property_tree::wptree                            _config;
