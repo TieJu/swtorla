@@ -1,10 +1,9 @@
 #include "local_ip.h"
 #include <WinSock2.h>
-#include <Ws2tcpip.h>
 
 #include <boost/scope_exit.hpp>
 
-std::vector<std::wstring> get_local_ip_addresses(bool include_inactive_ /*= false*/, bool include_loopback_ /*= false*/, bool include_pointtopoint_ /*= false*/) {
+std::vector<std::wstring> get_local_ip_addresses(u_long include_mask_ /*= IFF_UP*/, u_long exclude_mask_ /*= IFF_LOOPBACK | IFF_POINTTOPOINT*/) {
     std::vector<std::wstring> result;
 
     auto sock = WSASocketW(AF_INET, SOCK_DGRAM, 0, 0, 0, 0);
@@ -35,17 +34,11 @@ std::vector<std::wstring> get_local_ip_addresses(bool include_inactive_ /*= fals
 
     std::vector<wchar_t> textbuffer;
 
-    u_long skip_mask = 0;
-    skip_mask |= include_loopback_ ? 0 : IFF_LOOPBACK;
-    skip_mask |= include_pointtopoint_ ? 0 : IFF_POINTTOPOINT;
-    u_long inv_skip_mask = 0;
-    inv_skip_mask |= include_inactive_ ? 0 : IFF_UP;
-
     for ( auto& interface_info : buffer ) {
-        if ( !(interface_info.iiFlags & inv_skip_mask ) ) {
+        if ( !( interface_info.iiFlags & include_mask_ ) ) {
             continue;
         }
-        if ( interface_info.iiFlags & skip_mask ) {
+        if ( interface_info.iiFlags & exclude_mask_ ) {
             continue;
         }
         DWORD length = 0;
