@@ -18,7 +18,7 @@ std::vector<std::wstring> get_local_ip_addresses(glipa_flags flags_ /*= glipa_fl
     std::vector<INTERFACE_INFO> buffer(1);
     DWORD bytes_written = 0;
     for ( ;; ) {
-        if ( ::WSAIoctl(sock, SIO_GET_INTERFACE_LIST, nullptr, 0, buffer.data(), buffer.size() * sizeof(INTERFACE_INFO), &bytes_written, nullptr, nullptr ) == SOCKET_ERROR) {
+        if ( ::WSAIoctl(sock, SIO_GET_INTERFACE_LIST, nullptr, 0, buffer.data(), DWORD(buffer.size() * sizeof(INTERFACE_INFO)), &bytes_written, nullptr, nullptr ) == SOCKET_ERROR) {
             auto error = WSAGetLastError();
             if ( error == WSAEFAULT ) {
                 buffer.resize(buffer.size() * 2);
