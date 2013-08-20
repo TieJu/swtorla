@@ -1,6 +1,13 @@
 #include "upnp.h"
 
-
+#include <boost/log/core.hpp>
+#include <boost/log/trivial.hpp>
+#include <boost/log/expressions.hpp>
+#include <boost/log/sinks/text_file_backend.hpp>
+#include <boost/log/utility/setup/file.hpp>
+#include <boost/log/utility/setup/common_attributes.hpp>
+#include <boost/log/sources/severity_logger.hpp>
+#include <boost/log/sources/record_ostream.hpp>
 
 struct clb_wrap
     : public INATExternalIPAddressCallback {
@@ -47,20 +54,26 @@ void upnp::init_interfaces() {
     auto error = _upnp.CreateInstance(CLSID_UPnPNAT, nullptr, CLSCTX_INPROC_SERVER);
 
     if ( !_upnp ) {
-        throw std::runtime_error("Unable to create IUPnPNAT instance");
+        BOOST_LOG_TRIVIAL(error) << L"CreateInstance(CLSID_UPnPNAT,...) failed with: " << error;
+        return;
     }
 
     IStaticPortMappingCollection* spm;
     error = _upnp->get_StaticPortMappingCollection(&spm);
-
     _ports.Attach(spm, false);
+
+    if ( !_ports ) {
+        BOOST_LOG_TRIVIAL(error) << L"Unable to retrive mort mapping list, upnp meight be blocked by the firewall and/or the router is not upnp compatible";
+    }
 
     INATEventManager* em;
     error = _upnp->get_NATEventManager(&em);
     _events.Attach(em, false);
     
-    _clb_wrap.Attach(new clb_wrap(_clb), false);
-    _events->put_ExternalIPAddressCallback(_clb_wrap);
+    if ( _clb && _events ) {
+        _clb_wrap.Attach(new clb_wrap(_clb), false);
+        _events->put_ExternalIPAddressCallback(_clb_wrap);
+    }
 }
 
 upnp::upnp()
@@ -70,7 +83,6 @@ upnp::upnp()
 
 upnp::upnp(upnp_callback_interface* clb_)
 : _clb(clb_) {
-    init_interfaces();
 }
 
 upnp::~upnp() {
@@ -78,11 +90,10 @@ upnp::~upnp() {
         for ( auto& map : _map ) {
             long port;
             map->get_ExternalPort(&port);
-            // TODO: this meight be wrong
-            BSTR str = nullptr;
-            map->get_InternalClient(&str);
-            _ports->Remove(port, str);
-            SysFreeString(str);
+            BSTR proto = nullptr;
+            map->get_Protocol(&proto);
+            auto result = _ports->Remove(port, proto);
+            SysFreeString(proto);
         }
     }
 }
@@ -101,8 +112,12 @@ upnp& upnp::operator=(upnp&& other_) {
     return *this;
 }
 
-void upnp::map_tcp(unsigned short public_, unsigned short local_, const std::wstring& local_ip_) {
+bool upnp::map_tcp(unsigned short public_, unsigned short local_, const std::wstring& local_ip_) {
     init_interfaces();
+    if ( !_ports ) {
+        BOOST_LOG_TRIVIAL(error) << L"Can not map port from " << public_ << L" to " << local_ip_ << L":" << local_ << L" because upnp init has failed";
+        return false;
+    }
 
     auto local = SysAllocString(local_ip_.c_str());
     auto proto = SysAllocString(L"TCP");
@@ -112,27 +127,39 @@ void upnp::map_tcp(unsigned short public_, unsigned short local_, const std::wst
     auto result = _ports->Add(public_, proto, local_, local, VARIANT_TRUE, name, &map);
     if ( map ) {
         _map.emplace_back(map, false);
+        BOOST_LOG_TRIVIAL(info) << L"New TCP port mapping from " << public_ << L" to " << local_ip_ << L":" << local_;
+    } else {
+        BOOST_LOG_TRIVIAL(error) << L"Port mapping from " << public_ << L" to " << local_ip_ << L":" << local_ << L" has been failed, error code was " << result;
     }
 
     SysFreeString(local);
     SysFreeString(proto);
     SysFreeString(name);
+    return map != nullptr;
 }
 
-void upnp::map_udp(unsigned short public_, unsigned short local_, const std::wstring& local_ip_) {
+bool upnp::map_udp(unsigned short public_, unsigned short local_, const std::wstring& local_ip_) {
     init_interfaces();
+    if ( !_ports ) {
+        BOOST_LOG_TRIVIAL(error) << L"Can not map port " << public_ << L" to " << local_ip_ << L":" << local_ << L" because upnp init has failed";
+        return false;
+    }
 
     auto local = SysAllocString(local_ip_.c_str());
-    auto proto = SysAllocString(L"TCP");
-    auto name = SysAllocString(L"TCP port for swtorla");
+    auto proto = SysAllocString(L"UDP");
+    auto name = SysAllocString(L"UDP port for swtorla");
 
     IStaticPortMapping* map = nullptr;
     auto result = _ports->Add(public_, proto, local_, local, VARIANT_TRUE, name, &map);
     if ( map ) {
+        BOOST_LOG_TRIVIAL(info) << L"New UDP port mapping from " << public_ << L" to " << local_ip_ << L":" << local_;
         _map.emplace_back(map, false);
+    } else {
+        BOOST_LOG_TRIVIAL(error) << L"Port mapping from " << public_ << L" to " << local_ip_ << L":" << local_ << L" has been failed, error code was " << result;
     }
 
     SysFreeString(local);
     SysFreeString(proto);
     SysFreeString(name);
+    return map != nullptr;
 }

@@ -34,6 +34,6 @@ public:
     upnp(upnp&& other_);
     upnp& operator=(upnp&& other_);
 
-    void map_tcp(unsigned short public_, unsigned short local_, const std::wstring& local_ip_);
-    void map_udp(unsigned short public_, unsigned short local_, const std::wstring& local_ip_);
+    bool map_tcp(unsigned short public_, unsigned short local_, const std::wstring& local_ip_);
+    bool map_udp(unsigned short public_, unsigned short local_, const std::wstring& local_ip_);
 };

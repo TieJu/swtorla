@@ -825,7 +825,7 @@ app::app(const char* caption_, const char* config_path_)
     _log_reader.processor([=](const combat_log_entry& e_) { log_entry_handler(e_); });
 
     upnp upntest(nullptr);
-    upntest.map_tcp(5000, 5000, L"192.168.172.1");
+    upntest.map_tcp(5001, 5001, L"192.168.178.28");
 }
 
 
