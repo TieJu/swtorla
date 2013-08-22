@@ -6,7 +6,7 @@ void client::run() {
     for ( ;; ) {
         if ( rs == state::sleep || rs == state::shutdown ) {
             // connection reset
-            _link.reset();
+            _link.disconnect();
         }
 
         if ( rs == state::shutdown ) {
@@ -16,13 +16,12 @@ void client::run() {
         rs = wait(rs);
 
         if ( rs == state::init ) {
-            _link.reset(new net_protocol(*_service));
-            _link->set_client(this);
-            _link->connect(_peer);
+            _link.connect(_peer);
+            rs = state::init;
         }
 
         while ( rs == state::run ) {
-            auto result = _link->read_from_port();
+            auto result = _link.read_from_port();
             if ( net_protocol::connection_status::connected != result ) {
                 ::MessageBoxW(nullptr, L"Server Connection Problem", L"Connection to the server has been closed, see log for details", MB_OK | MB_ICONERROR);
                 BOOST_LOG_TRIVIAL(error) << L"Connection to server has been closed, result code was " << int( result );
@@ -43,7 +42,7 @@ bool client::on_string_lookup(string_id ident_) {
     // look up string and send it back if we know it
     auto at = _strings->find(ident_);
     if ( at != end(*_strings) ) {
-        _link->send_string_info(at->first, at->second);
+        _link.send_string_info(at->first, at->second);
     }
     return true;
 }
@@ -81,21 +80,19 @@ bool client::on_combat_event(const combat_log_entry& e_) {
 }
 
 client::client()
-    : _service(nullptr)
-    , _strings(nullptr)
+    : _strings(nullptr)
     , _chars(nullptr)
     , _cli(nullptr) {
-
+    _link.set_client(this);
 }
 
-client::client(boost::asio::io_service& service_
-              ,string_to_id_string_map& smap_
+client::client(string_to_id_string_map& smap_
               ,character_list& clist_
               ,client_core_interface* cli_)
-    : _service(&service_)
-    , _strings(&smap_)
+    : _strings(&smap_)
     , _chars(&clist_)
     , _cli(cli_) {
+    _link.set_client(this);
 }
 
 
@@ -106,14 +103,15 @@ client::client(client&& other_)
 
 client& client::operator=(client && other_) {
     active<client>::operator=( std::move(other_) );
-    _service = other_._service;
-    _strings = other_._strings;
-    _chars = other_._chars;
-    _cli = other_._cli;
+    _strings = std::move(other_._strings);
+    _chars = std::move(other_._chars);
+    _cli = std::move(other_._cli);
+    _link = std::move(other_._link);
+    _link.set_client(this);
     return *this;
 }
 
-void client::connect(boost::asio::ip::tcp::endpoint server_) {
+void client::connect(const sockaddr& server_) {
     if ( !is_runging() ) {
         start();
     }
@@ -127,7 +125,7 @@ void client::disconnect() {
 
 // sends log entry to server
 void client::combat_event(const combat_log_entry& e_) {
-    if ( _link ) {
-        _link->send_combat_event(e_);
+    if ( _link.is_open() ) {
+        _link.send_combat_event(e_);
     }
 }

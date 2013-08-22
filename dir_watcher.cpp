@@ -14,7 +14,7 @@
 void dir_watcher::on_added_file(const wchar_t* begin_, const wchar_t* end_) {
     std::wstring name(begin_, end_);
     BOOST_LOG_TRIVIAL(debug) << L"added file " << name;
-    _app.on_new_log_file(name);
+    _app->on_new_log_file(name);
 }
 void dir_watcher::on_removed_file(const wchar_t* begin_, const wchar_t* end_) {
     BOOST_LOG_TRIVIAL(debug) << L"removed file " << std::wstring(begin_, end_);
@@ -60,7 +60,7 @@ void dir_watcher::process_data(DWORD length_) {
         }
     }
 }
-
+#if 0
 void dir_watcher::thread_entry(const std::wstring& name_) {
     BOOST_LOG_TRIVIAL(debug) << L"creating handle to observed directory " << name_;
     _file_handle.reset(CreateFile(name_.c_str()
@@ -133,22 +133,114 @@ void dir_watcher::thread_entry(const std::wstring& name_) {
     }
 
 }
+#endif
+void dir_watcher::run() {
+    state rs = state::sleep;
+    const DWORD filter_mask = /*FILE_NOTIFY_CHANGE_LAST_WRITE | FILE_NOTIFY_CHANGE_SIZE |*/ FILE_NOTIFY_CHANGE_FILE_NAME;
+    OVERLAPPED ostate{};
+    DWORD read_bytes = 0;
 
-dir_watcher::dir_watcher(const std::wstring& path,app& app_)
-    : _file_handle(INVALID_HANDLE_VALUE)
-    , _app(app_)
-    , _handler_thread([=]() {
-        try {
-            thread_entry(path);
-        } catch ( const std::runtime_error& e ) {
-            BOOST_LOG_TRIVIAL(error) << L"dir observation failed, because " << e.what() << ", ending observer thread";
+    ostate.hEvent = ::CreateEventW(nullptr, TRUE, FALSE, nullptr);
+    BOOST_SCOPE_EXIT_ALL(= ) {
+        ::CloseHandle(ostate.hEvent);
+    };
+
+    for ( ;; ) {
+        if ( state::sleep == rs || state::shutdown == rs ) {
+            _file_handle.reset();
         }
-    }) {
+
+        if ( state::shutdown == rs ) {
+            break;
+        }
+
+        rs = wait(rs);
+
+        if ( state::init == rs ) {
+            BOOST_LOG_TRIVIAL(debug) << L"creating handle to observed directory " << _name;
+            _file_handle.reset(CreateFile(_name.c_str()
+                                         ,FILE_LIST_DIRECTORY
+                                         ,FILE_SHARE_READ
+                                         |FILE_SHARE_WRITE
+                                         |FILE_SHARE_DELETE
+                                         ,NULL
+                                         ,OPEN_EXISTING
+                                         ,FILE_FLAG_BACKUP_SEMANTICS
+                                         |FILE_FLAG_OVERLAPPED
+                                         ,NULL)
+                                // wrapper needed, close handle returns BOOL ....
+                                , [](HANDLE h) { CloseHandle(h); });
+
+            if ( !_file_handle ) {
+                BOOST_LOG_TRIVIAL(error) << L"unable to create handle to directory";
+                rs = state::sleep;
+                continue;
+            }
+            rs = state::run;
+        }
+
+        while ( state::run == rs ) {
+            if ( !ReadDirectoryChangesW(*_file_handle, _buffer[0].data(), (DWORD)_buffer[0].size(), FALSE, filter_mask, nullptr, &ostate, nullptr) ) {
+                BOOST_LOG_TRIVIAL(error) << L"ReadDirectoryChangesW failed";
+                rs = state::sleep;
+                break;
+            }
+            
+            process_data(read_bytes);
+            
+            if ( TRUE == ::GetOverlappedResult(*_file_handle, &ostate, &read_bytes, TRUE) ) {
+                if ( read_bytes > 0 ) {
+                    BOOST_LOG_TRIVIAL(debug) << read_bytes << L" bytes of change data recived";
+                    std::copy(begin(_buffer[0]), begin(_buffer[0]) + read_bytes, begin(_buffer[1]));
+                }
+            } else {
+                BOOST_LOG_TRIVIAL(error) << L"GetOverlappedResult failed";
+                rs = state::sleep;
+                break;
+            }
+
+            rs = wait_for(rs, std::chrono::milliseconds(25));
+        }
+    }
+}
+
+dir_watcher::dir_watcher()
+    : _app(nullptr) {
+}
+
+dir_watcher::dir_watcher(app& app_)
+    : _app(&app_) {
+}
+
+dir_watcher::dir_watcher(dir_watcher && other_)
+    : dir_watcher() {
+    *this = std::move(other_);
+}
+
+dir_watcher& dir_watcher::operator=(dir_watcher&& other_) {
+    active<dir_watcher>::operator=( std::move(other_) );
+    _file_handle = std::move(other_._file_handle);
+    _buffer = std::move(other_._buffer);
+    _app = std::move(other_._app);
+    _name = std::move(other_._name);
+    return *this;
 }
 
 dir_watcher::~dir_watcher() {
-    //auto copy = _file_handle.release();
-    //CloseHandle(copy);
     _file_handle.reset();
-    _handler_thread.join();
+}
+
+void dir_watcher::watch(const std::wstring& path_) {
+    if ( !is_runging() ) {
+        start();
+    } else {
+        change_state_and_wait(state::sleep);
+    }
+    _name = path_;
+    change_state_and_wait(state::init);
+}
+
+void dir_watcher::stop() {
+    change_state(state::sleep);
+    _file_handle.reset();
 }

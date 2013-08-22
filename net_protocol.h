@@ -66,8 +66,7 @@ private:
 #pragma pack(pop)
     net_protocol_server_interface*  _sv;
     client*                         _cl;
-    boost::asio::ip::tcp::socket    _socket;
-    boost::asio::ip::tcp::acceptor  _accept;
+    SOCKET                          _socket;
     std::vector<char>               _read_buffer;
 
     const char* on_client_register(const char* from_, const char* to_);
@@ -79,31 +78,58 @@ private:
     const char* on_remove_name(const char* from_, const char* to_);
     const char* on_raw_packet(const char* from_, const char* to_);
     const char* on_packet(command cmd_,const char* from_, const char* to_);
-    template<typename Buffers>
-    connection_status write_buffes(Buffers buffers_);
+    template<typename Type>
+    connection_status write(const Type& value_) {
+        return write(&value_, sizeof( value_ ));
+    }
+    connection_status write(const packet_header& header_) {
+        return write(&header_, sizeof( header_ ));
+    }
+    connection_status write(const std::wstring& str_) {
+        return write(str_.c_str(), str_.length() * sizeof(wchar_t));
+    }
+    connection_status write(const void* buffer_, size_t length_) {
+        auto len = ::send(_socket, reinterpret_cast<const char*>( buffer_ ), length_, 0);
 
-public:
-    net_protocol(boost::asio::io_service& ios_);
-    net_protocol(boost::asio::io_service& ios_, boost::asio::ip::tcp::socket && connection_);
-    template<typename Iterator>
-    Iterator connect(Iterator from_, Iterator to_) {
-        boost::system::error_code ec;
-        for ( ; from_ != to_; ++from_ ) {
-            if ( _socket.connect(*from_, ec) ) {
-                break;
+        if ( len == SOCKET_ERROR ) {
+            switch ( WSAGetLastError() ) {
+            case WSAETIMEDOUT:
+                return connection_status::timeout;
+            default:
+                return connection_status::closed;
             }
         }
-        return from_;
+        return connection_status::connected;
     }
 
-    bool connect(boost::asio::ip::tcp::endpoint peer_) {
-            boost::system::error_code ec;
-            return bool(_socket.connect(peer_, ec));
+    static connection_status any_failed(connection_status first_) {
+        return first_;
+    }
+    static connection_status any_failed(connection_status first_, connection_status second_) {
+        if ( first_ != connection_status::connected ) {
+            return first_;
+        }
+        return second_;
+    }
+    static connection_status any_failed(connection_status first_, connection_status second_, connection_status third_) {
+        if ( first_ != connection_status::connected ) {
+            return first_;
+        }
+        return any_failed(second_, third_);
     }
 
+public:
+    net_protocol();
+    net_protocol(SOCKET socket_);
+    net_protocol(net_protocol && other_);
+    net_protocol& operator=(net_protocol&& other_);
+    ~net_protocol();
+
+    bool is_open();
+    bool connect(const sockaddr& peer_);
     void disconnect();
-    bool listen(const boost::asio::ip::tcp::endpoint& end_point_);
-    bool accpet(boost::asio::ip::tcp::socket& target_);
+    bool listen(const sockaddr& port_);
+    SOCKET accpet();
     void server(net_protocol_server_interface* is_);
     void set_client(client* ic_);
     connection_status register_at_server(const std::wstring& name_);
@@ -115,10 +141,4 @@ public:
     connection_status set_name(string_id name_id_, const std::wstring& name_);
     connection_status remove_name(string_id name_id_);
     connection_status read_from_port();
-    boost::asio::ip::tcp::acceptor& server_port() {
-        return _accept;
-    }
-    boost::asio::ip::tcp::socket& client_port() {
-        return _socket;
-    }
 };

@@ -797,7 +797,6 @@ void app::send_crashreport(const char* path_) {
     (void)path_;
 }
 
-#include "zip_file.h"
 app::app(const char* caption_, const char* config_path_)
 : _config_path(config_path_) {
     boost::log::add_file_log(boost::log::keywords::file_name = "app.log"
@@ -824,30 +823,14 @@ app::app(const char* caption_, const char* config_path_)
     _log_reader.targets(_string_map, _char_list);
     _log_reader.processor([=](const combat_log_entry& e_) { log_entry_handler(e_); });
 
-    auto my_ips = get_local_ip_addresses();
-
-    upnp upntest(nullptr);
-    std::vector<std::wstring> mapped_ips;
-    for ( const auto& ip : my_ips ) {
-        if ( upntest.map_tcp(5001, 5001, ip) ) {
-            mapped_ips.push_back(ip);
-        }
-    }
-    //upntest.map_tcp(5001, 5001, L"192.168.178.28");
+    _dir_watcher = dir_watcher(*this);
 }
 
 
 app::~app() {
+    _dir_watcher.stop();
     _log_reader.stop();
     write_config(_config_path);
-
-    BOOST_LOG_TRIVIAL(debug) << L"string table:";
-    for ( auto& ent : _string_map ) {
-        if ( ent.second.empty() ) {
-            continue;
-        }
-        BOOST_LOG_TRIVIAL(debug) << L"[" << ent.first << "] = " << ent.second;
-    }
 }
 
 
@@ -911,7 +894,7 @@ program_version app::get_program_version() {
 
 bool app::start_tracking() {
     auto log_path = _config.get<std::wstring>( L"log.path", L"" );
-    _dir_watcher.reset(new dir_watcher(log_path,*this));
+    _dir_watcher.watch(log_path);
     auto file = find_path_for_lates_log_file(log_path);
     change_log_file(file, false);
     _log_reader.start(_current_log_file);
@@ -919,7 +902,7 @@ bool app::start_tracking() {
 }
 
 void app::stop_tracking() {
-    _dir_watcher.reset();
+    _dir_watcher.stop();
     _log_reader.stop();
     _analizer.clear();
 }

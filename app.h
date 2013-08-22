@@ -35,17 +35,18 @@
 #include "local_ip.h"
 
 class app : boost::noncopyable {
-    const char*                                             _config_path;
-    boost::property_tree::wptree                            _config;
-    boost::asio::io_service                                 _io_service;
-    std::unique_ptr<main_ui>                                _ui;
-    program_version                                         _version;
-    std::unique_ptr<dir_watcher>                            _dir_watcher;
-    log_processor                                           _log_reader;
-    string_to_id_string_map                                 _string_map;
-    character_list                                          _char_list;
-    combat_analizer                                         _analizer;
-    std::wstring                                            _current_log_file;
+    const char*                         _config_path;
+    boost::property_tree::wptree        _config;
+    boost::asio::io_service             _io_service;
+    std::unique_ptr<main_ui>            _ui;
+    program_version                     _version;
+    dir_watcher                         _dir_watcher;
+    log_processor                       _log_reader;
+    string_to_id_string_map             _string_map;
+    character_list                      _char_list;
+    combat_analizer                     _analizer;
+    std::wstring                        _current_log_file;
+    client                              _client;
 
     std::wstring scan_install_key(HKEY key_,const wchar_t* name_maptch_,bool partial_only_);
     void find_7z_path_registry();

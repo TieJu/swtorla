@@ -34,12 +34,11 @@ protected:
     void run();
 
 private:
-    boost::asio::io_service*        _service;
-    std::unique_ptr<net_protocol>   _link;
-    boost::asio::ip::tcp::endpoint  _peer;
-    string_to_id_string_map*        _strings;
-    character_list*                 _chars;
-    client_core_interface*          _cli;
+    net_protocol                _link;
+    sockaddr                    _peer;
+    string_to_id_string_map*    _strings;
+    character_list*             _chars;
+    client_core_interface*      _cli;
 
 protected:
     friend class net_protocol;
@@ -51,10 +50,10 @@ protected:
 
 public:
     client();
-    client(boost::asio::io_service& service_, string_to_id_string_map& smap_, character_list& clist_, client_core_interface* cli_);
+    client(string_to_id_string_map& smap_, character_list& clist_, client_core_interface* cli_);
     client(client&& other_);
     client& operator=(client&& other_);
-    void connect(boost::asio::ip::tcp::endpoint server_);
+    void connect(const sockaddr& server_);
     void disconnect();
     void combat_event(const combat_log_entry& e_);
 };

@@ -1,6 +1,16 @@
 #include "net_protocol.h"
 #include "client.h"
 
+#include <boost/log/core.hpp>
+#include <boost/log/trivial.hpp>
+#include <boost/log/expressions.hpp>
+#include <boost/log/sinks/text_file_backend.hpp>
+#include <boost/log/utility/setup/file.hpp>
+#include <boost/log/utility/setup/common_attributes.hpp>
+#include <boost/log/sources/severity_logger.hpp>
+#include <boost/log/sources/record_ostream.hpp>
+
+
 const char* net_protocol::on_client_register(const char* from_, const char* to_) {
     if ( _sv ) {
         _sv->on_client_register(this, reinterpret_cast<const wchar_t*>( from_ ), reinterpret_cast<const wchar_t*>( to_ ));
@@ -105,61 +115,100 @@ const char* net_protocol::on_packet(command cmd_,const char* from_, const char* 
     }
 }
 
-template<typename Buffers>
-net_protocol::connection_status net_protocol::write_buffes(Buffers buffers_) {
-    boost::system::error_code ec;
-    // using write here, wee need to wait until all bytes are copied to the socket
-    boost::asio::write(_socket, buffers_, ec);
+net_protocol::net_protocol()
+    : _sv(nullptr)
+    , _cl(nullptr)
+    , _socket(INVALID_SOCKET) {
+        _read_buffer.resize(1024);
+}
 
-    if ( !ec ) {
-        if ( ec == boost::asio::error::eof ) {
-            return connection_status::closed;
-        }// else if ( ec == boost::asio::error::timed_out ) {
-        return connection_status::timeout;
-        //}
+net_protocol::net_protocol(SOCKET socket_)
+    : _sv(nullptr)
+    , _cl(nullptr)
+    , _socket(socket_) {
+        _read_buffer.resize(1024);
+}
+
+net_protocol::net_protocol(net_protocol&& other_)
+    : net_protocol() {
+    *this = std::move(other_);
+}
+
+net_protocol& net_protocol::operator=( net_protocol && other_ ) {
+    if ( is_open() ) {
+        disconnect();
     }
-    return connection_status::connected;
 
+    _sv = std::move(other_._sv);
+    _cl = std::move(other_._cl);
+    _socket = std::move(other_._socket);
+    other_._socket = INVALID_SOCKET;
+    _read_buffer = std::move(other_._read_buffer);
+
+    return *this;
+}
+net_protocol::~net_protocol() {
+    if ( is_open() ) {
+        disconnect();
+    }
 }
 
-net_protocol::net_protocol(boost::asio::io_service& ios_)
-    : _sv(nullptr)
-    , _cl(nullptr)
-    , _socket(ios_)
-    , _accept(ios_) {
-        _read_buffer.resize(1024);
+bool net_protocol::is_open() {
+    return _socket != INVALID_SOCKET;
 }
 
-net_protocol::net_protocol(boost::asio::io_service& ios_, boost::asio::ip::tcp::socket && connection_)
-    : _sv(nullptr)
-    , _cl(nullptr)
-    , _socket(std::move(connection_))
-    , _accept(ios_) {
-        _read_buffer.resize(1024);
+bool net_protocol::connect(const sockaddr& peer_) {
+    return SOCKET_ERROR != ::connect(_socket, &peer_, sizeof( peer_ ));
 }
 
 void net_protocol::disconnect() {
-    _socket.shutdown(boost::asio::ip::tcp::socket::shutdown_both);
-    _socket.close();
+    if ( is_open() ) {
+        ::shutdown(_socket, SD_BOTH);
+        ::closesocket(_socket);
+        _socket = INVALID_SOCKET;
+    }
 }
 
-bool net_protocol::listen(const boost::asio::ip::tcp::endpoint& end_point_) {
-    boost::system::error_code ec;
-    if ( _accept.open(end_point_.protocol(), ec) ) {
-        _accept.set_option(boost::asio::ip::tcp::acceptor::reuse_address(true));
-        if ( _accept.bind(end_point_, ec) ) {
-            _accept.io_control(boost::asio::ip::tcp::acceptor::non_blocking_io(true));
-            if ( _accept.listen(boost::asio::ip::tcp::socket::max_connections, ec) ) {
-                return true;
-            }
+bool net_protocol::listen(const sockaddr& port_) {
+    _socket = ::socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    if ( _socket == INVALID_SOCKET ) {
+        return false;
+    }
+
+    BOOL reuse = TRUE;
+    if ( ::setsockopt(_socket, SOL_SOCKET, SO_REUSEADDR, reinterpret_cast<const char*>( &reuse ), sizeof( reuse )) ) {
+        BOOST_LOG_TRIVIAL(error) << L"setsockopt(_socket, SOL_SOCKET, SO_REUSEADDR, reinterpret_cast<const char*>( &reuse ), sizeof( reuse )) failed with: " << WSAGetLastError();
+        return false;
+    }
+
+    if ( ::bind(_socket, &port_, sizeof( port_ )) ) {
+        BOOST_LOG_TRIVIAL(error) << L"bind(_socket, &port_, sizeof( port_ )) failed with: " << WSAGetLastError();
+        return false;
+    }
+
+    u_long nonblock = TRUE;
+    if ( ::ioctlsocket(_socket, FIONBIO, &nonblock) ) {
+        BOOST_LOG_TRIVIAL(error) << L"ioctlsocket(_socket, FIONBIO, &nonblock) failed with: " << WSAGetLastError();
+        return false;
+    }
+
+    if ( ::listen(_socket, SOMAXCONN) == SOCKET_ERROR ) {
+        BOOST_LOG_TRIVIAL(error) << L"listen(_socket, SOMAXCONN) failed with: " << WSAGetLastError();
+        return false;
+    }
+
+    return true;
+}
+
+SOCKET net_protocol::accpet() {
+    auto result = ::accept(_socket, nullptr, nullptr);
+    if ( result == INVALID_SOCKET ) {
+        auto error = WSAGetLastError();
+        if ( error != WSAEWOULDBLOCK ) {
+            BOOST_LOG_TRIVIAL(error) << L"accept(_socket, nullptr, nullptr) failed with: " << error;
         }
     }
-    return false;
-}
-
-bool net_protocol::accpet(boost::asio::ip::tcp::socket& target_) {
-    boost::system::error_code ec;
-    return bool( _accept.accept(target_, ec) );
+    return result;
 }
 
 void net_protocol::server(net_protocol_server_interface* is_) {
@@ -174,36 +223,21 @@ net_protocol::connection_status net_protocol::register_at_server(const std::wstr
     packet_header header = { 0, command::client_register };
     header.packet_length = name_.length() * sizeof(wchar_t);
 
-    boost::array<boost::asio::const_buffer, 3> bufs =
-    { boost::asio::const_buffer(&header, sizeof( header ))
-    , boost::asio::const_buffer(name_.c_str(), name_.length() * sizeof(wchar_t))
-    };
-
-    return write_buffes(bufs);
+    return any_failed(write(header), write(name_));
 }
 
 net_protocol::connection_status net_protocol::unregister_at_server(string_id name_id_) {
     packet_header header = { 0, command::client_unregister };
     header.packet_length = ( bit_pack_int(reinterpret_cast<char*>( &name_id_ ), 0, name_id_) + 7 ) / 8;
 
-    boost::array<boost::asio::const_buffer, 3> bufs =
-    { boost::asio::const_buffer(&header, sizeof( header ))
-    , boost::asio::const_buffer(&name_id_, header.packet_length)
-    };
-
-    return write_buffes(bufs);
+    return any_failed(write(header), write(&name_id_, header.packet_length));
 }
 
 net_protocol::connection_status net_protocol::lookup_string(string_id string_id_) {
     packet_header header = { 0, command::string_lookup };
     header.packet_length = ( bit_pack_int(reinterpret_cast<char*>( &string_id_ ), 0, string_id_) + 7 ) / 8;
 
-    boost::array<boost::asio::const_buffer, 3> bufs =
-    { boost::asio::const_buffer(&header, sizeof( header ))
-    , boost::asio::const_buffer(&string_id_, header.packet_length)
-    };
-
-    return write_buffes(bufs);
+    return any_failed(write(header), write(&string_id_, header.packet_length));
 }
 
 net_protocol::connection_status net_protocol::request_string_resolve(string_id string_id_) {
@@ -215,13 +249,7 @@ net_protocol::connection_status net_protocol::send_string_info(string_id string_
     auto id_length = ( bit_pack_int(reinterpret_cast<char*>( &string_id_ ), 0, string_id_) + 7 ) / 8;
     header.packet_length = ( string_.length() + 1 ) * sizeof(wchar_t)+ id_length;
 
-    boost::array<boost::asio::const_buffer, 3> bufs =
-    { boost::asio::const_buffer(&header, sizeof( header ))
-    , boost::asio::const_buffer(&string_id_, id_length)
-    , boost::asio::const_buffer(string_.c_str(), ( string_.length() + 1 ) *sizeof(wchar_t))
-    };
-
-    return write_buffes(bufs);
+    return any_failed(write(header), write(&string_id_, id_length), write(string_));
 }
 
 net_protocol::connection_status net_protocol::send_combat_event(const combat_log_entry& e_) {
@@ -230,12 +258,7 @@ net_protocol::connection_status net_protocol::send_combat_event(const combat_log
     header.packet_length = ( std::get<1>( result ) + 7 ) / 8;
     auto& buf = std::get<0>( result );
 
-    boost::array<boost::asio::const_buffer, 3> bufs =
-    { boost::asio::const_buffer(&header, sizeof( header ))
-    , boost::asio::const_buffer(buf.data(), header.packet_length)
-    };
-
-    return write_buffes(bufs);
+    return any_failed(write(header), write(buf.data(), header.packet_length));
 }
 
 net_protocol::connection_status net_protocol::set_name(string_id name_id_, const std::wstring& name_) {
@@ -243,44 +266,36 @@ net_protocol::connection_status net_protocol::set_name(string_id name_id_, const
     auto id_length = ( bit_pack_int(reinterpret_cast<char*>( &name_id_ ), 0, name_id_) + 7 ) / 8;
     header.packet_length = id_length + ( name_.length() + 1 ) * sizeof(wchar_t);
 
-    boost::array<boost::asio::const_buffer, 3> bufs =
-    { boost::asio::const_buffer(&header, sizeof( header ))
-    , boost::asio::const_buffer(&name_id_, id_length)
-    , boost::asio::const_buffer(name_.c_str(), name_.length() *sizeof(wchar_t))
-    };
-
-    return write_buffes(bufs);
+    return any_failed(write(header), write(&name_id_, id_length), write(name_));
 }
 
 net_protocol::connection_status net_protocol::remove_name(string_id name_id_) {
     packet_header header = { 0, command::server_set_name };
     header.packet_length = ( bit_pack_int(reinterpret_cast<char*>( &name_id_ ), 0, name_id_) + 7 ) / 8;
 
-    boost::array<boost::asio::const_buffer, 3> bufs =
-    { boost::asio::const_buffer(&header, sizeof( header ))
-    , boost::asio::const_buffer(&name_id_, header.packet_length)
-    };
-
-    return write_buffes(bufs);
-
+    return any_failed(write(header), write(&name_id_, header.packet_length));
 }
 
 net_protocol::connection_status net_protocol::read_from_port() {
     boost::system::error_code ec;
 
-    boost::array<char, 1024> rb;
-    auto bytes = _socket.read_some(boost::asio::buffer(rb), ec);
+    std::array<char, 1024> buffer;
+    auto bytes = ::recv(_socket, buffer.data(), buffer.size(), 0);
 
-    if ( ec ) {
-        if ( ec == boost::asio::error::eof ) {
-            return connection_status::closed;
-        }// else if ( ec == boost::asio::error::timed_out ) {
-        return connection_status::timeout;
-        //}
+    if ( bytes == SOCKET_ERROR ) {
+        auto error = WSAGetLastError();
+
+        if ( error == WSAEWOULDBLOCK ) {
+            return connection_status::connected;
+        }
+
+        BOOST_LOG_TRIVIAL(error) << L"recv(_socket, buffer.data(), buffer.size(), 0) failed with: " << error;
+
+        return error == WSAETIMEDOUT ? connection_status::timeout : connection_status::closed;
     }
 
     if ( bytes > 0 ) {
-        _read_buffer.insert(end(_read_buffer), rb.begin(), rb.end());
+        _read_buffer.insert(end(_read_buffer), begin(buffer), end(buffer));
 
         const auto* read_start = _read_buffer.data();
         const auto* read_end = read_start + _read_buffer.size();
