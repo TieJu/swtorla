@@ -245,9 +245,10 @@ net_protocol::connection_status net_protocol::request_string_resolve(string_id s
 }
 
 net_protocol::connection_status net_protocol::send_string_info(string_id string_id_, const std::wstring& string_) {
-    packet_header header = { 0, command::string_info };
+    packet_header header =
+    { 0, command::string_info };
     auto id_length = ( bit_pack_int(reinterpret_cast<char*>( &string_id_ ), 0, string_id_) + 7 ) / 8;
-    header.packet_length = ( string_.length() + 1 ) * sizeof(wchar_t)+ id_length;
+    header.packet_length = string_.length() * sizeof(wchar_t) + id_length;
 
     return any_failed(write(header), write(&string_id_, id_length), write(string_));
 }
@@ -264,7 +265,7 @@ net_protocol::connection_status net_protocol::send_combat_event(const combat_log
 net_protocol::connection_status net_protocol::set_name(string_id name_id_, const std::wstring& name_) {
     packet_header header = { 0, command::server_set_name };
     auto id_length = ( bit_pack_int(reinterpret_cast<char*>( &name_id_ ), 0, name_id_) + 7 ) / 8;
-    header.packet_length = id_length + ( name_.length() + 1 ) * sizeof(wchar_t);
+    header.packet_length = id_length + name_.length() * sizeof(wchar_t);
 
     return any_failed(write(header), write(&name_id_, id_length), write(name_));
 }
