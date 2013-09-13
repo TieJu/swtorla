@@ -12,10 +12,13 @@
 typedef unsigned long long string_id;
 
 struct combat_log_entry_time_index {
-    unsigned int    hours;
-    unsigned int    minutes;
-    unsigned int    seconds;
-    unsigned int    milseconds;
+    unsigned char   year;
+    unsigned char   month;
+    unsigned char   day;
+    unsigned char   hours;
+    unsigned char   minutes;
+    unsigned char   seconds;
+    unsigned short  milseconds;
 };
 struct combat_log_entry {
     combat_log_entry_time_index time_index;

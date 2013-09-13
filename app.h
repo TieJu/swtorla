@@ -34,6 +34,7 @@
 #include "upnp.h"
 #include "local_ip.h"
 
+
 class app : boost::noncopyable {
     const char*                         _config_path;
     boost::property_tree::wptree        _config;
@@ -100,7 +101,7 @@ protected:
     friend class dir_watcher;
     void on_new_log_file(const std::wstring& file_);
 
-    void change_log_file(const std::wstring& file_,bool relative_ = true);
+    struct tm change_log_file(const std::wstring& file_, bool relative_ = true);
 
     std::wstring get_archive_name_from_log_name(const std::wstring& name_);
     bool archive_log(const std::wstring& file_);

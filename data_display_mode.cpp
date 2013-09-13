@@ -1,6 +1,8 @@
 #include "main_ui.h"
 
 void data_display_entity_dmg_done::update_display(combat_analizer& analizer_, ui_element_manager<main_ui>& ui_element_manager_, main_ui& ui_) {
+    ui_element_manager_.enable_stop(true);
+
     if ( analizer_.count_encounters() < _encounter ) {
         ui_element_manager_.show_only_num_rows(0);
         return;
@@ -96,7 +98,6 @@ void data_display_entity_dmg_done::update_display(combat_analizer& analizer_, ui
         + dur_text + L"\r\n"
         ;
 
-    ui_element_manager_.enable_stop(true);
     ui_element_manager_.info_text(final_text);
     ui_element_manager_.info_callback(L"back_to_entity_view", [=, &ui_]() {
         ui_.data_display_mode_go_history_back();
@@ -104,6 +105,8 @@ void data_display_entity_dmg_done::update_display(combat_analizer& analizer_, ui
 }
 
 void data_display_entity_healing_done::update_display(combat_analizer& analizer_, ui_element_manager<main_ui>& ui_element_manager_, main_ui& ui_) {
+    ui_element_manager_.enable_stop(true);
+
     if ( analizer_.count_encounters() < _encounter ) {
         ui_element_manager_.show_only_num_rows(0);
         return;
@@ -198,7 +201,6 @@ void data_display_entity_healing_done::update_display(combat_analizer& analizer_
         + heal_text + L"\r\n"
         + dur_text + L"\r\n";
 
-    ui_element_manager_.enable_stop(true);
     ui_element_manager_.info_text(final_text);
     ui_element_manager_.info_callback(L"back_to_entity_view", [=, &ui_]() {
         ui_.data_display_mode_go_history_back();
@@ -206,6 +208,8 @@ void data_display_entity_healing_done::update_display(combat_analizer& analizer_
 }
 
 void data_display_entity_dmg_recived::update_display(combat_analizer& analizer_, ui_element_manager<main_ui>& ui_element_manager_, main_ui& ui_) {
+    ui_element_manager_.enable_stop(true);
+
     if ( analizer_.count_encounters() < _encounter ) {
         ui_element_manager_.show_only_num_rows(0);
         return;
@@ -300,7 +304,6 @@ void data_display_entity_dmg_recived::update_display(combat_analizer& analizer_,
         + heal_text + L"\r\n"
         + dur_text + L"\r\n";
 
-    ui_element_manager_.enable_stop(true);
     ui_element_manager_.info_text(final_text);
     ui_element_manager_.info_callback(L"back_to_entity_view", [=, &ui_]() {
         ui_.data_display_mode_go_history_back();
@@ -308,6 +311,8 @@ void data_display_entity_dmg_recived::update_display(combat_analizer& analizer_,
 }
 
 void data_display_entity_healing_recived::update_display(combat_analizer& analizer_, ui_element_manager<main_ui>& ui_element_manager_, main_ui& ui_) {
+    ui_element_manager_.enable_stop(true);
+
     if ( analizer_.count_encounters() < _encounter ) {
         ui_element_manager_.show_only_num_rows(0);
         return;
@@ -402,7 +407,6 @@ void data_display_entity_healing_recived::update_display(combat_analizer& analiz
         + heal_text + L"\r\n"
         + dur_text + L"\r\n";
 
-    ui_element_manager_.enable_stop(true);
     ui_element_manager_.info_text(final_text);
     ui_element_manager_.info_callback(L"back_to_entity_view", [=, &ui_]() {
         ui_.data_display_mode_go_history_back();
@@ -410,6 +414,8 @@ void data_display_entity_healing_recived::update_display(combat_analizer& analiz
 }
 
 void data_display_entity_skill_dmg_done::update_display(combat_analizer& analizer_, ui_element_manager<main_ui>& ui_element_manager_, main_ui& ui_) {
+    ui_element_manager_.enable_stop(true);
+
     if ( analizer_.count_encounters() < _encounter ) {
         ui_element_manager_.show_only_num_rows(0);
         return;
@@ -484,7 +490,6 @@ void data_display_entity_skill_dmg_done::update_display(combat_analizer& analize
 
     ui_element_manager_.show_only_num_rows(player_damage.size());
 
-    ui_element_manager_.enable_stop(true);
     ui_element_manager_.info_text(L"<a id=\"back_to_entity_view\">Back</a>"
                                   L"\r\nDamage done with " + ui_element_manager_.lookup_info()( _ability_name ) + L" by " + ui_element_manager_.lookup_info()( _entity_name ) + L"\r\n");
     ui_element_manager_.info_callback(L"back_to_entity_view", [=, &ui_]() {
@@ -493,6 +498,8 @@ void data_display_entity_skill_dmg_done::update_display(combat_analizer& analize
 }
 
 void data_display_entity_skill_healing_done::update_display(combat_analizer& analizer_, ui_element_manager<main_ui>& ui_element_manager_, main_ui& ui_) {
+    ui_element_manager_.enable_stop(true);
+
     if ( analizer_.count_encounters() < _encounter ) {
         ui_element_manager_.show_only_num_rows(0);
         return;
@@ -567,7 +574,6 @@ void data_display_entity_skill_healing_done::update_display(combat_analizer& ana
 
     ui_element_manager_.show_only_num_rows(player_damage.size());
 
-    ui_element_manager_.enable_stop(true);
     ui_element_manager_.info_text(L"<a id=\"back_to_entity_view\">Back</a>"
                                   L"\r\nHealing done with " + ui_element_manager_.lookup_info()( _ability_name ) + L" by " + ui_element_manager_.lookup_info()( _entity_name ) + L"\r\n");
     ui_element_manager_.info_callback(L"back_to_entity_view", [=, &ui_]() {
@@ -576,6 +582,8 @@ void data_display_entity_skill_healing_done::update_display(combat_analizer& ana
 }
 
 void data_display_entity_skill_dmg_recived::update_display(combat_analizer& analizer_, ui_element_manager<main_ui>& ui_element_manager_, main_ui& ui_) {
+    ui_element_manager_.enable_stop(true);
+
     if ( analizer_.count_encounters() < _encounter ) {
         ui_element_manager_.show_only_num_rows(0);
         return;
@@ -650,7 +658,6 @@ void data_display_entity_skill_dmg_recived::update_display(combat_analizer& anal
 
     ui_element_manager_.show_only_num_rows(player_damage.size());
 
-    ui_element_manager_.enable_stop(true);
     ui_element_manager_.info_text(L"<a id=\"back_to_entity_view\">Back</a>"
                                   L"\r\nDamage recived through " + ui_element_manager_.lookup_info()( _ability_name ) + L" by " + ui_element_manager_.lookup_info()( _entity_name ) + L"\r\n");
     ui_element_manager_.info_callback(L"back_to_entity_view", [=, &ui_]() {
@@ -659,6 +666,8 @@ void data_display_entity_skill_dmg_recived::update_display(combat_analizer& anal
 }
 
 void data_display_entity_skill_healing_recived::update_display(combat_analizer& analizer_, ui_element_manager<main_ui>& ui_element_manager_, main_ui& ui_) {
+    ui_element_manager_.enable_stop(true);
+
     if ( analizer_.count_encounters() < _encounter ) {
         ui_element_manager_.show_only_num_rows(0);
         return;
@@ -733,7 +742,6 @@ void data_display_entity_skill_healing_recived::update_display(combat_analizer& 
 
     ui_element_manager_.show_only_num_rows(player_damage.size());
 
-    ui_element_manager_.enable_stop(true);
     ui_element_manager_.info_text(L"<a id=\"back_to_entity_view\">Back</a>"
                                   L"\r\nHealing recived through " + ui_element_manager_.lookup_info()( _ability_name ) + L" by " + ui_element_manager_.lookup_info()( _entity_name ) + L"\r\n");
     ui_element_manager_.info_callback(L"back_to_entity_view", [=, &ui_]() {

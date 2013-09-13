@@ -896,8 +896,7 @@ bool app::start_tracking() {
     auto log_path = _config.get<std::wstring>( L"log.path", L"" );
     _dir_watcher.watch(log_path);
     auto file = find_path_for_lates_log_file(log_path);
-    change_log_file(file, false);
-    _log_reader.start(_current_log_file);
+    _log_reader.start(_current_log_file, change_log_file(file, false));
     return true;
 }
 
@@ -914,11 +913,31 @@ std::future<bool> app::check_for_updates() {
 void app::on_new_log_file(const std::wstring& file_) {
     _log_reader.stop();
     _analizer.clear();
-    change_log_file(file_);
-    _log_reader.start(_current_log_file);
+    _log_reader.start(_current_log_file, change_log_file(file_));
 }
 
-void app::change_log_file(const std::wstring& file_, bool relative_ /*= true*/) {
+struct tm get_date_from_file_name(const std::wstring& file_) {
+    auto pos = file_.find_last_of(L'\\');
+
+    std::wstring file_name;
+    if ( pos == std::wstring::npos ) {
+        file_name = file_;
+    } else {
+        file_name = file_.substr(pos + 1);
+    }
+
+    // format combat_<YYYY>-<MM>-<DD>_<HH>_<mm>_<ss>_<ms?>.txt
+    struct tm t_info = {};
+    int msec = 0;
+    swscanf_s(file_name.c_str(), L"combat_%d-%d-%d_%d_%d_%d_%d.txt", &t_info.tm_year, &t_info.tm_mon, &t_info.tm_mday, &t_info.tm_hour, &t_info.tm_min, &t_info.tm_sec, &msec);
+
+    t_info.tm_year -= 1900;
+    --t_info.tm_mon;
+
+    return t_info;
+}
+
+struct tm app::change_log_file(const std::wstring& file_, bool relative_ /*= true*/) {
     if ( !_current_log_file.empty() ) {
         if ( archive_log(_current_log_file) ) {
             remove_log(_current_log_file);
@@ -931,6 +950,19 @@ void app::change_log_file(const std::wstring& file_, bool relative_ /*= true*/) 
     } else {
         _current_log_file = file_;
     }
+
+    auto info = get_date_from_file_name(_current_log_file);
+    // zer out time stuff to make it a base value for the day
+    info.tm_sec = 0;
+    info.tm_min = 0;
+    info.tm_hour = 0;
+    info.tm_wday = 0;
+    info.tm_yday = 0;
+    info.tm_isdst = 0;
+
+    return info;
+    
+    //BOOST_LOG_TRIVIAL(debug) << L"log file " << _current_log_file << " parsed into " << info.year << "." << info.month << "." << info.day << " " << info.hour << ":" << info.minute << ":" << info.second;
 }
 
 std::wstring app::get_archive_name_from_log_name(const std::wstring& name_) {

@@ -245,8 +245,7 @@ net_protocol::connection_status net_protocol::request_string_resolve(string_id s
 }
 
 net_protocol::connection_status net_protocol::send_string_info(string_id string_id_, const std::wstring& string_) {
-    packet_header header =
-    { 0, command::string_info };
+    packet_header header = { 0, command::string_info };
     auto id_length = ( bit_pack_int(reinterpret_cast<char*>( &string_id_ ), 0, string_id_) + 7 ) / 8;
     header.packet_length = string_.length() * sizeof(wchar_t) + id_length;
 

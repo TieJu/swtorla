@@ -5,11 +5,13 @@ inline bool get_bit(const char* blob_, size_t at_) {
 }
 
 inline void set_bit(char* blob_, size_t at_, bool set_) {
-    if ( set_ ) {
+    /*if ( set_ ) {
         blob_[at_ / 8] |= 1 << ( at_ % 8 );
     } else {
         blob_[at_ / 8] &= ~( 1U << ( at_ % 8 ) );
-    }
+    }*/
+    auto bit = 1 << at_;
+    blob_[at_ / 8] = ( blob_[at_ / 8] & ~bit ) | ( -set_ & bit );
 }
 
 inline size_t store_bit(char* blob_, size_t bit_offset_, bool bit_) {

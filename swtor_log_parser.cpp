@@ -364,11 +364,19 @@ combat_log_entry parse_combat_log_line(const char* from_, const char* to_, strin
 }
 
 char read_bit(const void* buffer_, size_t offset_) {
-    return ( reinterpret_cast<const char*>( buffer_ )[offset_ / 8] >> ( offset_ % 8 ) ) & 1;
+    return ( reinterpret_cast<const unsigned char*>( buffer_ )[offset_ / 8] >> ( offset_ % 8 ) ) & 1;
 }
 
 void write_bit(void* buffer_, size_t offset_, bool set_) {
-    reinterpret_cast<char*>( buffer_ )[offset_ / 8] |= ( set_ ? 1 : 0 ) << ( offset_ % 8 );
+    auto buffer = reinterpret_cast<unsigned char*>( buffer_ );
+    auto bit = (unsigned char)( 1U << offset_ );
+    buffer[offset_ / 8] = ( buffer[offset_ / 8] & ~bit ) | ( -set_ & bit );
+    /*
+    if ( set_ ) {
+        reinterpret_cast<unsigned char*>( buffer_ )[offset_ / 8] |= 1 << ( offset_ % 8 );
+    } else {
+        reinterpret_cast<unsigned char*>( buffer_ )[offset_ / 8] &= ~( 1 << ( offset_ % 8 ) );
+    }*/
 }
 
 void transfer_bits(const void* src_, size_t src_offset_, void* dst_, size_t dst_offset_, size_t length_) {

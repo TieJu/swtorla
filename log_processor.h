@@ -34,6 +34,7 @@ class log_processor
     character_list*                             _char_list;
     std::function<void(const combat_log_entry&)>_entry_processor;
     std::wstring                                _path;
+    struct tm                                   _base_time;
 
     void open_log(const std::wstring& path_);
     char* process_bytes(char* from_, char* to_);
@@ -53,6 +54,6 @@ public:
     void processor(U v_) {
         _entry_processor = std::forward<U>( v_ );
     }
-    void start(const std::wstring& path);
+    void start(const std::wstring& path, const struct tm& base_time_);
     void stop();
 };
