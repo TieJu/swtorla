@@ -824,10 +824,13 @@ app::app(const char* caption_, const char* config_path_)
     _log_reader.processor([=](const combat_log_entry& e_) { log_entry_handler(e_); });
 
     _dir_watcher = dir_watcher(*this);
+
+    _server = net_link_server(*this);
 }
 
 
 app::~app() {
+    _server.stop();
     _dir_watcher.stop();
     _log_reader.stop();
     write_config(_config_path);
@@ -1065,4 +1068,48 @@ void app::remove_log(const std::wstring& file_) {
         }
         break;
     }
+}
+
+boost::asio::io_service& app::get_io_service() {
+    return _io_service;
+}
+
+void app::on_connected_to_server(client_net_link* self_) {
+    // TODO: get current char name and send it over
+}
+
+void app::on_disconnected_from_server(client_net_link* self_) {
+    // UPDATE ui?
+}
+
+void app::on_string_lookup(client_net_link* self_, string_id string_id_) {
+    // server requested a string look up
+    auto ref = _string_map.find(string_id_);
+
+    if ( ref != end(_string_map) ) {
+        // send string to server
+        self_->send_string_value(string_id_, ref->second);
+    }
+}
+
+void app::on_string_info(client_net_link* /*self_*/, string_id string_id_, const std::wstring& string_) {
+    // just insert it, if it allready exists the current value is kept
+    _string_map.insert(std::make_pair(string_id_, string_));
+}
+
+void app::on_combat_event(client_net_link* /*self_*/, const combat_log_entry& event_) {
+    // use s specialaized version of log_entry_handler to translate server name ids to local name ids
+    //log_entry_handler(event_);
+}
+
+void app::on_set_name(client_net_link* self_, string_id name_id_, const std::wstring& name_) {
+    // need a level to translate server name_id_ to local name_id_
+}
+
+void app::on_remove_name(client_net_link* self_, string_id name_id_) {
+
+}
+
+void app::new_client(boost::asio::ip::tcp::socket* socket_) {
+
 }

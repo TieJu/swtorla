@@ -173,7 +173,7 @@ void dir_watcher::run() {
 
             if ( !_file_handle ) {
                 BOOST_LOG_TRIVIAL(error) << L"unable to create handle to directory";
-                rs = state::sleep;
+                change_state(state::sleep);
                 continue;
             }
             rs = state::run;
@@ -182,7 +182,7 @@ void dir_watcher::run() {
         while ( state::run == rs ) {
             if ( !ReadDirectoryChangesW(*_file_handle, _buffer[0].data(), (DWORD)_buffer[0].size(), FALSE, filter_mask, nullptr, &ostate, nullptr) ) {
                 BOOST_LOG_TRIVIAL(error) << L"ReadDirectoryChangesW failed";
-                rs = state::sleep;
+                change_state(state::sleep);
                 break;
             }
             
@@ -195,7 +195,7 @@ void dir_watcher::run() {
                 }
             } else {
                 BOOST_LOG_TRIVIAL(error) << L"GetOverlappedResult failed";
-                rs = state::sleep;
+                change_state(state::sleep);
                 break;
             }
 

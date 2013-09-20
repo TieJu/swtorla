@@ -26,7 +26,7 @@ protected:
     // returns the new state
     state wait(state state_) {
         while ( state_ == _state ) {
-            if ( ::WaitForSingleObject(*_server_event, INFINITE) ) {
+            if ( ::WaitForSingleObject(*_server_event, INFINITE) == WAIT_OBJECT_0 ) {
                 ::ResetEvent(*_server_event);
                 break;
             }
