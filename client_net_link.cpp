@@ -2,6 +2,24 @@
 
 void client_net_link::on_net_link_command(command command_, const char* data_begin_, const char* data_end_) {
     switch ( command_ ) {
+    case command::string_lookup:
+        _ci->on_string_lookup(this, *reinterpret_cast<const string_id*>( data_begin_ ));
+        break;
+    case command::string_info:
+        _ci->on_string_info(this
+                           ,*reinterpret_cast<const string_id*>( data_begin_ )
+                           ,std::wstring(reinterpret_cast<const wchar_t*>( data_begin_ + sizeof( string_id ) ), reinterpret_cast<const wchar_t*>( data_end_ )));
+        break;
+    case command::combat_event:
+        _ci->on_combat_event(this, std::get<0>(uncompress(data_begin_, 0)));
+        break;
+    case command::server_set_name:
+        _ci->on_set_name(this
+                        ,*reinterpret_cast<const string_id*>( data_begin_ )
+                        ,std::wstring(reinterpret_cast<const wchar_t*>( data_begin_ + sizeof( string_id ) ), reinterpret_cast<const wchar_t*>( data_end_ )));
+        break;
+    default:
+        throw std::runtime_error("unknown net command recived");
     }
 }
 
@@ -39,6 +57,7 @@ void client_net_link::shutdown_link() {
 
     _link->shutdown(boost::asio::ip::tcp::socket::shutdown_both);
     _link->close();
+    _ci->on_disconnected_from_server(this);
 }
 
 void client_net_link::run() {

@@ -35,7 +35,7 @@ public:
         if ( ref == end(_map) ) {
             throw std::runtime_error("invalid name id mapping!");
         }
-        *ref = 0xFFFFFFFFFFFFFFFF;
+        *ref = server_name_;
     }
 
     void add(string_id server_id_, string_id local_id_) {
@@ -60,7 +60,7 @@ public:
 
         auto ref = find_if(begin(_map), end(_map), [=](string_id sid_) {return sid_ == server_; });
         if ( ref == end(_map) ) {
-            throw std::runtime_error("invalid name id mapping!");
+            return server_;
         }
 
         return distance(begin(_map), ref);

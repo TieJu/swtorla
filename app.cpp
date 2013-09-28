@@ -438,6 +438,7 @@ void app::log_entry_handler(const combat_log_entry& e_) {
     // if a new combat log is opened)
     if ( e_.effect_action == ssc_Event && e_.effect_type == ssc_EnterCombat ) {
         _ui->update_main_player(e_.src);
+        _current_char = e_.src;
     }
 #if 0
     auto packed = compress(e_);
@@ -1075,7 +1076,7 @@ boost::asio::io_service& app::get_io_service() {
 }
 
 void app::on_connected_to_server(client_net_link* self_) {
-    // TODO: get current char name and send it over
+    self_->register_at_server(_char_list[_current_char]);
 }
 
 void app::on_disconnected_from_server(client_net_link* self_) {
@@ -1102,12 +1103,16 @@ void app::on_combat_event(client_net_link* /*self_*/, const combat_log_entry& ev
     //log_entry_handler(event_);
 }
 
-void app::on_set_name(client_net_link* self_, string_id name_id_, const std::wstring& name_) {
+void app::on_set_name(client_net_link* /*self_*/, string_id name_id_, const std::wstring& name_) {
     // need a level to translate server name_id_ to local name_id_
-}
-
-void app::on_remove_name(client_net_link* self_, string_id name_id_) {
-
+    auto local = _id_map.add(name_id_);
+    if ( _char_list.size() <= local ) {
+        while ( _char_list.size() <= local ) {
+            _char_list.push_back(name_);
+        }
+    } else {
+        _char_list[local] = name_;
+    }
 }
 
 void app::new_client(boost::asio::ip::tcp::socket* socket_) {

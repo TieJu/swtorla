@@ -16,7 +16,6 @@ enum class command : char {
     combat_event,
 
     server_set_name,
-    server_remove_name,
 };
 
 // base protocol stuff, mostly packet parsing

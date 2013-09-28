@@ -37,6 +37,7 @@
 #include "client_net_link.h"
 
 #include "net_link_server.h"
+#include "name_id_map.h"
 
 class app : boost::noncopyable {
     const char*                         _config_path;
@@ -52,6 +53,8 @@ class app : boost::noncopyable {
     std::wstring                        _current_log_file;
     client                              _client;
     net_link_server                     _server;
+    string_id                           _current_char;
+    name_id_map                         _id_map;
 
     std::wstring scan_install_key(HKEY key_,const wchar_t* name_maptch_,bool partial_only_);
     void find_7z_path_registry();
@@ -118,7 +121,6 @@ protected:
     void on_string_info(client_net_link* self_, string_id string_id_, const std::wstring& string_);
     void on_combat_event(client_net_link* self_, const combat_log_entry& event_);
     void on_set_name(client_net_link* self_, string_id name_id_, const std::wstring& name_);
-    void on_remove_name(client_net_link* self_, string_id name_id_);
 
 protected:
     friend class net_link_server;
