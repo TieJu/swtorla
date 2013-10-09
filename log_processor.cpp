@@ -46,7 +46,7 @@ char* log_processor::process_bytes(char* from_, char* to_) {
 
         if ( _string_map && _char_list ) {
             try {
-                auto entry = parse_combat_log_line(from_, le, *_string_map, *_char_list);
+                auto entry = parse_combat_log_line(from_, le, *_string_map, *_char_list, _base_time);
                 if ( _entry_processor ) {
                     _entry_processor(entry);
                 }

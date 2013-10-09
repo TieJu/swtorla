@@ -17,11 +17,11 @@ public:
     typedef HWND        natvie_handle_value_type;
 
 private:
-    natvie_handle_value_type    _handle;
+    natvie_handle_value_type    _handle { nullptr };
 
 protected:
     common_window_base(natvie_handle_value_type handle_) : _handle(handle_) {}
-    common_window_base() : common_window_base(nullptr) {}
+    common_window_base() = default;
     ~common_window_base() {
         adopt(nullptr);
     }
@@ -34,6 +34,9 @@ protected:
     }
 
 public:
+    void destroy() {
+        adopt( nullptr );
+    }
     bool empty() const {
         return _handle == nullptr;
     }

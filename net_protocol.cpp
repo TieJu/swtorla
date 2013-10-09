@@ -20,7 +20,7 @@ const char* net_protocol::on_client_register(const char* from_, const char* to_)
 
 const char* net_protocol::on_client_unregister(const char* from_, const char* to_) {
     string_id name_id;
-    auto offset = bit_unpack_int(from_, 0, name_id);
+    auto offset = bit_unpack_int(reinterpret_cast<const unsigned char*>(from_), 0, name_id);
     if ( _sv ) {
         _sv->on_client_unregister(this, name_id);
     }
@@ -30,7 +30,7 @@ const char* net_protocol::on_client_unregister(const char* from_, const char* to
 
 const char* net_protocol::on_string_lookup(const char* from_, const char* to_) {
     string_id sid;
-    auto offset = bit_unpack_int(from_, 0, sid);
+    auto offset = bit_unpack_int( reinterpret_cast<const unsigned char*>( from_ ), 0, sid );
     if ( _sv ) {
         _sv->on_string_lookup(this, sid);
     }
@@ -44,8 +44,8 @@ const char* net_protocol::on_string_lookup(const char* from_, const char* to_) {
 const char* net_protocol::on_string_info(const char* from_, const char* to_) {
     string_id sid;
     size_t length;
-    auto offset = bit_unpack_int(from_, 0, sid);
-    offset = bit_unpack_int(from_, offset, length);
+    auto offset = bit_unpack_int( reinterpret_cast<const unsigned char*>( from_ ), 0, sid );
+    offset = bit_unpack_int( reinterpret_cast<const unsigned char*>( from_ ), offset, length );
     from_ += ( offset + 7 ) / 8;
     if ( _sv ) {
         _sv->on_string_info(this, sid, reinterpret_cast<const wchar_t*>( from_ ), reinterpret_cast<const wchar_t*>( from_ ) + length);
@@ -70,7 +70,7 @@ const char* net_protocol::on_combat_event(const char* from_, const char* to_) {
 
 const char* net_protocol::on_set_name(const char* from_, const char* to_) {
     string_id name_id;
-    auto offset = bit_unpack_int(from_, 0, name_id);
+    auto offset = bit_unpack_int( reinterpret_cast<const unsigned char*>( from_ ), 0, name_id );
     from_ += ( offset + 7 ) / 8;
     if ( _cl ) {
         _cl->on_set_name(name_id, reinterpret_cast<const wchar_t*>( from_ ), reinterpret_cast<const wchar_t*>( to_ ));
@@ -80,7 +80,7 @@ const char* net_protocol::on_set_name(const char* from_, const char* to_) {
 
 const char* net_protocol::on_remove_name(const char* from_, const char* to_) {
     string_id name_id;
-    auto offset = bit_unpack_int(from_, 0, name_id);
+    auto offset = bit_unpack_int( reinterpret_cast<const unsigned char*>( from_ ), 0, name_id );
     from_ += ( offset + 7 ) / 8;
     if ( _cl ) {
         _cl->on_remove_name(name_id);
@@ -228,14 +228,14 @@ net_protocol::connection_status net_protocol::register_at_server(const std::wstr
 
 net_protocol::connection_status net_protocol::unregister_at_server(string_id name_id_) {
     packet_header header = { 0, command::client_unregister };
-    header.packet_length = ( bit_pack_int(reinterpret_cast<char*>( &name_id_ ), 0, name_id_) + 7 ) / 8;
+    header.packet_length = ( bit_pack_int(reinterpret_cast<unsigned char*>( &name_id_ ), 0, name_id_) + 7 ) / 8;
 
     return any_failed(write(header), write(&name_id_, header.packet_length));
 }
 
 net_protocol::connection_status net_protocol::lookup_string(string_id string_id_) {
     packet_header header = { 0, command::string_lookup };
-    header.packet_length = ( bit_pack_int(reinterpret_cast<char*>( &string_id_ ), 0, string_id_) + 7 ) / 8;
+    header.packet_length = ( bit_pack_int( reinterpret_cast<unsigned char*>( &string_id_ ), 0, string_id_ ) + 7 ) / 8;
 
     return any_failed(write(header), write(&string_id_, header.packet_length));
 }
@@ -246,7 +246,7 @@ net_protocol::connection_status net_protocol::request_string_resolve(string_id s
 
 net_protocol::connection_status net_protocol::send_string_info(string_id string_id_, const std::wstring& string_) {
     packet_header header = { 0, command::string_info };
-    auto id_length = ( bit_pack_int(reinterpret_cast<char*>( &string_id_ ), 0, string_id_) + 7 ) / 8;
+    auto id_length = ( bit_pack_int( reinterpret_cast<unsigned char*>( &string_id_ ), 0, string_id_ ) + 7 ) / 8;
     header.packet_length = string_.length() * sizeof(wchar_t) + id_length;
 
     return any_failed(write(header), write(&string_id_, id_length), write(string_));
@@ -263,7 +263,7 @@ net_protocol::connection_status net_protocol::send_combat_event(const combat_log
 
 net_protocol::connection_status net_protocol::set_name(string_id name_id_, const std::wstring& name_) {
     packet_header header = { 0, command::server_set_name };
-    auto id_length = ( bit_pack_int(reinterpret_cast<char*>( &name_id_ ), 0, name_id_) + 7 ) / 8;
+    auto id_length = ( bit_pack_int( reinterpret_cast<unsigned char*>( &name_id_ ), 0, name_id_ ) + 7 ) / 8;
     header.packet_length = id_length + name_.length() * sizeof(wchar_t);
 
     return any_failed(write(header), write(&name_id_, id_length), write(name_));
@@ -271,7 +271,7 @@ net_protocol::connection_status net_protocol::set_name(string_id name_id_, const
 
 net_protocol::connection_status net_protocol::remove_name(string_id name_id_) {
     packet_header header = { 0, command::server_set_name };
-    header.packet_length = ( bit_pack_int(reinterpret_cast<char*>( &name_id_ ), 0, name_id_) + 7 ) / 8;
+    header.packet_length = ( bit_pack_int( reinterpret_cast<unsigned char*>( &name_id_ ), 0, name_id_ ) + 7 ) / 8;
 
     return any_failed(write(header), write(&name_id_, header.packet_length));
 }

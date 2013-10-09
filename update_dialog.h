@@ -8,11 +8,23 @@
 #include <CommCtrl.h>
 
 class update_dialog
-: public dialog {
+: public dialog_t<update_dialog> {
+protected:
+    friend class dialog_t<update_dialog>;
+    INT_PTR on_window_event( UINT msg_, WPARAM w_param_, LPARAM l_param_ ) {
+        if ( msg_ == WM_CLOSE ) {
+            ::DestroyWindow( native_handle() );
+            return TRUE;
+        } else if ( msg_ == WM_DESTROY ) {
+            ::PostQuitMessage( 0 );
+            return TRUE;
+        }
+        return FALSE;
+    }
 
 public:
     update_dialog()
-        : dialog(GetModuleHandleW(nullptr), MAKEINTRESOURCEW(IDD_UPDATE_POPUP), nullptr) {
+        : dialog_t<update_dialog>( GetModuleHandleW( nullptr ), MAKEINTRESOURCEW( IDD_UPDATE_POPUP ), nullptr ) {
         auto icon = ::LoadIconW(GetModuleHandleW(nullptr), MAKEINTRESOURCEW(IDI_ICON1));
         ::SendMessageW(native_handle(), WM_SETICON, ICON_BIG, (LPARAM)icon);
         ::SendMessageW(native_handle(), WM_SETICON, ICON_SMALL, (LPARAM)icon);

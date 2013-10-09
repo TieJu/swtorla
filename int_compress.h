@@ -1,10 +1,10 @@
 #pragma once
 
-inline bool get_bit(const char* blob_, size_t at_) {
+inline bool get_bit( unsigned const char* blob_, size_t at_ ) {
     return ( ( blob_[at_ / 8] >> ( at_ % 8 ) ) & 1 ) != 0;
 }
 
-inline void set_bit(char* blob_, size_t at_, bool set_) {
+inline void set_bit( unsigned char* blob_, size_t at_, unsigned char set_ ) {
     /*if ( set_ ) {
         blob_[at_ / 8] |= 1 << ( at_ % 8 );
     } else {
@@ -14,12 +14,12 @@ inline void set_bit(char* blob_, size_t at_, bool set_) {
     blob_[at_ / 8] = ( blob_[at_ / 8] & ~bit ) | ( -set_ & bit );
 }
 
-inline size_t store_bit(char* blob_, size_t bit_offset_, bool bit_) {
+inline size_t store_bit( unsigned char* blob_, size_t bit_offset_, unsigned char bit_ ) {
     set_bit(blob_, bit_offset_, bit_);
     return bit_offset_ + 1;
 }
 
-inline size_t store_bits(char* blob_, size_t bit_offset_, char* src_, size_t bits_) {
+inline size_t store_bits( unsigned char* blob_, size_t bit_offset_, unsigned char* src_, size_t bits_ ) {
     unsigned bit = 0;
     for ( ; bit < bits_; ++bit ) {
         bit_offset_ = store_bit(blob_, bit_offset_, get_bit(src_, bit));
@@ -27,7 +27,7 @@ inline size_t store_bits(char* blob_, size_t bit_offset_, char* src_, size_t bit
     return bit_offset_;
 }
 
-inline size_t bit_pack_int(char* blob_, size_t bit_offset_, bool value_) {
+inline size_t bit_pack_int( unsigned char* blob_, size_t bit_offset_, bool value_ ) {
     return store_bit(blob_, bit_offset_, value_);
 }
 
@@ -66,22 +66,22 @@ template<size_t Value>
 struct masking_for_bits : std::integral_constant<size_t, ( ( 1 << Value ) - 1 )> {};
 
 template<typename IntType>
-inline size_t bit_pack_int(char* blob_, size_t bit_offset_, IntType value_) {
+inline size_t bit_pack_int( unsigned char* blob_, size_t bit_offset_, IntType value_ ) {
     auto bits = count_bits(value_) - 1;
     const auto max_bits = bits_to_store<sizeof( IntType ) * 8>::value;
 
-    bit_offset_ = store_bits(blob_, bit_offset_, reinterpret_cast<char*>( &bits ), max_bits);
-    bit_offset_ = store_bits(blob_, bit_offset_, reinterpret_cast<char*>( &value_ ), bits + 1);
+    bit_offset_ = store_bits(blob_, bit_offset_, reinterpret_cast<unsigned char*>( &bits ), max_bits);
+    bit_offset_ = store_bits( blob_, bit_offset_, reinterpret_cast<unsigned char*>( &value_ ), bits + 1 );
 
     return bit_offset_;
 }
 
-inline size_t read_bit(const char* blob_, size_t bit_offset_, bool& value_) {
+inline size_t read_bit( const unsigned char* blob_, size_t bit_offset_, bool& value_ ) {
     value_ = get_bit(blob_, bit_offset_);
     return bit_offset_ + 1;
 }
 
-inline size_t read_bits(const char* blob_, size_t offset_, char* dst_, size_t bits_) {
+inline size_t read_bits( const unsigned char* blob_, size_t offset_, unsigned char* dst_, size_t bits_ ) {
     for ( size_t i = 0; i < bits_; ++i ) {
         bool bit;
         offset_ = read_bit(blob_, offset_, bit);
@@ -90,23 +90,23 @@ inline size_t read_bits(const char* blob_, size_t offset_, char* dst_, size_t bi
     return offset_;
 }
 
-inline size_t bit_unpack_int(const char* blob_, size_t bit_offset_, bool& value_) {
+inline size_t bit_unpack_int( const unsigned char* blob_, size_t bit_offset_, bool& value_ ) {
     return read_bit(blob_, bit_offset_, value_);
 }
 
 template<typename IntType>
-inline size_t bit_unpack_int(const char* blob_, size_t bit_offset_, IntType& value_) {
+inline size_t bit_unpack_int( const unsigned char* blob_, size_t bit_offset_, IntType& value_ ) {
     unsigned char bits = 0;
     const auto max_bits = bits_to_store<sizeof( IntType ) * 8>::value;
-    bit_offset_ = read_bits(blob_, bit_offset_, reinterpret_cast<char*>( &bits ), max_bits);
-    bit_offset_ = read_bits(blob_, bit_offset_, reinterpret_cast<char*>( &value_ ), bits + 1);
+    bit_offset_ = read_bits( blob_, bit_offset_, reinterpret_cast<unsigned char*>( &bits ), max_bits );
+    bit_offset_ = read_bits( blob_, bit_offset_, reinterpret_cast<unsigned char*>( &value_ ), bits + 1 );
     return bit_offset_;
 }
 
 template<typename IntType>
-inline char* pack_int(char* from_, char* to_, IntType value_) {
+inline unsigned char* pack_int( unsigned char* from_, unsigned char* to_, IntType value_ ) {
     do {
-        *from_ = char( value_ & 0x7F );
+        *from_ = unsigned char( value_ & 0x7F );
         value_ >>= 7;
         if ( value_ ) {
             *from_ |= 0x80;
@@ -116,12 +116,12 @@ inline char* pack_int(char* from_, char* to_, IntType value_) {
     return from_;
 }
 
-inline char* pack_int(char* from_, char* to_, bool value_) {
+inline unsigned char* pack_int( unsigned char* from_, unsigned char* to_, unsigned char value_ ) {
     *from_ = value_ ? 1 : 0;
     return from_ + 1;
 }
 
-inline unsigned long long unpack_int(char* from_, char* to_) {
+inline unsigned long long unpack_int( unsigned char* from_, unsigned char* to_ ) {
     unsigned long long value = 0;
 
     for ( size_t i = 0; from_ + i < to_; ++i ) {

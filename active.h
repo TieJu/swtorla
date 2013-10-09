@@ -81,7 +81,7 @@ protected:
         : _state(state::sleep) {
     }
 
-    void start() {
+    void start(state init_state_ = state::sleep) {
         if ( !_server_event ) {
             _server_event.reset(::CreateEventW(nullptr, TRUE, FALSE, nullptr), [](HANDLE h_) { ::CloseHandle(h_); });
         }
@@ -89,6 +89,7 @@ protected:
             _client_event.reset(::CreateEventW(nullptr, TRUE, FALSE, nullptr), [](HANDLE h_) { ::CloseHandle(h_); });
         }
         _thread = std::thread([=]() {
+            _state = init_state_;
             static_cast<Derived*>( this )->run();
         });
     }
@@ -124,5 +125,9 @@ protected:
 
     bool is_runging() {
         return _thread.joinable();
+    }
+
+    bool check_state(state state_) {
+        return _state == state_;
     }
 };

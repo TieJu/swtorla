@@ -26,6 +26,8 @@
 
 #define CRASH_FILE_NAME "./crash.dump"
 
+#include "updater.h"
+
 int get_build_from_name(const std::string& name_) {
     int c_ver = 0;
     sscanf_s(name_.c_str(), "updates/%d.update", &c_ver);
@@ -363,12 +365,6 @@ bool app::run_update_async_job(update_dialog& dlg_) {
 // returns true if a new version was installed and the app needs to restart
 bool app::run_update_async() {
     update_dialog dlg;
-    dlg.callback([=](dialog* dlg_, UINT msg_, WPARAM w_param_, LPARAM l_param_) {
-        if ( msg_ == WM_CLOSE || msg_ == WM_DESTROY ) {
-            ::PostQuitMessage(0);
-        }
-        return FALSE;
-    });
 
     auto job = std::async(std::launch::async, [=, &dlg]() { return run_update_async_job(dlg); });
 
@@ -376,19 +372,21 @@ bool app::run_update_async() {
 
     MSG msg{};
     while ( job.wait_for(std::chrono::milliseconds(100)) != std::future_status::ready ) {
-        while ( ::PeekMessageW(&msg, nullptr, 0, 0, PM_REMOVE) ) {
+        while ( ::PeekMessageW( &msg, dlg.native_handle(), 0, 0, PM_REMOVE ) ) {
             TranslateMessage(&msg);
             DispatchMessageW(&msg);
         }
     }
-    ::PostQuitMessage(0);
+
+    dlg.destroy();
+
     try {
         result = job.get();
     } catch ( const std::exception& e_ ) {
         BOOST_LOG_TRIVIAL(error) << L"run_async_job failed because: " << e_.what();
     }
 
-    while ( ::GetMessageW(&msg, nullptr, 0, 0) ) {
+    while ( ::GetMessageW( &msg, dlg.native_handle(), 0, 0 ) ) {
         TranslateMessage(&msg);
         DispatchMessageW(&msg);
     }
@@ -434,13 +432,18 @@ void app::setup_from_config() {
 void app::log_entry_handler(const combat_log_entry& e_) {
     _analizer.add_entry(e_);
 
-    // tell the ui the new current play, this might change on a relog (move this elsewere, do this once
-    // if a new combat log is opened)
+    // TODO: let the analizer call into app with an info about changed char?
     if ( e_.effect_action == ssc_Event && e_.effect_type == ssc_EnterCombat ) {
-        _ui->update_main_player(e_.src);
-        _current_char = e_.src;
+        // update current char, tell the server and the ui that the char has changed
+        if ( _current_char != e_.src ) {
+            _current_char = e_.src;
+
+            _client.register_at_server(_char_list[e_.src]);
+
+            _ui->update_main_player(e_.src);
+        }
     }
-#if 0
+#if 1
     auto packed = compress(e_);
     auto& buf = std::get<0>( packed );
     auto unpacked = uncompress(buf.data(), 0);
@@ -523,6 +526,25 @@ void app::log_entry_handler(const combat_log_entry& e_) {
 }
 
 std::string app::check_update(update_dialog& dlg_) {
+    updater u( _config.get<std::wstring>( L"update.server", L"http://homepages.thm.de" ) );
+    auto task = u.query_build(dlg_);
+    auto max_ver = task.get();
+    auto new_version_path = "update/" + std::to_string( max_ver ) + ".update";
+    
+    if ( max_ver > _version.build ) {
+        dlg_.info_msg( L"...new version on server found..." );
+        BOOST_LOG_TRIVIAL( debug ) << L"...never version on server found: " << new_version_path << L"...";
+    } else {
+        dlg_.info_msg( L"...no new version on server found..." );
+        BOOST_LOG_TRIVIAL( debug ) << L"...application is up to date...";
+        new_version_path.clear();
+    }
+
+    dlg_.progress( 50 );
+
+    return new_version_path;
+#if 0
+
     dlg_.progress(0);
     dlg_.info_msg(L"...locating patch server...");
     auto remote_server = std::to_string(_config.get<std::wstring>( L"update.server", L"homepages.thm.de" ));
@@ -645,6 +667,7 @@ std::string app::check_update(update_dialog& dlg_) {
     dlg_.progress(50);
 
     return new_version_path;
+#endif
 }
 
 std::string app::download_update(update_dialog& dlg_, std::string update_path_) {
@@ -793,7 +816,7 @@ void app::write_config(const char* config_path_) {
 
 }
 
-void app::send_crashreport(const char* path_) {
+void app::send_crashreport( const char* path_ ) {
     // todo: add crash upload handler here
     (void)path_;
 }
@@ -1076,14 +1099,17 @@ boost::asio::io_service& app::get_io_service() {
 }
 
 void app::on_connected_to_server(client_net_link* self_) {
+    BOOST_LOG_TRIVIAL(debug) << L"void app::on_connected_to_server(" << self_ << L");";
     self_->register_at_server(_char_list[_current_char]);
 }
 
 void app::on_disconnected_from_server(client_net_link* self_) {
+    BOOST_LOG_TRIVIAL(debug) << L"void app::on_connected_to_server(" << self_ << L");";
     // UPDATE ui?
 }
 
 void app::on_string_lookup(client_net_link* self_, string_id string_id_) {
+    BOOST_LOG_TRIVIAL(debug) << L"void app::on_string_lookup(" << self_ << L", " << string_id_ << L");";
     // server requested a string look up
     auto ref = _string_map.find(string_id_);
 
@@ -1093,28 +1119,84 @@ void app::on_string_lookup(client_net_link* self_, string_id string_id_) {
     }
 }
 
-void app::on_string_info(client_net_link* /*self_*/, string_id string_id_, const std::wstring& string_) {
+void app::on_string_info(client_net_link * self_, string_id string_id_, const std::wstring& string_) {
+    BOOST_LOG_TRIVIAL(debug) << L"void app::on_string_info(" << self_ << L", " << string_id_ << L", " << string_ << L");";
     // just insert it, if it allready exists the current value is kept
     _string_map.insert(std::make_pair(string_id_, string_));
 }
 
-void app::on_combat_event(client_net_link* /*self_*/, const combat_log_entry& event_) {
+void app::on_combat_event(client_net_link * self_, const combat_log_entry& event_) {
+    BOOST_LOG_TRIVIAL(debug) << L"void app::on_combat_event(" << self_ << L", " << &event_ << L");";
     // use s specialaized version of log_entry_handler to translate server name ids to local name ids
     //log_entry_handler(event_);
 }
 
-void app::on_set_name(client_net_link* /*self_*/, string_id name_id_, const std::wstring& name_) {
-    // need a level to translate server name_id_ to local name_id_
+void app::on_set_name(client_net_link * self_, string_id name_id_, const std::wstring& name_) {
+    BOOST_LOG_TRIVIAL(debug) << L"void app::on_set_name(" << self_ << L", " << name_id_ << L", " << name_ << L");";
+    // find a free id
     auto local = _id_map.add(name_id_);
-    if ( _char_list.size() <= local ) {
-        while ( _char_list.size() <= local ) {
-            _char_list.push_back(name_);
-        }
-    } else {
-        _char_list[local] = name_;
-    }
+    // ensure we have enoug slots at char list
+    _char_list.resize(std::max(local + 1, _char_list.size()));
+    // store name
+    _char_list[local] = name_;
 }
 
 void app::new_client(boost::asio::ip::tcp::socket* socket_) {
+    BOOST_LOG_TRIVIAL(debug) << L"void app::new_client(" << socket_ << L");";
+    std::unique_lock<decltype( _clients_guard )> lock(_clients_guard);
+    _clients.push_back(std::make_unique<server_net_link>( *this, socket_ ));
+}
 
+void app::on_client_register(server_net_link * self_, const std::wstring& name_) {
+    BOOST_LOG_TRIVIAL(debug) << L"void app::on_client_register(" << self_ << L", " << name_ << L");";
+    auto at = std::find(begin(_char_list), end(_char_list), name_);
+    if ( at == end(_char_list) ) {
+        at = _char_list.push_back(name_);
+    }
+    auto id = std::distance(begin(_char_list), at);
+    for ( auto& cl : _clients ) {
+        cl->send_set_name(id, name_);
+    }
+}
+
+void app::on_string_lookup(server_net_link* self_, string_id string_id_) {
+    BOOST_LOG_TRIVIAL(debug) << L"void app::on_string_lookup(" << self_ << L", " << string_id_ << L");";
+    auto ref = _string_map.find(string_id_);
+    if ( ref == std::end(_string_map) ) {
+        for ( auto& cl : _clients ) {
+            cl->get_string_value(string_id_);
+        }
+    } else {
+        self_->send_string_value(string_id_, ref->second);
+    }
+}
+
+void app::on_string_info(server_net_link* self_, string_id string_id_, const std::wstring& string_) {
+    BOOST_LOG_TRIVIAL(debug) << L"void app::on_string_lookup(" << self_ << L", " << string_id_ << L", " << string_ << L");";
+    auto at = _string_map.insert(std::make_pair(string_id_, string_)).first;
+
+    for ( auto& cl : _clients ) {
+        if ( cl.get() != self_ ) {
+            cl->send_string_value(at->first, at->second);
+        }
+    }
+}
+
+void app::on_combat_event(server_net_link* self_, const combat_log_entry& event_) {
+    BOOST_LOG_TRIVIAL(debug) << L"void app::on_combat_event(" << self_ << L", " << &event_ << L");";
+    // insert into combat table
+    for ( auto& cl : _clients ) {
+        if ( cl.get() != self_ ) {
+            cl->send_combat_event(event_);
+        }
+    }
+}
+
+void app::on_client_disconnect(server_net_link* self_) {
+    BOOST_LOG_TRIVIAL(debug) << L"void app::on_client_disconnect(" << self_ << L");";
+    std::unique_lock<decltype( _clients_guard )> lock(_clients_guard);
+    auto ref = find_if(begin(_clients), end(_clients), [=](const std::unique_ptr<server_net_link>& other_) { return self_ == other_.get(); });
+    if ( ref != end(_clients) ) {
+        _clients.erase(ref);
+    }
 }

@@ -19,9 +19,14 @@ class server_net_link
 
     friend class net_link_base<server_net_link>;
     void on_net_link_command(command command_, const char* data_begin_, const char* data_end_);
+    boost::asio::ip::tcp::socket& get_link();
+    bool is_link_active();
 
     friend class active<server_net_link>;
     void run();
 
 public:
+    server_net_link(app& app_, boost::asio::ip::tcp::socket* socket_);
+    ~server_net_link();
+    void send_set_name(string_id id_, const std::wstring& name_);
 };

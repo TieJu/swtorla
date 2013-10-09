@@ -1,5 +1,6 @@
 #include "app.h"
 #include "main_ui.h"
+#include "raid_sync_dialog.h"
 
 #include <sstream>
 #include <boost/scope_exit.hpp>
@@ -687,7 +688,8 @@ void main_ui::on_start_solo() {
 }
 
 void main_ui::on_start_raid() {
-    MessageBoxW(nullptr, L"Sorry, not implemented yet!", L"NIY", MB_OK | MB_ICONINFORMATION);
+    auto res = std::async(std::launch::async, [=]() { raid_sync_dialog sync_dlg; });
+    res.get();
 }
 
 void main_ui::on_stop() {

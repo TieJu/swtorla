@@ -60,6 +60,14 @@ void client_net_link::shutdown_link() {
     _ci->on_disconnected_from_server(this);
 }
 
+boost::asio::ip::tcp::socket& client_net_link::get_link() {
+    return *_link;
+}
+
+bool client_net_link::is_link_active() {
+    return check_state(state::run);
+}
+
 void client_net_link::run() {
     boost::system::error_code error;
     boost::array<char, 1024> read_buffer;
@@ -82,6 +90,7 @@ void client_net_link::run() {
                 r_state = state::sleep;
             } else {
                 r_state = state::run;
+                change_state(state::run);
             }
         }
 
@@ -148,35 +157,9 @@ void client_net_link::disconnect() {
 }
 
 void client_net_link::register_at_server(const std::wstring& name_) {
-    auto header = gen_packet_header(command::client_register, sizeof(wchar_t) * name_.length());
-    _link->write_some(boost::asio::buffer(&header, sizeof( header )));
-    _link->write_some(boost::asio::buffer(name_.data(), header.content_length));
-}
-
-void client_net_link::unregister_at_server(string_id name_id_) {
-    auto header = gen_packet_header(command::client_unregister, sizeof( name_id_ ));
-    _link->write_some(boost::asio::buffer(&header, sizeof( header )));
-    _link->write_some(boost::asio::buffer(&name_id_, sizeof( name_id_ )));
-}
-
-void client_net_link::get_string_value(string_id string_id_) {
-    auto header = gen_packet_header(command::string_lookup, sizeof( string_id_ ));
-    _link->write_some(boost::asio::buffer(&header, sizeof( header )));
-    _link->write_some(boost::asio::buffer(&string_id_, sizeof( string_id_ )));
-}
-
-void client_net_link::send_string_value(string_id string_id_, const std::wstring& value_) {
-    auto header = gen_packet_header(command::string_info, sizeof( string_id_ ) + sizeof(wchar_t) * value_.length());
-    _link->write_some(boost::asio::buffer(&header, sizeof( header )));
-    _link->write_some(boost::asio::buffer(&string_id_, sizeof( string_id_ )));
-    _link->write_some(boost::asio::buffer(value_.data(), sizeof(wchar_t) * value_.length()));
-}
-
-void client_net_link::send_combat_event(const combat_log_entry& event_) {
-    auto compressed_event = compress(event_);
-    auto length = ( 7 + std::get<1>( compressed_event ) ) / 8;
-    auto& data = std::get<0>( compressed_event );
-    auto header = gen_packet_header(command::combat_event, length);
-    _link->write_some(boost::asio::buffer(&header, sizeof( header )));
-    _link->write_some(boost::asio::buffer(data.data(), header.content_length));
+    if ( is_link_active() ) {
+        auto header = gen_packet_header(command::client_register, sizeof(wchar_t)* name_.length());
+        _link->write_some(boost::asio::buffer(&header, sizeof( header )));
+        _link->write_some(boost::asio::buffer(name_.data(), header.content_length));
+    }
 }

@@ -23,6 +23,8 @@ class client_net_link
     void on_net_link_command(command command_, const char* data_begin_, const char* data_end_);
     bool init_link(const std::string& peer_, const std::string& port_);
     void shutdown_link();
+    boost::asio::ip::tcp::socket& get_link();
+    bool is_link_active();
 
     friend class active<client_net_link>;
     void run();
@@ -38,8 +40,4 @@ public:
     void disconnect();
 
     void register_at_server(const std::wstring& name_);
-    void unregister_at_server(string_id name_id_);
-    void get_string_value(string_id string_id_);
-    void send_string_value(string_id string_id_, const std::wstring& value_);
-    void send_combat_event(const combat_log_entry& event_);
 };

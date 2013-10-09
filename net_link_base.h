@@ -5,8 +5,6 @@
 enum class command : char {
     // client connects to server and submits players name (obtained from log)
     client_register,
-    // client disconnects or has loged onto different char and removed it self
-    client_unregister,
 
     string_lookup,
     // client response to 'string_lookup'
@@ -15,6 +13,7 @@ enum class command : char {
     // combat event, can be send by client or server
     combat_event,
 
+    //UPDATE? if name is empty, client has been removed
     server_set_name,
 };
 
@@ -77,5 +76,38 @@ protected:
     net_link_base& operator=( net_link_base && other_ ) {
         _data_buffer = std::move(other_._data_buffer);
         return *this;
+    }
+
+public:
+    void get_string_value(string_id string_id_) {
+        auto self = static_cast<Derived*>( this );
+        auto& link = self->get_link();
+        if ( self->is_link_active() ) {
+            auto header = gen_packet_header(command::string_lookup, sizeof( string_id_ ));
+            link.write_some(boost::asio::buffer(&header, sizeof( header )));
+            link.write_some(boost::asio::buffer(&string_id_, sizeof( string_id_ )));
+        }
+    }
+    void send_string_value(string_id string_id_, const std::wstring& value_) {
+        auto self = static_cast<Derived*>( this );
+        auto& link = self->get_link();
+        if ( self->is_link_active() ) {
+            auto header = gen_packet_header(command::string_info, sizeof( string_id_ ) + sizeof(wchar_t) * value_.length());
+            link.write_some(boost::asio::buffer(&header, sizeof( header )));
+            link.write_some(boost::asio::buffer(&string_id_, sizeof( string_id_ )));
+            link.write_some(boost::asio::buffer(value_.data(), sizeof(wchar_t)* value_.length()));
+        }
+    }
+    void send_combat_event(const combat_log_entry& event_) {
+        auto self = static_cast<Derived*>( this );
+        auto& link = self->get_link();
+        if ( self->is_link_active() ) {
+            auto compressed_event = compress(event_);
+            auto length = ( 7 + std::get<1>( compressed_event ) ) / 8;
+            auto& data = std::get<0>( compressed_event );
+            auto header = gen_packet_header(command::combat_event, length);
+            link.write_some(boost::asio::buffer(&header, sizeof( header )));
+            link.write_some(boost::asio::buffer(data.data(), header.content_length));
+        }
     }
 };

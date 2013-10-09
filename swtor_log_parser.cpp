@@ -266,7 +266,7 @@ static std::tuple<int, bool, string_id, int, bool, string_id> parse_effect_value
     return std::make_tuple(effect_value, effect_crit, effect_name, effect_value2, effect_crit2, effect_name2);
 }
 
-combat_log_entry parse_combat_log_line(const char* from_, const char* to_, string_to_id_string_map& string_map_, character_list& char_list_) {
+combat_log_entry parse_combat_log_line(const char* from_, const char* to_, string_to_id_string_map& string_map_, character_list& char_list_, const struct tm& time_base_) {
     using std::find_if;
     combat_log_entry e
     {};
@@ -284,6 +284,10 @@ combat_log_entry parse_combat_log_line(const char* from_, const char* to_, strin
     expect_char(from_, to_, '.');
     e.time_index.milseconds = parse_number<decltype( e.time_index.milseconds )>( from_, to_ );
     expect_char(from_, to_, ']');
+
+    e.time_index.year = time_base_.tm_year;     // let it start from 2013 to allow stronger compression?
+    e.time_index.month = time_base_.tm_mon;
+    e.time_index.day = time_base_.tm_mday - 1;  // let uniformly start all with 0
 
     skip_spaces(from_, to_);
 
@@ -391,7 +395,7 @@ std::tuple<combat_log_entry, size_t> uncompress(const void* buffer_, size_t offs
     combat_log_entry entry{};
     short flags = 0;
 
-    auto blob = reinterpret_cast<const char*>( buffer_ );
+    auto blob = reinterpret_cast<const unsigned char*>( buffer_ );
 
     // format:
     // 9 bits optional mask (see log_entry_optional_elements, if a bit is set, the value is present)
@@ -412,7 +416,7 @@ std::tuple<combat_log_entry, size_t> uncompress(const void* buffer_, size_t offs
     // [optional] effect was crit bit2
     // [optional] compressed effect value type2
     // [optional] effect thread
-    offset_bits_ = read_bits(blob, offset_bits_, reinterpret_cast<char*>( &flags ), 9);
+    offset_bits_ = read_bits(blob, offset_bits_, reinterpret_cast<unsigned char*>( &flags ), 9);
     offset_bits_ = bit_unpack_int(blob, offset_bits_, entry.time_index.hours);
     offset_bits_ = bit_unpack_int(blob, offset_bits_, entry.time_index.minutes);
     offset_bits_ = bit_unpack_int(blob, offset_bits_, entry.time_index.seconds);
@@ -458,8 +462,8 @@ std::tuple<combat_log_entry, size_t> uncompress(const void* buffer_, size_t offs
 
 }
 // returns compressed log entry an an array and the number of bits used in that array
-std::tuple<std::array<char, sizeof( combat_log_entry ) + 3>, size_t> compress(const combat_log_entry& e_) {
-    std::array<char, sizeof( combat_log_entry ) + 3> result;
+std::tuple<std::array<unsigned char, sizeof(combat_log_entry)+3>, size_t> compress( const combat_log_entry& e_ ) {
+    std::array<unsigned char, sizeof(combat_log_entry)+3> result;
     size_t bit_offset = 9;
     short flags = 0;
 
@@ -512,7 +516,7 @@ std::tuple<std::array<char, sizeof( combat_log_entry ) + 3>, size_t> compress(co
         flags |= 1 << effect_thread;
     }
 
-    store_bits(result.data(), 0, reinterpret_cast<char*>( &flags ), 9);
+    store_bits(reinterpret_cast<unsigned char*>(result.data()), 0, reinterpret_cast<unsigned char*>( &flags ), 9);
 
     return std::make_tuple(result, bit_offset);
 }

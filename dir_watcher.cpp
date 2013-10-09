@@ -177,6 +177,7 @@ void dir_watcher::run() {
                 continue;
             }
             rs = state::run;
+            change_state(state::run);
         }
 
         while ( state::run == rs ) {

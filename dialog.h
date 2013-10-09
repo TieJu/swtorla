@@ -18,8 +18,44 @@
 
 #include <boost/noncopyable.hpp>
 
-class dialog
+template<typename Derived>
+class dialog_t
 : public common_window_base {
+private:
+    static INT_PTR CALLBACK callback_router(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam) {
+        dialog_t<Derived>* self;
+        if ( uMsg == WM_INITDIALOG ) {
+            SetWindowLongPtrW(hwndDlg, DWLP_USER, lParam);
+            self = reinterpret_cast<dialog_t<Derived>*>( lParam );
+        } else {
+            self = reinterpret_cast<dialog_t<Derived>*>( GetWindowLongPtrW(hwndDlg, DWLP_USER) );
+        }
+        if ( self ) {
+            return static_cast<Derived*>( self )->on_window_event(uMsg, wParam, lParam);
+        } else if ( uMsg == WM_INITDIALOG ) {
+            return TRUE;
+        }
+        return FALSE;
+    }
+
+public:
+    dialog_t(HINSTANCE hInstance_, LPWSTR lpTemplateName_, HWND hWndParent_) {
+        adopt(CreateDialogParamW(hInstance_, lpTemplateName_, hWndParent_, &callback_router, ( LPARAM )this));
+        if ( empty() ) {
+            auto error = GetLastError();
+            throw std::runtime_error("failed got code " + std::to_string(error));
+        }
+    }
+    dialog_t(HINSTANCE hInstance_, LPCDLGTEMPLATE lpTemplate_, HWND hWndParent_) {
+        adopt(CreateDialogIndirectParamW(hInstance_, lpTemplate_, hWndParent_, &callback_router, ( LPARAM )this));
+        if ( empty() ) {
+            auto error = GetLastError();
+        }
+    }
+};
+
+class dialog
+    : public common_window_base {
 public:
     typedef std::function<LRESULT(dialog* wnd, UINT uMsg, WPARAM wParam, LPARAM lParam)>   callback_type;
 
@@ -28,7 +64,7 @@ private:
         dialog* self;
         if ( uMsg == WM_INITDIALOG ) {
             SetWindowLongPtrW(hwndDlg, DWLP_USER, lParam);
-            self = reinterpret_cast<dialog*>( lParam );
+            self = reinterpret_cast<dialog* > ( lParam );
         } else {
             self = reinterpret_cast<dialog*>( GetWindowLongPtrW(hwndDlg, DWLP_USER) );
         }
@@ -65,4 +101,5 @@ public:
     callback_type callback() {
         return _message_handler;
     }
+
 };

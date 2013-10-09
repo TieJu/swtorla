@@ -37,24 +37,28 @@
 #include "client_net_link.h"
 
 #include "net_link_server.h"
+#include "client_net_link.h"
+#include "server_net_link.h"
 #include "name_id_map.h"
 
 class app : boost::noncopyable {
-    const char*                         _config_path;
-    boost::property_tree::wptree        _config;
-    boost::asio::io_service             _io_service;
-    std::unique_ptr<main_ui>            _ui;
-    program_version                     _version;
-    dir_watcher                         _dir_watcher;
-    log_processor                       _log_reader;
-    string_to_id_string_map             _string_map;
-    character_list                      _char_list;
-    combat_analizer                     _analizer;
-    std::wstring                        _current_log_file;
-    client                              _client;
-    net_link_server                     _server;
-    string_id                           _current_char;
-    name_id_map                         _id_map;
+    const char*                                     _config_path;
+    boost::property_tree::wptree                    _config;
+    boost::asio::io_service                         _io_service;
+    std::unique_ptr<main_ui>                        _ui;
+    program_version                                 _version;
+    dir_watcher                                     _dir_watcher;
+    log_processor                                   _log_reader;
+    string_to_id_string_map                         _string_map;
+    character_list                                  _char_list;
+    combat_analizer                                 _analizer;
+    std::wstring                                    _current_log_file;
+    client_net_link                                 _client;
+    net_link_server                                 _server;
+    std::vector<std::unique_ptr<server_net_link>>   _clients;
+    std::mutex                                      _clients_guard;
+    string_id                                       _current_char;
+    name_id_map                                     _id_map;
 
     std::wstring scan_install_key(HKEY key_,const wchar_t* name_maptch_,bool partial_only_);
     void find_7z_path_registry();
@@ -125,5 +129,14 @@ protected:
 protected:
     friend class net_link_server;
     void new_client(boost::asio::ip::tcp::socket* socket_);
+
+protected:
+    friend class server_net_link;
+    void on_client_register(server_net_link* self_, const std::wstring& name_);
+    void on_client_unregister(server_net_link* self_, string_id id_);
+    void on_string_lookup(server_net_link* self_, string_id string_id_);
+    void on_string_info(server_net_link* self_, string_id string_id_, const std::wstring& string_);
+    void on_combat_event(server_net_link* self_, const combat_log_entry& event_);
+    void on_client_disconnect(server_net_link* self_);
 };
 
