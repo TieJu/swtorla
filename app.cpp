@@ -443,7 +443,7 @@ void app::log_entry_handler(const combat_log_entry& e_) {
             _ui->update_main_player(e_.src);
         }
     }
-#if 1
+#if 0
     auto packed = compress(e_);
     auto& buf = std::get<0>( packed );
     auto unpacked = uncompress(buf.data(), 0);
@@ -456,8 +456,16 @@ void app::log_entry_handler(const combat_log_entry& e_) {
                              << L" bits ( "
                              << ((std::get<1>(packed) + 7) / 8)
                              << L")";
-    if ( memcmp(&std::get<0>( unpacked ), &e_, sizeof( e_ )) ) {
+    /*if ( memcmp(&std::get<0>( unpacked ), &e_, sizeof( e_ )) ) {
         BOOST_LOG_TRIVIAL(debug) << L"compress / decompress error!";
+    }*/
+    auto a = std::get<0>( unpacked );
+    auto a_ptr = reinterpret_cast<const unsigned char*>( &a );
+    auto b_ptr = reinterpret_cast<const unsigned char*>( &e_ );
+    for ( size_t i = 0; i < sizeof( e_ ); ++i ) {
+        if ( a_ptr[i] != b_ptr[i] ) {
+            BOOST_LOG_TRIVIAL( debug ) << L"compress / decompress error at byte " << i;
+        }
     }
 #endif
     //
@@ -526,7 +534,7 @@ void app::log_entry_handler(const combat_log_entry& e_) {
 }
 
 std::string app::check_update(update_dialog& dlg_) {
-    updater u( _config.get<std::wstring>( L"update.server", L"http://homepages.thm.de" ) );
+    updater u( _config );
     auto task = u.query_build(dlg_);
     auto max_ver = task.get();
     auto new_version_path = "update/" + std::to_string( max_ver ) + ".update";

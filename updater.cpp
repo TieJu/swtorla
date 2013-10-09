@@ -11,8 +11,8 @@
 #include <boost/log/sources/record_ostream.hpp>
 
 
-updater::updater( const std::wstring& server_ )
-    : _server( server_ ) {
+updater::updater( boost::property_tree::wptree& config_ )
+ : _config( &config_ ) {
 }
 
 pplx::task<size_t> updater::query_build( update_dialog& ui_ ) {
@@ -22,20 +22,22 @@ pplx::task<size_t> updater::query_build( update_dialog& ui_ ) {
     ui_.info_msg( L"...connecting to patch list server..." );
     BOOST_LOG_TRIVIAL( debug ) << L"...connecting to patch list server...";
 
-    client::http_client client( _server );
+    client::http_client client( _config->get<std::wstring>( L"update.server", L"http://homepages.thm.de" ) );
 
-    auto q_string =
+    uri_builder path( _config->get<std::wstring>( L"update.command", L"/~hg14866/swtorla/update.php" ) );
+    path.append_query( L"arch", _config->get<std::wstring>( L"app.arch",
 #ifdef _M_X64
-        L"/~hg14866/swtorla/update.php?a=x64";
+        L"x64"
 #else
-        L"/~hg14866/swtorla/update.php?a=x86";
+        L"x86"
 #endif
+        ) );
 
     ui_.unknown_progress( true );
     ui_.info_msg( L"...sending request to server..." );
     BOOST_LOG_TRIVIAL( debug ) << L"...sending request to server...";
 
-    return client.request(methods::GET, q_string)
+    return client.request(methods::GET, path.to_string())
         .then( [=, &ui_]( http_response result_ ) {
             ui_.info_msg( L"...response recived..." );
             BOOST_LOG_TRIVIAL( debug ) << L"...response recived, result code " << result_.status_code() << L"...";
@@ -46,7 +48,7 @@ pplx::task<size_t> updater::query_build( update_dialog& ui_ ) {
             }
     } ).then( [=, &ui_]( pplx::task<web::json::value> json_ ) {
         ui_.info_msg( L"...analizing results..." );
-        BOOST_LOG_TRIVIAL( debug ) << L"...analizing results...";
+        BOOST_LOG_TRIVIAL( debug ) << L"...analizing results, listing updates on reported by the server...";
         size_t v = 0;
 
         const auto& set = json_.get();
@@ -66,5 +68,5 @@ pplx::task<size_t> updater::query_build( update_dialog& ui_ ) {
 pplx::task<void> updater::download_update( update_dialog& ui_, size_t from_, size_t to_, const std::wstring& target_ ) {
 }
 
-pplx::task<std::string> updater::get_patchnotes( size_t ver_ ) {
+pplx::task<std::string> updater::get_patchnotes( size_t from_, size_t to_ ) {
 }
