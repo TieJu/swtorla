@@ -7,7 +7,7 @@ class update_info_dialog
     : public dialog {
 
 public:
-    update_info_dialog(const std::string& text_,bool* do_auto_update_,bool* display_update_info_)
+    update_info_dialog(const std::wstring& text_,bool* do_auto_update_,bool* display_update_info_)
         : dialog(GetModuleHandleW(nullptr), MAKEINTRESOURCEW(IDD_UPDATE_INFO), nullptr) {
         callback([=](dialog* dlg_, UINT msg_, WPARAM w_param_, LPARAM l_param_) {
             if ( msg_ == WM_CLOSE || msg_ == WM_DESTROY ) {
@@ -44,6 +44,6 @@ public:
         ::SendDlgItemMessageW(native_handle(), IDC_UPDATE_INFO_DO_UPDATES, BM_SETCHECK, BST_CHECKED, 0);
         ::SendDlgItemMessageW(native_handle(), IDC_UPDATE_INFO_SHOW_INFO, BM_SETCHECK, BST_CHECKED, 0);
 
-        ::SetDlgItemTextA(native_handle(), IDC_UPDATE_INFO_EDIT, text_.c_str());
+        ::SetDlgItemTextW(native_handle(), IDC_UPDATE_INFO_EDIT, text_.c_str());
     }
 };

@@ -41,6 +41,8 @@
 #include "server_net_link.h"
 #include "name_id_map.h"
 
+#include "updater.h"
+
 class app : boost::noncopyable {
     const char*                                     _config_path;
     boost::property_tree::wptree                    _config;
@@ -59,6 +61,7 @@ class app : boost::noncopyable {
     std::mutex                                      _clients_guard;
     string_id                                       _current_char;
     name_id_map                                     _id_map;
+    updater                                         _updater;
 
     std::wstring scan_install_key(HKEY key_,const wchar_t* name_maptch_,bool partial_only_);
     void find_7z_path_registry();
@@ -72,7 +75,7 @@ class app : boost::noncopyable {
     void find_compress_software_registry();
     void find_compress_software();
 
-    std::string load_update_info(const std::string& name_);
+    std::wstring load_update_info(const std::string& name_);
     std::future<void> show_update_info(const std::string& name_);
     bool run_update_async_job(update_dialog& dlg_);
     bool run_update_async();

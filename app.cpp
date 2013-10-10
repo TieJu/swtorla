@@ -26,7 +26,6 @@
 
 #define CRASH_FILE_NAME "./crash.dump"
 
-#include "updater.h"
 
 int get_build_from_name(const std::string& name_) {
     int c_ver = 0;
@@ -219,79 +218,8 @@ void app::find_compress_software() {
     }*/
 }
 
-std::string app::load_update_info(const std::string& name_) {
-    auto remote_server = std::to_string(_config.get<std::wstring>( L"update.server", L"homepages.thm.de" ));
-    auto remote_path = std::to_string(_config.get<std::wstring>( L"update.path", L"/~hg14866/swtorla/info.php?" ));
-    auto command = "from=" + std::to_string(_version.build) + "&to=" + std::to_string(get_build_from_name(name_));
-    auto request = std::string("GET ") + remote_path + command + " HTTP/1.1\r\n"
-        "Host: " + remote_server + "\r\n"
-        "Connection: close\r\n"
-        "\r\n\r\n";
-    std::string response;
-
-    BOOST_LOG_TRIVIAL(debug) << L"looking up remote server address for " << remote_server;
-    boost::asio::ip::tcp::resolver tcp_lookup(_io_service);
-    boost::asio::ip::tcp::resolver::query remote_query(remote_server, "http");
-    auto list = tcp_lookup.resolve(remote_query);
-
-    BOOST_LOG_TRIVIAL(debug) << L"connecting to remote server";
-    boost::asio::ip::tcp::socket socket(_io_service);
-    boost::system::error_code error;
-    boost::asio::ip::tcp::resolver::iterator lend;
-    for ( ; lend != list; ++list ) {
-        if ( !socket.connect(*list, error) ) {
-            BOOST_LOG_TRIVIAL(debug) << L"connected to " << list->endpoint();
-            break;
-        }
-    }
-
-    if ( error ) {
-        BOOST_LOG_TRIVIAL(error) << L"unable to connect to remote server";
-        throw boost::system::system_error(error);
-    }
-
-    BOOST_LOG_TRIVIAL(debug) << L"sending request to server " << request;
-    if ( !socket.write_some(boost::asio::buffer(request), error) ) {
-        BOOST_LOG_TRIVIAL(error) << L"failed to send request to server";
-        throw boost::system::system_error(error);
-    }
-
-    boost::array<char, 1024> buf;
-    http_state<content_store_stream<std::stringstream>> state;
-    bool header_written = false;
-
-    while ( state ) {
-        auto len = socket.read_some(boost::asio::buffer(buf), error);
-
-        if ( error == boost::asio::error::eof ) {
-            break;
-        } else if ( error ) {
-            throw boost::system::system_error(error);
-        }
-
-        state(buf.begin(), buf.begin() + len);
-
-        if ( state.http_result() != 200 ) {
-            throw std::runtime_error(std::string("http request error, expected code 200, but got ") + std::to_string(state.http_result()));
-        }
-
-        if ( state.is_header_finished() && !header_written ) {
-            header_written = true;
-            BOOST_LOG_TRIVIAL(debug) << L"recived response from server";
-            BOOST_LOG_TRIVIAL(debug) << L"http header";
-            BOOST_LOG_TRIVIAL(debug) << L"http status code " << state.http_result();
-            for ( auto& kvp : state.header() ) {
-                BOOST_LOG_TRIVIAL(debug) << kvp.first << ": " << kvp.second;
-            }
-        }
-    }
-
-
-    BOOST_LOG_TRIVIAL(debug) << L"closing connection to server";
-    socket.close();
-    BOOST_LOG_TRIVIAL(debug) << L"result was: " << state.content().stream.str();
-
-    return state.content().stream.str();
+std::wstring app::load_update_info(const std::string& name_) {
+    return _updater.get_patchnotes( _version.build, get_build_from_name( name_ ) ).get();
 }
 
 std::future<void> app::show_update_info(const std::string& name_) {
@@ -300,17 +228,17 @@ std::future<void> app::show_update_info(const std::string& name_) {
             return;
         }
 
-        std::string info = "";
+        std::wstring info;
         
         try {
             info = load_update_info(name_);
         } catch ( const std::exception& e_ ) {
-            info = "Error while loading update informations: ";
-            info += e_.what();
+            info = L"Error while loading update informations: ";
+            info += std::to_wstring(e_.what());
         }
 
         if ( info.empty() ) {
-            info = "No update information available";
+            info = L"No update information available";
         }
 
         bool do_update = true;
@@ -534,8 +462,7 @@ void app::log_entry_handler(const combat_log_entry& e_) {
 }
 
 std::string app::check_update(update_dialog& dlg_) {
-    updater u( _config );
-    auto task = u.query_build(dlg_);
+    auto task = _updater.query_build(dlg_);
     auto max_ver = task.get();
     auto new_version_path = "update/" + std::to_string( max_ver ) + ".update";
     
@@ -548,134 +475,10 @@ std::string app::check_update(update_dialog& dlg_) {
         new_version_path.clear();
     }
 
+    dlg_.unknown_progress( false );
     dlg_.progress( 50 );
 
     return new_version_path;
-#if 0
-
-    dlg_.progress(0);
-    dlg_.info_msg(L"...locating patch server...");
-    auto remote_server = std::to_string(_config.get<std::wstring>( L"update.server", L"homepages.thm.de" ));
-    auto remote_path = std::to_string(_config.get<std::wstring>( L"update.command", L"/~hg14866/swtorla/update.php?a=" ));
-    auto target_arch = std::to_string(_config.get<std::wstring>( L"app.arch",
-#ifdef _M_X64
-        L"x64"
-#else
-        L"x86"
-#endif
-        ));
-    auto request = std::string("GET ") + remote_path + target_arch + " HTTP/1.1\r\n"
-                   "Host: " + remote_server + "\r\n"
-                   "Connection: close\r\n"
-                   "\r\n\r\n";
-    std::string new_version_path;
-
-    dlg_.progress(10);
-    dlg_.info_msg(L"...locating patch server...");
-    BOOST_LOG_TRIVIAL(debug) << L"looking up remote server address for " << remote_server;
-    boost::asio::ip::tcp::resolver tcp_lookup(_io_service);
-    boost::asio::ip::tcp::resolver::query remote_query(remote_server, "http");
-    auto list = tcp_lookup.resolve(remote_query);
-
-    dlg_.progress(20);
-    dlg_.info_msg(L"...connecting to patch server...");
-    BOOST_LOG_TRIVIAL(debug) << L"connecting to remote server";
-    boost::asio::ip::tcp::socket socket(_io_service);
-    boost::system::error_code error;
-    boost::asio::ip::tcp::resolver::iterator lend;
-    for ( ; lend != list; ++list ) {
-        if ( !socket.connect(*list, error) ) {
-            BOOST_LOG_TRIVIAL(debug) << L"connected to " << list->endpoint();
-            break;
-        }
-    }
-
-    if ( error ) {
-        dlg_.info_msg(L"...unable to connect to patch server...");
-        BOOST_LOG_TRIVIAL(error) << L"unable to connect to remote server";
-        throw boost::system::system_error(error);
-    }
-
-    dlg_.info_msg(L"...requesting patch data...");
-    BOOST_LOG_TRIVIAL(debug) << L"sending request to server " << request;
-    if ( !socket.write_some(boost::asio::buffer(request), error) ) {
-        BOOST_LOG_TRIVIAL(error) << L"failed to send request to server";
-        throw boost::system::system_error(error);
-    }
-
-    dlg_.unknown_progress(true);
-    boost::array<char, 1024> buf;
-
-    http_state<content_store_stream<std::stringstream>> state;
-    bool header_written = false;
-
-    while ( state ) {
-        auto len = socket.read_some(boost::asio::buffer(buf), error);
-
-        if ( error == boost::asio::error::eof ) {
-            break;
-        } else if ( error ) {
-            throw boost::system::system_error(error);
-        }
-
-        state(buf.begin(), buf.begin() + len);
-
-        if ( state.http_result() != 200 ) {
-            throw std::runtime_error(std::string("http request error, expected code 200, but got ") + std::to_string(state.http_result()));
-        }
-
-        if ( state.is_header_finished() && !header_written ) {
-            header_written = true;
-            BOOST_LOG_TRIVIAL(debug) << L"recived response from server";
-            BOOST_LOG_TRIVIAL(debug) << L"http header";
-            BOOST_LOG_TRIVIAL(debug) << L"http status code " << state.http_result();
-            for ( auto& kvp : state.header() ) {
-                BOOST_LOG_TRIVIAL(debug) << kvp.first << ": " << kvp.second;
-            }
-        }
-    }
-
-    dlg_.unknown_progress(false);
-
-    dlg_.progress(30);
-    dlg_.info_msg(L"...patch data recived, processing...");
-    BOOST_LOG_TRIVIAL(debug) << L"http content";
-    BOOST_LOG_TRIVIAL(debug) << state.content().stream.str();
-
-    BOOST_LOG_TRIVIAL(debug) << L"closing connection to server";
-    socket.close();
-
-    dlg_.progress(40);
-    BOOST_LOG_TRIVIAL(debug) << L"parsing response";
-
-    boost::property_tree::ptree version_info;
-    boost::property_tree::json_parser::read_json((std::istringstream&)state.content().stream, version_info );
-
-    int max_ver = 0;
-    for ( auto& node : version_info ) {
-        auto value = node.second.get_value<std::string>();
-        BOOST_LOG_TRIVIAL(debug) << L"update on server: " << value;
-        int c_ver;
-        sscanf_s(value.c_str(), "updates/%d.update", &c_ver);
-        if ( max_ver < c_ver ) {
-            max_ver = c_ver;
-            new_version_path = value;
-        }
-    }
-
-    if ( max_ver > _version.build ) {
-        dlg_.info_msg(L"...new version on server found...");
-        BOOST_LOG_TRIVIAL(debug) << L"never version on server found: " << new_version_path;
-    } else {
-        dlg_.info_msg(L"...no new version on server found...");
-        BOOST_LOG_TRIVIAL(debug) << L"application is up to date";
-        new_version_path.clear();
-    }
-
-    dlg_.progress(50);
-
-    return new_version_path;
-#endif
 }
 
 std::string app::download_update(update_dialog& dlg_, std::string update_path_) {
@@ -842,6 +645,7 @@ app::app(const char* caption_, const char* config_path_)
 
     BOOST_LOG_TRIVIAL(info) << L"SW:ToR log analizer version " << _version.major << L"." << _version.minor << L"." << _version.patch << L" Build " << _version.build;
 
+
     read_config(_config_path);
 
     setup_from_config();
@@ -857,7 +661,9 @@ app::app(const char* caption_, const char* config_path_)
 
     _dir_watcher = dir_watcher(*this);
 
-    _server = net_link_server(*this);
+    _server = net_link_server( *this );
+
+    _updater.config( _config );
 }
 
 

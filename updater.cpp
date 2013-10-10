@@ -15,6 +15,10 @@ updater::updater( boost::property_tree::wptree& config_ )
  : _config( &config_ ) {
 }
 
+void updater::config( boost::property_tree::wptree& config_ ) {
+    _config = &config_;
+}
+
 pplx::task<size_t> updater::query_build( update_dialog& ui_ ) {
     using namespace web::http;
 
@@ -24,8 +28,8 @@ pplx::task<size_t> updater::query_build( update_dialog& ui_ ) {
 
     client::http_client client( _config->get<std::wstring>( L"update.server", L"http://homepages.thm.de" ) );
 
-    uri_builder path( _config->get<std::wstring>( L"update.command", L"/~hg14866/swtorla/update.php" ) );
-    path.append_query( L"arch", _config->get<std::wstring>( L"app.arch",
+    auto path = uri_builder( _config->get<std::wstring>( L"update.list", L"/~hg14866/swtorla/update.php" ) )
+              . append_query( L"arch", _config->get<std::wstring>( L"app.arch",
 #ifdef _M_X64
         L"x64"
 #else
@@ -68,5 +72,24 @@ pplx::task<size_t> updater::query_build( update_dialog& ui_ ) {
 pplx::task<void> updater::download_update( update_dialog& ui_, size_t from_, size_t to_, const std::wstring& target_ ) {
 }
 
-pplx::task<std::string> updater::get_patchnotes( size_t from_, size_t to_ ) {
+pplx::task<std::wstring> updater::get_patchnotes( size_t from_, size_t to_ ) {
+    using namespace web::http;
+
+    BOOST_LOG_TRIVIAL( debug ) << L"...connecting to patch info server...";
+
+    client::http_client client( _config->get<std::wstring>( L"update.server", L"http://homepages.thm.de" ) );
+
+    auto path = uri_builder( _config->get<std::wstring>( L"update.info", L"/~hg14866/swtorla/update.php" ) )
+              . append_query( L"from", std::to_wstring( from_ ) )
+              . append_query( L"to", std::to_wstring( to_ ) );
+
+    return client.request(methods::GET, path.to_string())
+                 .then( [=]( http_response result_ ) {
+            BOOST_LOG_TRIVIAL( debug ) << L"...response recived, result code " << result_.status_code() << L"...";
+            if ( result_.status_code() == status_codes::OK ) {
+                return result_.extract_string();
+            } else {
+                return pplx::task_from_result( std::wstring() );
+            }
+    } );
 }
