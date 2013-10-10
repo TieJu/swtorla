@@ -10,6 +10,8 @@
 #include <boost/log/sources/severity_logger.hpp>
 #include <boost/log/sources/record_ostream.hpp>
 
+#include <filestream.h>
+
 
 updater::updater( boost::property_tree::wptree& config_ )
  : _config( &config_ ) {
@@ -69,7 +71,37 @@ pplx::task<size_t> updater::query_build( update_dialog& ui_ ) {
     });
 }
 
-pplx::task<void> updater::download_update( update_dialog& ui_, size_t from_, size_t to_, const std::wstring& target_ ) {
+pplx::task<size_t> updater::download_update( update_dialog& ui_, size_t from_, size_t to_, const std::wstring& target_ ) {
+    using namespace web::http;
+
+    ui_.progress( 60 );
+    ui_.info_msg( L"...connecting to patch file server..." );
+    BOOST_LOG_TRIVIAL( debug ) << L"...connecting to patch file server...";
+
+    client::http_client client( _config->get<std::wstring>( L"update.server", L"http://homepages.thm.de" ) );
+
+    auto path = uri_builder( _config->get<std::wstring>( L"update.load", L"/~hg14866/swtorla/" ) )
+              . append_path( L"updates" )
+              . append_path( std::to_wstring( to_ ) + L".update" );
+              //. append_query( L"from", std::to_wstring( from_ ) )
+              //. append_query( L"to", std::to_wstring( to_ ) );
+
+    ui_.unknown_progress( true );
+    ui_.info_msg( L"...downloading patch file from server..." );
+    return client.request( methods::GET, path.to_string() )
+          .then( [=]( http_response result_ ) {
+            BOOST_LOG_TRIVIAL( debug ) << L"...response recived, result code " << result_.status_code() << L"...";
+            if ( result_.status_code() == status_codes::OK ) {
+                return result_.body();
+            } else {
+                pplx::cancel_current_task();
+            }
+    } ).then( [=]( concurrency::streams::istream stream_ ) {
+        auto file = concurrency::streams::fstream::open_ostream( target_, std::ios_base::out | std::ios_base::binary );
+        return file.then( [=, &stream_]( concurrency::streams::ostream file_ ) {
+            return stream_.read_to_end( file_.streambuf() );
+        } );
+    } );
 }
 
 pplx::task<std::wstring> updater::get_patchnotes( size_t from_, size_t to_ ) {

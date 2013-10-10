@@ -27,9 +27,9 @@
 #define CRASH_FILE_NAME "./crash.dump"
 
 
-int get_build_from_name(const std::string& name_) {
-    int c_ver = 0;
-    sscanf_s(name_.c_str(), "updates/%d.update", &c_ver);
+unsigned long long get_build_from_name(const std::string& name_) {
+    unsigned long long c_ver = 0;
+    sscanf_s(name_.c_str(), "updates/%I64u.update", &c_ver);
     return c_ver;
 }
 
@@ -482,87 +482,7 @@ std::string app::check_update(update_dialog& dlg_) {
 }
 
 std::string app::download_update(update_dialog& dlg_, std::string update_path_) {
-    auto remote_server = std::to_string(_config.get<std::wstring>( L"update.server", L"homepages.thm.de" ));
-    auto remote_path = std::to_string(_config.get<std::wstring>( L"update.path", L"/~hg14866/swtorla/" ));
-    auto request = std::string("GET ") + remote_path + update_path_ + " HTTP/1.1\r\n"
-                   "Host: " + remote_server + "\r\n"
-                   "Connection: close\r\n"
-                   "\r\n\r\n";
-    std::string response;
-
-    dlg_.progress(60);
-    dlg_.info_msg(L"...locating patch file server...");
-    BOOST_LOG_TRIVIAL(debug) << L"looking up remote server address for " << remote_server;
-    boost::asio::ip::tcp::resolver tcp_lookup(_io_service);
-    boost::asio::ip::tcp::resolver::query remote_query(remote_server, "http");
-    auto list = tcp_lookup.resolve(remote_query);
-
-    dlg_.progress(70);
-    dlg_.info_msg(L"...connecting to patch file server...");
-    BOOST_LOG_TRIVIAL(debug) << L"connecting to remote server";
-    boost::asio::ip::tcp::socket socket(_io_service);
-    boost::system::error_code error;
-    boost::asio::ip::tcp::resolver::iterator lend;
-    for ( ; lend != list; ++list ) {
-        if ( !socket.connect(*list, error) ) {
-            BOOST_LOG_TRIVIAL(debug) << L"connected to " << list->endpoint();
-            break;
-        }
-    }
-
-    if ( error ) {
-        dlg_.info_msg(L"...can not connect to patch file server...");
-        BOOST_LOG_TRIVIAL(error) << L"unable to connect to remote server";
-        throw boost::system::system_error(error);
-    }
-
-    dlg_.progress(0);
-    dlg_.info_msg(L"...requesting patch file from server...");
-    BOOST_LOG_TRIVIAL(debug) << L"sending request to server " << request;
-    if ( !socket.write_some(boost::asio::buffer(request), error) ) {
-        BOOST_LOG_TRIVIAL(error) << L"failed to send request to server";
-        throw boost::system::system_error(error);
-    }
-
-    dlg_.info_msg(L"...downloading patch file...");
-    dlg_.unknown_progress(true);
-    boost::array<char, 1024> buf;
-    http_state<content_store_stream<std::ofstream>> state(content_store_stream<std::ofstream>( std::ofstream(PATCH_FILE_NAME, std::ios_base::out | std::ios_base::binary) ));
-    bool header_written = false;
-
-    while ( state ) {
-        auto len = socket.read_some(boost::asio::buffer(buf), error);
-
-        if ( error == boost::asio::error::eof ) {
-            break;
-        } else if ( error ) {
-            throw boost::system::system_error(error);
-        }
-
-        state(buf.begin(), buf.begin() + len);
-
-        if ( state.http_result() != 200 ) {
-            throw std::runtime_error(std::string("http request error, expected code 200, but got ") + std::to_string(state.http_result()));
-        }
-
-        if ( state.is_header_finished() && !header_written ) {
-            header_written = true;
-            BOOST_LOG_TRIVIAL(debug) << L"recived response from server";
-            BOOST_LOG_TRIVIAL(debug) << L"http header";
-            BOOST_LOG_TRIVIAL(debug) << L"http status code " << state.http_result();
-            for ( auto& kvp : state.header() ) {
-                BOOST_LOG_TRIVIAL(debug) << kvp.first << ": " << kvp.second;
-            }
-        }
-    }
-
-    dlg_.unknown_progress(false);
-
-    dlg_.info_msg(L"...download complete...");
-    BOOST_LOG_TRIVIAL(debug) << L"closing connection to server";
-    dlg_.progress(90);
-    socket.close();
-
+    _updater.download_update( dlg_, _version.build, get_build_from_name( update_path_ ), WPATCH_FILE_NAME ).get();
     return PATCH_FILE_NAME;
 }
 
