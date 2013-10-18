@@ -89,12 +89,12 @@ static void set_pos(const char*& from_, const char* to_, const char *new_pos_) {
     }
     from_ = new_pos_;
 }
-
+#define CP_ISO_8859_15 28605
 std::wstring to_wstring(const char* begin_, const char* end_) {
-    auto length = MultiByteToWideChar(CP_UTF8, 0, begin_, end_ - begin_, nullptr, 0);
+    auto length = MultiByteToWideChar( CP_ISO_8859_15, 0, begin_, end_ - begin_, nullptr, 0 );
 
     std::wstring str(length, L' ');
-    MultiByteToWideChar(CP_UTF8, 0, begin_, end_ - begin_, const_cast<wchar_t*>( str.data() ), str.length());
+    MultiByteToWideChar( CP_ISO_8859_15, 0, begin_, end_ - begin_, const_cast<wchar_t*>( str.data() ), str.length() );
     return str;
 }
 
@@ -276,17 +276,17 @@ combat_log_entry parse_combat_log_line( const char* from_, const char* to_, stri
     // timestamp block
     // format: '['HH':'MM':'SS'.'lll']'
     expect_char(from_, to_, '[');
-    auto hours = parse_number<unsigned char>( from_, to_ );
+    auto hours = parse_number<unsigned>( from_, to_ );
     expect_char(from_, to_, ':');
-    auto minutes = parse_number<unsigned char>( from_, to_ );
+    auto minutes = parse_number<unsigned>( from_, to_ );
     expect_char(from_, to_, ':');
-    auto seconds = parse_number<unsigned char>( from_, to_ );
+    auto seconds = parse_number<unsigned>( from_, to_ );
     expect_char(from_, to_, '.');
-    auto milseconds = parse_number<unsigned short>( from_, to_ );
+    auto milseconds = parse_number<unsigned>( from_, to_ );
     expect_char(from_, to_, ']');
 
     e.time_index = time_base_
-                 + std::chrono::hours( hours );
+                 + std::chrono::hours( hours )
                  + std::chrono::minutes( minutes )
                  + std::chrono::seconds( seconds )
                  + std::chrono::milliseconds( milseconds );
@@ -465,6 +465,7 @@ std::tuple<combat_log_entry, size_t> uncompress(const void* buffer_, size_t offs
 // returns compressed log entry an an array and the number of bits used in that array
 std::tuple<std::array<unsigned char, sizeof(combat_log_entry)+3>, size_t> compress( const combat_log_entry& e_ ) {
     std::array<unsigned char, sizeof(combat_log_entry)+3> result;
+    std::fill( begin( result ), end( result ), 0 );
     size_t bit_offset = 9;
     short flags = 0;
 

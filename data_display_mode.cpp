@@ -26,7 +26,6 @@ void data_display_entity_dmg_done::update_display(combat_analizer& analizer_, ui
         return;
     }
 
-    long long total_heal = 0;
     long long total_damage = 0;
 
     auto player_damage = select_from<combat_log_entry_ex>( [=, &total_damage](const combat_log_entry& e_) {
@@ -79,22 +78,17 @@ void data_display_entity_dmg_done::update_display(combat_analizer& analizer_, ui
     ui_element_manager_.show_only_num_rows(player_damage.size());
 
     auto epleased = std::chrono::duration_cast<std::chrono::milliseconds>(encounter.get_combat_length());
-    auto dps = ( double( total_damage ) / epleased.count() ) * 1000.0;
-    auto hps = ( double( total_heal ) / epleased.count() ) * 1000.0;
+    auto dps = ( ( total_damage  * 1000.0 ) / epleased.count() );
     auto ep = epleased.count() / 1000.0;
 
     auto dps_text = std::to_wstring(dps) + L" dps";
-    auto hps_text = std::to_wstring(hps) + L" hps";
     auto damage_text = L"Damage: " + std::to_wstring(total_damage);
-    auto heal_text = L"Healing: " + std::to_wstring(total_heal);
     auto dur_text = L"Duration: " + std::to_wstring(ep) + L" seconds";
 
     auto final_text = L"<a id=\"back_to_entity_view\">Back</a>"
         L"\r\nDamage done by " + ui_element_manager_.lookup_info()( _entity_name ) + L"\r\n"
         + dps_text + L"\r\n"
-        + hps_text + L"\r\n"
         + damage_text + L"\r\n"
-        + heal_text + L"\r\n"
         + dur_text + L"\r\n"
         ;
 
