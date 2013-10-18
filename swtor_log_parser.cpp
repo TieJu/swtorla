@@ -266,7 +266,7 @@ static std::tuple<int, bool, string_id, int, bool, string_id> parse_effect_value
     return std::make_tuple(effect_value, effect_crit, effect_name, effect_value2, effect_crit2, effect_name2);
 }
 
-combat_log_entry parse_combat_log_line(const char* from_, const char* to_, string_to_id_string_map& string_map_, character_list& char_list_, const struct tm& time_base_) {
+combat_log_entry parse_combat_log_line( const char* from_, const char* to_, string_to_id_string_map& string_map_, character_list& char_list_, std::chrono::system_clock::time_point time_base_ ) {
     using std::find_if;
     combat_log_entry e
     {};
@@ -276,18 +276,20 @@ combat_log_entry parse_combat_log_line(const char* from_, const char* to_, strin
     // timestamp block
     // format: '['HH':'MM':'SS'.'lll']'
     expect_char(from_, to_, '[');
-    e.time_index.hours = parse_number<decltype( e.time_index.hours )>( from_, to_ );
+    auto hours = parse_number<unsigned char>( from_, to_ );
     expect_char(from_, to_, ':');
-    e.time_index.minutes = parse_number<decltype( e.time_index.minutes )>( from_, to_ );
+    auto minutes = parse_number<unsigned char>( from_, to_ );
     expect_char(from_, to_, ':');
-    e.time_index.seconds = parse_number<decltype( e.time_index.seconds )>( from_, to_ );
+    auto seconds = parse_number<unsigned char>( from_, to_ );
     expect_char(from_, to_, '.');
-    e.time_index.milseconds = parse_number<decltype( e.time_index.milseconds )>( from_, to_ );
+    auto milseconds = parse_number<unsigned short>( from_, to_ );
     expect_char(from_, to_, ']');
 
-    e.time_index.year = time_base_.tm_year;     // let it start from 2013 to allow stronger compression?
-    e.time_index.month = time_base_.tm_mon;
-    e.time_index.day = time_base_.tm_mday - 1;  // let uniformly start all with 0
+    e.time_index = time_base_
+                 + std::chrono::hours( hours );
+                 + std::chrono::minutes( minutes )
+                 + std::chrono::seconds( seconds )
+                 + std::chrono::milliseconds( milseconds );
 
     skip_spaces(from_, to_);
 
@@ -417,10 +419,9 @@ std::tuple<combat_log_entry, size_t> uncompress(const void* buffer_, size_t offs
     // [optional] compressed effect value type2
     // [optional] effect thread
     offset_bits_ = read_bits(blob, offset_bits_, reinterpret_cast<unsigned char*>( &flags ), 9);
-    offset_bits_ = bit_unpack_int(blob, offset_bits_, entry.time_index.hours);
-    offset_bits_ = bit_unpack_int(blob, offset_bits_, entry.time_index.minutes);
-    offset_bits_ = bit_unpack_int(blob, offset_bits_, entry.time_index.seconds);
-    offset_bits_ = bit_unpack_int(blob, offset_bits_, entry.time_index.milseconds);
+    decltype ( entry.time_index.time_since_epoch().count() ) time_stamp;
+    offset_bits_ = bit_unpack_int( blob, offset_bits_, time_stamp );
+    entry.time_index = std::chrono::system_clock::time_point( std::chrono::system_clock::duration( time_stamp ) );
     offset_bits_ = bit_unpack_int(blob, offset_bits_, entry.src);
     if ( flags & ( 1 << src_minion ) ) {
         offset_bits_ = bit_unpack_int(blob, offset_bits_, entry.src_minion);
@@ -467,10 +468,7 @@ std::tuple<std::array<unsigned char, sizeof(combat_log_entry)+3>, size_t> compre
     size_t bit_offset = 9;
     short flags = 0;
 
-    bit_offset = bit_pack_int(result.data(), bit_offset, e_.time_index.hours);
-    bit_offset = bit_pack_int(result.data(), bit_offset, e_.time_index.minutes);
-    bit_offset = bit_pack_int(result.data(), bit_offset, e_.time_index.seconds);
-    bit_offset = bit_pack_int(result.data(), bit_offset, e_.time_index.milseconds);
+    bit_offset = bit_pack_int(result.data(), bit_offset, e_.time_index.time_since_epoch().count());
     bit_offset = bit_pack_int(result.data(), bit_offset, e_.src);
     if ( e_.src_minion ) {
         bit_offset = bit_pack_int(result.data(), bit_offset, e_.src_minion);

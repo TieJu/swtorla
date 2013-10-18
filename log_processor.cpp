@@ -113,7 +113,7 @@ log_processor::log_processor() {
 log_processor::~log_processor() {
 }
 
-void log_processor::start(const std::wstring& path, const struct tm& base_time_) {
+void log_processor::start( const std::wstring& path, std::chrono::system_clock::time_point base_time_ ) {
     _path = path;
     _base_time = base_time_;
     change_state(state::init);

@@ -698,7 +698,7 @@ struct tm get_date_from_file_name(const std::wstring& file_) {
     return t_info;
 }
 
-struct tm app::change_log_file(const std::wstring& file_, bool relative_ /*= true*/) {
+std::chrono::system_clock::time_point app::change_log_file( const std::wstring& file_, bool relative_ /*= true*/ ) {
     if ( !_current_log_file.empty() ) {
         if ( archive_log(_current_log_file) ) {
             remove_log(_current_log_file);
@@ -713,7 +713,7 @@ struct tm app::change_log_file(const std::wstring& file_, bool relative_ /*= tru
     }
 
     auto info = get_date_from_file_name(_current_log_file);
-    // zer out time stuff to make it a base value for the day
+    // zer0 out time stuff to make it a base value for the day
     info.tm_sec = 0;
     info.tm_min = 0;
     info.tm_hour = 0;
@@ -721,7 +721,7 @@ struct tm app::change_log_file(const std::wstring& file_, bool relative_ /*= tru
     info.tm_yday = 0;
     info.tm_isdst = 0;
 
-    return info;
+    return std::chrono::system_clock::from_time_t( mktime( &info ) );
     
     //BOOST_LOG_TRIVIAL(debug) << L"log file " << _current_log_file << " parsed into " << info.year << "." << info.month << "." << info.day << " " << info.hour << ":" << info.minute << ":" << info.second;
 }

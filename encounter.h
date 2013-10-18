@@ -107,17 +107,14 @@ public:/*
         return _last_update;
     }
 
-    decltype( std::chrono::milliseconds(1) ) get_combat_length() {
+    std::chrono::milliseconds get_combat_length() {
         if ( _table.size() < 2 ) {
             return std::chrono::milliseconds(1);
         }
 
         auto& first = _table.front();
         auto& last = _table.back(); 
-        
-        auto start_t = std::chrono::hours(first.time_index.hours) + std::chrono::minutes(first.time_index.minutes) + std::chrono::seconds(first.time_index.seconds) + std::chrono::milliseconds(first.time_index.milseconds);
-        auto end_t = std::chrono::hours(last.time_index.hours) + std::chrono::minutes(last.time_index.minutes) + std::chrono::seconds(last.time_index.seconds) + std::chrono::milliseconds(last.time_index.milseconds);
-        
-        return end_t - start_t;
+
+        return std::chrono::duration_cast<std::chrono::milliseconds>( last.time_index - first.time_index );
     }
 };

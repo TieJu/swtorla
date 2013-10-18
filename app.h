@@ -114,7 +114,7 @@ protected:
 protected:
     friend class dir_watcher;
     void on_new_log_file(const std::wstring& file_);
-    struct tm change_log_file(const std::wstring& file_, bool relative_ = true);
+    std::chrono::system_clock::time_point change_log_file( const std::wstring& file_, bool relative_ = true );
     std::wstring get_archive_name_from_log_name(const std::wstring& name_);
     bool archive_log(const std::wstring& file_);
     void remove_log(const std::wstring& file_);
