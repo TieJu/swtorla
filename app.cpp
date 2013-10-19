@@ -239,7 +239,7 @@ std::future<void> app::show_update_info(size_t version_) {
 
         bool do_update = true;
         bool display_info = true;
-        update_info_dialog dlg(info,&do_update,&display_info);
+        update_info_dialog dlg(info,do_update,display_info);
         dlg.run();
 
         if ( !do_update ) {

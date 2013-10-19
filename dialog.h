@@ -22,6 +22,7 @@ template<typename Derived>
 class dialog_t
 : public common_window_base {
 private:
+    typedef dialog_t<Derived> base;
     static INT_PTR CALLBACK callback_router(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam) {
         dialog_t<Derived>* self;
         if ( uMsg == WM_INITDIALOG ) {
