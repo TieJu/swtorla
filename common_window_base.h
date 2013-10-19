@@ -146,4 +146,27 @@ public:
     HINSTANCE instance_handle() {
         return reinterpret_cast<HINSTANCE>( GetWindowLongPtrW(_handle, GWLP_HINSTANCE) );
     }
+
+    void run() {
+        MSG msg {};
+        while ( ::GetMessageW( &msg, native_handle(), 0, 0 ) ) {
+            ::TranslateMessage( &msg );
+            ::DispatchMessageW( &msg );
+        }
+    }
+
+    void peek() {
+        MSG msg {};
+        while ( ::PeekMessageW( &msg, native_handle(), 0, 0, PM_REMOVE ) ) {
+            ::TranslateMessage( &msg );
+            ::DispatchMessageW( &msg );
+        }
+    }
+
+    template<typename C>
+    void peek_until ( C check ) {
+        do {
+            peek();
+        } while ( check() );
+    }
 };

@@ -218,11 +218,7 @@ void app::find_compress_software() {
     }*/
 }
 
-std::wstring app::load_update_info(const std::string& name_) {
-    return _updater.get_patchnotes( _version.build, get_build_from_name( name_ ) ).get();
-}
-
-std::future<void> app::show_update_info(const std::string& name_) {
+std::future<void> app::show_update_info(size_t version_) {
     return std::async(std::launch::async, [=]() {
         if ( !_config.get<bool>( L"update.show_info", true ) ) {
             return;
@@ -231,7 +227,7 @@ std::future<void> app::show_update_info(const std::string& name_) {
         std::wstring info;
         
         try {
-            info = load_update_info(name_);
+            info = _updater.get_patchnotes( _version.build, version_ ).get();
         } catch ( const std::exception& e_ ) {
             info = L"Error while loading update informations: ";
             info += std::to_wstring(e_.what());
@@ -244,18 +240,14 @@ std::future<void> app::show_update_info(const std::string& name_) {
         bool do_update = true;
         bool display_info = true;
         update_info_dialog dlg(info,&do_update,&display_info);
-        MSG msg{};
-        while ( GetMessageW(&msg, nullptr, 0, 0) ) {
-            TranslateMessage(&msg);
-            DispatchMessageW(&msg);
-        }
+        dlg.run();
 
         if ( !do_update ) {
-            _config.put( L"update.auto_check", false );
+            _config.put( L"update.auto_check", do_update );
         }
 
         if ( !display_info ) {
-            _config.put(L"update.show_info", false);
+            _config.put( L"update.show_info", display_info );
         }
 
         if ( !display_info || !do_update ) {
@@ -265,19 +257,15 @@ std::future<void> app::show_update_info(const std::string& name_) {
 }
 
 bool app::run_update_async_job(update_dialog& dlg_) {
-    auto str = check_update(dlg_);
+    auto ver = check_update(dlg_);
 
-    if ( str.empty() ) {
+    if ( !ver ) {
         return false;
     }
 
-    auto display = show_update_info(str);
+    auto display = show_update_info(ver);
 
-    str = download_update(dlg_,str);
-
-    if ( str.empty() ) {
-        return false;
-    }
+    _updater.download_update( dlg_, _version.build, ver, WPATCH_FILE_NAME ).get();
 
     start_update_process(dlg_);
 
@@ -298,13 +286,9 @@ bool app::run_update_async() {
 
     bool result = false;
 
-    MSG msg{};
-    while ( job.wait_for(std::chrono::milliseconds(100)) != std::future_status::ready ) {
-        while ( ::PeekMessageW( &msg, dlg.native_handle(), 0, 0, PM_REMOVE ) ) {
-            TranslateMessage(&msg);
-            DispatchMessageW(&msg);
-        }
-    }
+    dlg.peek_until( [&]() {
+        return job.wait_for( std::chrono::milliseconds( 100 ) ) == std::future_status::ready;
+    } );
 
     dlg.destroy();
 
@@ -314,10 +298,7 @@ bool app::run_update_async() {
         BOOST_LOG_TRIVIAL(error) << L"run_async_job failed because: " << e_.what();
     }
 
-    while ( ::GetMessageW( &msg, dlg.native_handle(), 0, 0 ) ) {
-        TranslateMessage(&msg);
-        DispatchMessageW(&msg);
-    }
+    dlg.run();
 
     return result;
 }
@@ -461,29 +442,23 @@ void app::log_entry_handler(const combat_log_entry& e_) {
     //BOOST_LOG_TRIVIAL(debug) << L"bit packing " << ( bit_length / 8 ) << " vs byte packing " << length << " vs uncompressed " << sizeof( e_ );
 }
 
-std::string app::check_update(update_dialog& dlg_) {
+size_t app::check_update(update_dialog& dlg_) {
     auto task = _updater.query_build(dlg_);
     auto max_ver = task.get();
-    auto new_version_path = "update/" + std::to_string( max_ver ) + ".update";
     
     if ( max_ver > _version.build ) {
         dlg_.info_msg( L"...new version on server found..." );
-        BOOST_LOG_TRIVIAL( debug ) << L"...never version on server found: " << new_version_path << L"...";
+        BOOST_LOG_TRIVIAL( debug ) << L"...never version on server found: " << max_ver << L"...";
     } else {
         dlg_.info_msg( L"...no new version on server found..." );
         BOOST_LOG_TRIVIAL( debug ) << L"...application is up to date...";
-        new_version_path.clear();
+        max_ver = 0;
     }
 
     dlg_.unknown_progress( false );
     dlg_.progress( 50 );
 
-    return new_version_path;
-}
-
-std::string app::download_update(update_dialog& dlg_, std::string update_path_) {
-    _updater.download_update( dlg_, _version.build, get_build_from_name( update_path_ ), WPATCH_FILE_NAME ).get();
-    return PATCH_FILE_NAME;
+    return max_ver;
 }
 
 void app::start_update_process(update_dialog& dlg_) {
@@ -511,21 +486,22 @@ void app::start_update_process(update_dialog& dlg_) {
     CreateProcessW(file_name, L"-update", nullptr, nullptr, FALSE, 0, nullptr, nullptr, &si, &pi);
 }
 
-void app::remove_old_file() {
-    wchar_t file_name[MAX_PATH];
-    GetModuleFileName(nullptr, file_name, MAX_PATH);
+std::future<void> app::remove_old_file() {
+    return std::async( std::launch::async, [=]() {
+        wchar_t file_name[MAX_PATH];
+        ::GetModuleFileNameW( nullptr, file_name, MAX_PATH );
 
-    std::wstring temp_name(file_name);
-    temp_name += L".old";
+        std::wstring temp_name( file_name );
+        temp_name += L".old";
 
-    BOOST_LOG_TRIVIAL(debug) << L"removing old file " << temp_name;
+        BOOST_LOG_TRIVIAL( debug ) << L"removing old file " << temp_name;
 
-    while ( !DeleteFile(temp_name.c_str()) ) {
-        if ( GetLastError() == ERROR_FILE_NOT_FOUND ) {
-            break;
+        while ( !::DeleteFileW( temp_name.c_str() ) ) {
+            if ( GetLastError() == ERROR_FILE_NOT_FOUND ) {
+                break;
+            }
         }
-    }
-
+    } );
 }
 
 void app::read_config(const char* config_path_) {
@@ -547,34 +523,35 @@ void app::write_config(const char* config_path_) {
 
 }
 
-void app::send_crashreport( const char* path_ ) {
+std::future<void> app::send_crashreport( const char* path_ ) {
     // todo: add crash upload handler here
     (void)path_;
+    return {};
 }
 
 app::app(const char* caption_, const char* config_path_)
-: _config_path(config_path_) {
+: _config_path( config_path_ ) {
+
+    INITCOMMONCONTROLSEX init =
+    { sizeof( INITCOMMONCONTROLSEX ), /*ICC_PROGRESS_CLASS | ICC_TAB_CLASSES | ICC_STANDARD_CLASSES | ICC_WIN95_CLASSES*/ 0xFFFFFFFF };
+    InitCommonControlsEx( &init );
+
     boost::log::add_file_log(boost::log::keywords::file_name = "app.log"
                             ,boost::log::keywords::format = "[%TimeStamp%]: %Message%"
                             ,boost::log::keywords::auto_flush = true);
     boost::log::core::get()->add_global_attribute("TimeStamp", boost::log::attributes::local_clock());
-    
-    send_crashreport(CRASH_FILE_NAME);
 
     _version = find_version_info(MAKEINTRESOURCEW(VS_VERSION_INFO));
 
-    BOOST_LOG_TRIVIAL(info) << L"SW:ToR log analizer version " << _version.major << L"." << _version.minor << L"." << _version.patch << L" Build " << _version.build;
+    BOOST_LOG_TRIVIAL( info ) << L"SW:ToR log analizer version " << _version.major << L"." << _version.minor << L"." << _version.patch << L" Build " << _version.build;
 
+    /*auto clean_task = */remove_old_file();
+
+    /*auto crash_upload = */send_crashreport( CRASH_FILE_NAME );
 
     read_config(_config_path);
 
     setup_from_config();
-
-    INITCOMMONCONTROLSEX init =
-    { sizeof( INITCOMMONCONTROLSEX ), /*ICC_PROGRESS_CLASS | ICC_TAB_CLASSES | ICC_STANDARD_CLASSES | ICC_WIN95_CLASSES*/ 0xFFFFFFFF };
-    InitCommonControlsEx(&init);
-
-    remove_old_file();
 
     _log_reader.targets(_string_map, _char_list);
     _log_reader.processor([=](const combat_log_entry& e_) { log_entry_handler(e_); });
@@ -584,6 +561,9 @@ app::app(const char* caption_, const char* config_path_)
     _server = net_link_server( *this );
 
     _updater.config( _config );
+
+    //clean_task.get();
+    //crash_upload.get();
 }
 
 

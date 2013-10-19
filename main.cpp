@@ -67,9 +67,7 @@ int APIENTRY WinMain(HINSTANCE hInstance
     DestroyWindow(wnd);*/
 
     try {
-        app core(APP_CATION, CONFIG_PATH);
-
-        core();
+        app { APP_CATION, CONFIG_PATH }();
     } catch ( const std::exception& e ) {
         MessageBoxA(nullptr, e.what(), "Crash!", 0);
     } catch ( ... ) {

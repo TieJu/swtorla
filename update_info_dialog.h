@@ -46,4 +46,8 @@ public:
 
         ::SetDlgItemTextW(native_handle(), IDC_UPDATE_INFO_EDIT, text_.c_str());
     }
+
+    void info_text( const std::wstring& text_ ) {
+        ::SetDlgItemTextW( native_handle(), IDC_UPDATE_INFO_EDIT, text_.c_str() );
+    }
 };
