@@ -75,7 +75,7 @@ class app : boost::noncopyable {
     void find_compress_software_registry();
     void find_compress_software();
 
-    std::future<void> show_update_info(size_t version_);
+    std::future<void> show_update_info( update_server_info update_info_);
     bool run_update_async_job(update_dialog& dlg_);
     bool run_update_async();
     std::future<bool> run_update();
@@ -83,7 +83,7 @@ class app : boost::noncopyable {
     void setup_from_config();
     void log_entry_handler(const combat_log_entry& e_);
 
-    size_t check_update(update_dialog& dlg_);
+    update_server_info check_update( update_dialog& dlg_ );
     void start_update_process(update_dialog& dlg_);
     std::future<void> remove_old_file();
 

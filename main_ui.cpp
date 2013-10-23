@@ -384,7 +384,7 @@ void main_ui::on_event(const any& v_) {
 bool main_ui::handle_os_events() {
     MSG msg
     {};
-    if ( GetMessageW(&msg, nullptr, 0, 0) ) {
+    if ( GetMessageW(&msg, nullptr, 0, 0) > 0 ) {
         TranslateMessage(&msg);
         DispatchMessage(&msg);
         return true;
@@ -650,15 +650,15 @@ LRESULT main_ui::os_callback_handler(dialog* window_, UINT uMsg, WPARAM wParam, 
         switch ( id ) {
         case ID_HELP_ABOUT:
             show_about_dlg();
-            break;
+            return TRUE;
         case ID_EDIT_OPTIONS:
             if ( show_options_dlg() ) {
                 ::PostQuitMessage(0);
             }
-            break;
+            return TRUE;
         case ID_FILE_EXIT:
             ::PostQuitMessage(0);
-            break;
+            return TRUE;
         case IDC_MAIN_DISPLAY_MODE:
             if ( code == CBN_SELCHANGE ) {
                 auto index = ::SendMessageW(::GetDlgItem(window_->native_handle(), IDC_MAIN_DISPLAY_MODE), CB_GETCURSEL, 0, 0);
@@ -666,7 +666,7 @@ LRESULT main_ui::os_callback_handler(dialog* window_, UINT uMsg, WPARAM wParam, 
                     set_display_mode(index);
                 }
             }
-            break;
+            return TRUE;
         }
     } else if ( uMsg == WM_TIMER ) {
         //if ( wParam == _timer ) {

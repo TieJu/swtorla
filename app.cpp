@@ -218,7 +218,7 @@ void app::find_compress_software() {
     }*/
 }
 
-std::future<void> app::show_update_info(size_t version_) {
+std::future<void> app::show_update_info( update_server_info update_info_ ) {
     return std::async(std::launch::async, [=]() {
         if ( !_config.get<bool>( L"update.show_info", true ) ) {
             return;
@@ -227,7 +227,7 @@ std::future<void> app::show_update_info(size_t version_) {
         std::wstring info;
         
         try {
-            info = _updater.get_patchnotes( _version.build, version_ ).get();
+            info = _updater.download_patchnotes( update_info_, _version.build, update_info_.latest_version ).get();
         } catch ( const std::exception& e_ ) {
             info = L"Error while loading update informations: ";
             info += std::to_wstring(e_.what());
@@ -257,15 +257,15 @@ std::future<void> app::show_update_info(size_t version_) {
 }
 
 bool app::run_update_async_job(update_dialog& dlg_) {
-    auto ver = check_update(dlg_);
+    auto server_info = check_update(dlg_);
 
-    if ( !ver ) {
+    if ( !server_info.latest_version ) {
         return false;
     }
 
-    auto display = show_update_info(ver);
+    auto display = show_update_info(server_info);
 
-    _updater.download_update( dlg_, _version.build, ver, WPATCH_FILE_NAME ).get();
+    _updater.download_update( server_info, _version.build, server_info.latest_version, WPATCH_FILE_NAME ).get();
 
     start_update_process(dlg_);
 
@@ -442,23 +442,21 @@ void app::log_entry_handler(const combat_log_entry& e_) {
     //BOOST_LOG_TRIVIAL(debug) << L"bit packing " << ( bit_length / 8 ) << " vs byte packing " << length << " vs uncompressed " << sizeof( e_ );
 }
 
-size_t app::check_update(update_dialog& dlg_) {
-    auto task = _updater.query_build(dlg_);
-    auto max_ver = task.get();
+update_server_info app::check_update( update_dialog& dlg_ ) {
+    dlg_.unknown_progress( true );
+    auto task = _updater.get_best_update_server();
+    auto server_info = task.get();
     
-    if ( max_ver > _version.build ) {
+    if ( server_info.latest_version > _version.build ) {
         dlg_.info_msg( L"...new version on server found..." );
-        BOOST_LOG_TRIVIAL( debug ) << L"...never version on server found: " << max_ver << L"...";
+        BOOST_LOG_TRIVIAL( debug ) << L"...never version on server found: " << server_info.latest_version << L"...";
     } else {
         dlg_.info_msg( L"...no new version on server found..." );
         BOOST_LOG_TRIVIAL( debug ) << L"...application is up to date...";
-        max_ver = 0;
+        server_info.latest_version = 0;
     }
 
-    dlg_.unknown_progress( false );
-    dlg_.progress( 50 );
-
-    return max_ver;
+    return server_info;
 }
 
 void app::start_update_process(update_dialog& dlg_) {

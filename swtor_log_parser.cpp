@@ -373,7 +373,7 @@ char read_bit(const void* buffer_, size_t offset_) {
     return ( reinterpret_cast<const unsigned char*>( buffer_ )[offset_ / 8] >> ( offset_ % 8 ) ) & 1;
 }
 
-void write_bit(void* buffer_, size_t offset_, bool set_) {
+void write_bit(void* buffer_, size_t offset_, unsigned char set_) {
     auto buffer = reinterpret_cast<unsigned char*>( buffer_ );
     auto bit = (unsigned char)( 1U << offset_ );
     buffer[offset_ / 8] = ( buffer[offset_ / 8] & ~bit ) | ( -set_ & bit );
