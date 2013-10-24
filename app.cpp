@@ -352,7 +352,7 @@ void app::log_entry_handler(const combat_log_entry& e_) {
             _ui->update_main_player(e_.src);
         }
     }
-#if 0
+#if 1
     auto packed = compress(e_);
     auto& buf = std::get<0>( packed );
     auto unpacked = uncompress(buf.data(), 0);
@@ -364,7 +364,9 @@ void app::log_entry_handler(const combat_log_entry& e_) {
                              << std::get<1>( packed )
                              << L" bits ( "
                              << ((std::get<1>(packed) + 7) / 8)
-                             << L")";
+                             << L") "
+                             << L"= "
+                             << ( double( std::get<1>( packed ) ) / ( sizeof(e_)* 8 ) );
     /*if ( memcmp(&std::get<0>( unpacked ), &e_, sizeof( e_ )) ) {
         BOOST_LOG_TRIVIAL(debug) << L"compress / decompress error!";
     }*/
@@ -527,6 +529,36 @@ std::future<void> app::send_crashreport( const char* path_ ) {
     return {};
 }
 
+void test_int_compress() {
+    using std::begin;
+    using std::end;
+    unsigned char blob[sizeof( unsigned long long )];
+
+#define TestRange(type_,from_,to_)  \
+    for ( size_t i = from_; i <= to_; ++i ) { \
+        pack_int( begin( blob ), end(blob), i ); \
+        type_ v; \
+        unpack_int( begin( blob ), end(blob), v ); \
+        if ( v != i ) BOOST_LOG_TRIVIAL( debug ) << L"test for " << #type_ << L" with value " << i << L" has failed" << L"..."; \
+    }
+
+#define TestRange2(type_,from_,to_)  \
+    for ( size_t i = from_; i <= to_; ++i ) { \
+    bit_pack_int( begin( blob ), 0, i ); \
+    type_ v; \
+    bit_unpack_int( begin( blob ), 0, v ); \
+    if ( v != i ) BOOST_LOG_TRIVIAL( debug ) << L"test for " << #type_ << L" with value " << i << L" has failed" << L"..."; \
+    }
+
+    TestRange( unsigned char, 0, 0xFF );
+    TestRange( unsigned short, 0, 0xFFFF );
+    TestRange( unsigned long, 0, 0xFFFFFFFF );
+
+    TestRange2( unsigned char, 0, 0xFF );
+    TestRange2( unsigned short, 0, 0xFFFF );
+    TestRange2( unsigned long, 0, 0xFFFFFFFF );
+}
+
 app::app(const char* caption_, const char* config_path_)
 : _config_path( config_path_ ) {
 
@@ -559,6 +591,8 @@ app::app(const char* caption_, const char* config_path_)
     _server = net_link_server( *this );
 
     _updater.config( _config );
+
+    //test_int_compress();
 
     //clean_task.get();
     //crash_upload.get();

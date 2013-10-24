@@ -1,5 +1,14 @@
 #pragma once
 
+#include <boost/log/core.hpp>
+#include <boost/log/trivial.hpp>
+#include <boost/log/expressions.hpp>
+#include <boost/log/sinks/text_file_backend.hpp>
+#include <boost/log/utility/setup/file.hpp>
+#include <boost/log/utility/setup/common_attributes.hpp>
+#include <boost/log/sources/severity_logger.hpp>
+#include <boost/log/sources/record_ostream.hpp>
+
 inline bool get_bit( const unsigned char* blob_, size_t at_ ) {
     return ( ( blob_[at_ / 8] >> ( at_ % 8 ) ) & 1 ) != 0;
 }
@@ -104,31 +113,34 @@ inline size_t bit_unpack_int( const unsigned char* blob_, size_t bit_offset_, In
 template<typename IntType>
 inline unsigned char* pack_int( unsigned char* from_, unsigned char* to_, IntType value_ ) {
     do {
-        *from_ = unsigned char( value_ & 0x7F );
+        *from_ = (unsigned char( value_ ) & 0x7F) | 0x80;
         value_ >>= 7;
-        if ( value_ ) {
-            *from_ |= 0x80;
-        }
+        *from_ &= 0xFF >> ( value_ ? 0 : 1 );
         ++from_;
     } while ( value_ && from_ < to_ );
     return from_;
 }
 
-inline unsigned char* pack_int( unsigned char* from_, unsigned char* to_, unsigned char value_ ) {
+inline unsigned char* pack_int( unsigned char* from_, unsigned char* to_, bool value_ ) {
     *from_ = value_ ? 1 : 0;
     return from_ + 1;
 }
 
-inline unsigned long long unpack_int( unsigned char* from_, unsigned char* to_ ) {
-    unsigned long long value = 0;
-
-    for ( size_t i = 0; from_ + i < to_; ++i ) {
-        value &= ( from_[i] & 0x7F ) << ( 7 * i );
-        if ( from_[i] & 0x80 ) {
-            continue;
-        }
-        break;
+template<typename IntType>
+inline const unsigned char* unpack_int( const unsigned char* from_, const unsigned char* to_, IntType& value_ ) {
+    value_ = 0;
+    unsigned shift = 0;
+    bool cont = true;
+    while ( cont && from_ < to_ ) {
+        value_ |= IntType( ( *from_ ) & 0x7F ) << shift;
+        shift += 7;
+        cont = ( ( *from_ ) & 0x80 ) != 0;
+        ++from_;
     }
+    return from_;
+}
 
-    return value;
+inline const unsigned char* unpack_int( const unsigned char* from_, const unsigned char* to_, bool& value_ ) {
+    value_ = ( *from_ == 1 );
+    return from_ + 1;
 }

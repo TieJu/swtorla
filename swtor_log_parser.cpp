@@ -393,9 +393,80 @@ void transfer_bits(const void* src_, size_t src_offset_, void* dst_, size_t dst_
 }
 
 // returns uncompressed log entry and the number of bits read from buffer_
-std::tuple<combat_log_entry, size_t> uncompress(const void* buffer_, size_t offset_bits_) {
+std::tuple<combat_log_entry, size_t> uncompress( const void* buffer_, size_t offset_bits_ ) {
+    combat_log_entry entry {};
+
+    auto begin = reinterpret_cast<const unsigned char*>( buffer_ );
+    auto end = begin + sizeof ( decltype( std::get<0>( compressed_combat_log_entry {} ) ) );
+    auto at = begin;
+
+    /*
+    struct combat_log_entry {
+    std::chrono::system_clock::time_point   time_index;
+    string_id                               src;
+    string_id                               src_minion;
+    string_id                               dst;
+    string_id                               dst_minion;
+    string_id                               ability;
+    string_id                               effect_action;
+    string_id                               effect_type;
+    string_id                               effect_value_type;
+    string_id                               effect_value_type2;
+    entity_id                               dst_id;
+    entity_id                               src_id;
+    int                                     effect_value;
+    int                                     effect_value2;
+    int                                     effect_thread;
+    bool                                    was_crit_effect;
+    bool                                    was_crit_effect2;
+};
+*/
+    unsigned short flags;
+    /*
+    src_minion,
+    src_id,
+    dst,            // if src = dst this is not set
+    dst_minion,
+    dst_id,
+    effect_value_type,
+    effect_value_2,
+    effect_value_type2,
+    effect_thread,
+    */
+#define UnpackValue(name_) at = unpack_int( at, end, entry.name_)
+#define UnpackValueOptional(name_) if ( flags & 1 << name_ ) UnpackValue(name_)
+    at = unpack_int( at, end, flags );
+    std::chrono::system_clock::time_point::rep time;
+    at = unpack_int( at, end, time );
+    entry.time_index = std::chrono::system_clock::time_point( std::chrono::system_clock::duration( time ) );
+    UnpackValue( src );
+    entry.dst = entry.src;
+    UnpackValue( ability );
+    UnpackValue( effect_action );
+    UnpackValue( effect_type );
+    UnpackValueOptional( src_minion );
+    UnpackValueOptional( src_id );
+    UnpackValueOptional( dst );
+    UnpackValueOptional( dst_minion );
+    UnpackValueOptional( dst_id );
+    UnpackValueOptional( effect_value_type );
+    if ( flags & 1 << effect_value2 ) {
+        UnpackValue( effect_value2 );
+        UnpackValue( was_crit_effect2 );
+    }
+    UnpackValueOptional( effect_value_type2 );
+    UnpackValueOptional( effect_thread );
+    if ( flags & 1 << effect_value ) {
+        UnpackValue( effect_value );
+        UnpackValue( was_crit_effect );
+    }
+#undef UnpackValue
+#undef UnpackValueOptional
+
+    return std::make_tuple( entry, ( at - begin ) * 8 );
+#if 0
     combat_log_entry entry{};
-    short flags = 0;
+    unsigned short flags = 0;
 
     auto blob = reinterpret_cast<const unsigned char*>( buffer_ );
 
@@ -460,14 +531,96 @@ std::tuple<combat_log_entry, size_t> uncompress(const void* buffer_, size_t offs
         offset_bits_ = bit_unpack_int(blob, offset_bits_, entry.effect_thread);
     }
     return std::make_tuple(entry, offset_bits_);
-
+#endif
 }
 // returns compressed log entry an an array and the number of bits used in that array
-std::tuple<std::array<unsigned char, sizeof(combat_log_entry)+3>, size_t> compress( const combat_log_entry& e_ ) {
-    std::array<unsigned char, sizeof(combat_log_entry)+3> result;
-    std::fill( begin( result ), end( result ), 0 );
+compressed_combat_log_entry compress( const combat_log_entry& e_ ) {
+    compressed_combat_log_entry result_set;
+    auto& result = std::get<0>( result_set );
+
+    unsigned short flags = 0;
+
+    auto begin = result.data();
+    auto end = begin + result.size();
+    auto at = begin;
+
+    flags |= ( e_.src_minion != 0 ) << src_minion;
+    flags |= ( e_.src_id != 0 ) << src_id;
+    flags |= ( e_.src != e_.dst ) << dst;
+    flags |= ( e_.dst_minion != 0 ) << dst_minion;
+    flags |= ( e_.dst_id != 0 ) << dst_id;
+    flags |= ( e_.effect_value_type != 0 ) << effect_value_type;
+    flags |= ( e_.effect_value2 != 0 ) << effect_value2;
+    flags |= ( e_.effect_value_type2 != 0 ) << effect_value_type2;
+    flags |= ( e_.effect_thread != 0 ) << effect_thread;
+    flags |= ( e_.effect_value != 0 ) << effect_value;
+
+    /*
+    struct combat_log_entry {
+    std::chrono::system_clock::time_point   time_index;
+    string_id                               src;
+    string_id                               src_minion;
+    string_id                               dst;
+    string_id                               dst_minion;
+    string_id                               ability;
+    string_id                               effect_action;
+    string_id                               effect_type;
+    string_id                               effect_value_type;
+    string_id                               effect_value_type2;
+    entity_id                               dst_id;
+    entity_id                               src_id;
+    int                                     effect_value;
+    int                                     effect_value2;
+    int                                     effect_thread;
+    bool                                    was_crit_effect;
+    bool                                    was_crit_effect2;
+    };
+    */
+    /*
+    src_minion,
+    src_id,
+    dst,            // if src = dst this is not set
+    dst_minion,
+    dst_id,
+    effect_value_type,
+    effect_value_2,
+    effect_value_type2,
+    effect_thread,
+    */
+#define PackValue(name_) at = pack_int( at, end, e_.name_)
+#define PackValueOptional(name_) if ( flags & 1 << name_ ) PackValue(name_)
+    at = pack_int( at, end, flags );
+    at = pack_int( at, end, e_.time_index.time_since_epoch().count() );
+    PackValue( src );
+    PackValue( ability );
+    PackValue( effect_action );
+    PackValue( effect_type );
+    PackValue( was_crit_effect );
+    PackValueOptional( src_minion );
+    PackValueOptional( src_id );
+    PackValueOptional( dst );
+    PackValueOptional( dst_minion );
+    PackValueOptional( dst_id );
+    PackValueOptional( effect_value_type );
+    if ( flags & 1 << effect_value2 ) {
+        PackValue( effect_value2 );
+        PackValue( was_crit_effect2 );
+    }
+    PackValueOptional( effect_value_type2 );
+    PackValueOptional( effect_thread );
+    if ( flags & 1 << effect_value ) {
+        PackValue( effect_value );
+        PackValue( was_crit_effect );
+    }
+#undef PackValue
+#undef PackValueOptional
+
+    std::get<1>( result_set ) = ( at - begin ) * 8;
+
+    return result_set;
+#if 0
     size_t bit_offset = 9;
-    short flags = 0;
+    unsigned short flags = 0;
 
     bit_offset = bit_pack_int(result.data(), bit_offset, e_.time_index.time_since_epoch().count());
     bit_offset = bit_pack_int(result.data(), bit_offset, e_.src);
@@ -518,4 +671,5 @@ std::tuple<std::array<unsigned char, sizeof(combat_log_entry)+3>, size_t> compre
     store_bits(reinterpret_cast<unsigned char*>(result.data()), 0, reinterpret_cast<unsigned char*>( &flags ), 9);
 
     return std::make_tuple(result, bit_offset);
+#endif
 }
