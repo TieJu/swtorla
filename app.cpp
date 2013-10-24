@@ -366,7 +366,7 @@ void app::log_entry_handler(const combat_log_entry& e_) {
                              << ((std::get<1>(packed) + 7) / 8)
                              << L") "
                              << L"= "
-                             << ( double( std::get<1>( packed ) ) / ( sizeof(e_)* 8 ) );
+                             << ( (double( std::get<1>( packed ) ) / ( sizeof(e_)* 8 )  * 100.0 ) );
     /*if ( memcmp(&std::get<0>( unpacked ), &e_, sizeof( e_ )) ) {
         BOOST_LOG_TRIVIAL(debug) << L"compress / decompress error!";
     }*/

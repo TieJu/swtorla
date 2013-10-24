@@ -595,7 +595,6 @@ compressed_combat_log_entry compress( const combat_log_entry& e_ ) {
     PackValue( ability );
     PackValue( effect_action );
     PackValue( effect_type );
-    PackValue( was_crit_effect );
     PackValueOptional( src_minion );
     PackValueOptional( src_id );
     PackValueOptional( dst );
