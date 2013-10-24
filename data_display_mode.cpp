@@ -32,7 +32,7 @@ void data_display_entity_dmg_done::update_display(combat_analizer& analizer_, ui
         combat_log_entry_ex ex
         { e_ };
         ex.hits = 1;
-        ex.crits = ex.was_crit_effect;
+        ex.crits = ex.entry_flags & effect_was_crit;
         ex.misses = ex.effect_value == 0;
         total_damage += ex.effect_value;
         return ex;
@@ -131,7 +131,7 @@ void data_display_entity_healing_done::update_display(combat_analizer& analizer_
         combat_log_entry_ex ex
         { e_ };
         ex.hits = 1;
-        ex.crits = ex.was_crit_effect;
+        ex.crits = ex.entry_flags & effect_was_crit;
         ex.misses = ex.effect_value == 0;
         total_damage += ex.effect_value;
         return ex;
@@ -234,7 +234,7 @@ void data_display_entity_dmg_recived::update_display(combat_analizer& analizer_,
         combat_log_entry_ex ex
         { e_ };
         ex.hits = 1;
-        ex.crits = ex.was_crit_effect;
+        ex.crits = ex.entry_flags & effect_was_crit;
         ex.misses = ex.effect_value == 0;
         total_damage += ex.effect_value;
         return ex;
@@ -337,7 +337,7 @@ void data_display_entity_healing_recived::update_display(combat_analizer& analiz
         combat_log_entry_ex ex
         { e_ };
         ex.hits = 1;
-        ex.crits = ex.was_crit_effect;
+        ex.crits = ex.entry_flags & effect_was_crit;
         ex.misses = ex.effect_value == 0;
         total_damage += ex.effect_value;
         return ex;
@@ -443,7 +443,7 @@ void data_display_entity_skill_dmg_done::update_display(combat_analizer& analize
         combat_log_entry_ex ex
         { e_ };
         ex.hits = 1;
-        ex.crits = ex.was_crit_effect;
+        ex.crits = ex.entry_flags & effect_was_crit;
         ex.misses = ex.effect_value == 0;
         total_damage += ex.effect_value;
         return ex;
@@ -527,7 +527,7 @@ void data_display_entity_skill_healing_done::update_display(combat_analizer& ana
         combat_log_entry_ex ex
         { e_ };
         ex.hits = 1;
-        ex.crits = ex.was_crit_effect;
+        ex.crits = ex.entry_flags & effect_was_crit;
         ex.misses = ex.effect_value == 0;
         total_damage += ex.effect_value;
         return ex;
@@ -611,7 +611,7 @@ void data_display_entity_skill_dmg_recived::update_display(combat_analizer& anal
         combat_log_entry_ex ex
         { e_ };
         ex.hits = 1;
-        ex.crits = ex.was_crit_effect;
+        ex.crits = ex.entry_flags & effect_was_crit;
         ex.misses = ex.effect_value == 0;
         total_damage += ex.effect_value;
         return ex;
@@ -695,7 +695,7 @@ void data_display_entity_skill_healing_recived::update_display(combat_analizer& 
         combat_log_entry_ex ex
         { e_ };
         ex.hits = 1;
-        ex.crits = ex.was_crit_effect;
+        ex.crits = ex.entry_flags & effect_was_crit;
         ex.misses = ex.effect_value == 0;
         total_damage += ex.effect_value;
         return ex;

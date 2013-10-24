@@ -354,7 +354,10 @@ combat_log_entry parse_combat_log_line( const char* from_, const char* to_, stri
     // 2) '('<numver>'*'')' -> crit
     // 3) '('<number>' <dmg type name> '{'<dmg type name id>'}')'
     // 4) '('<number>'* <dmg type name> '{'<dmg type name id>'}')' -> crit
-    std::tie(e.effect_value, e.was_crit_effect, e.effect_value_type, e.effect_value2, e.was_crit_effect2, e.effect_value_type2) = parse_effect_value(from_, to_, string_map_);
+    bool crit1, crit2;
+    std::tie( e.effect_value, crit1, e.effect_value_type, e.effect_value2, crit2, e.effect_value_type2 ) = parse_effect_value( from_, to_, string_map_ );
+    e.entry_flags |= crit1 ? effect_was_crit : 0;
+    e.entry_flags |= crit2 ? effect_was_crit2 : 0;
 
     skip_spaces(from_, to_);
 
@@ -450,16 +453,11 @@ std::tuple<combat_log_entry, size_t> uncompress( const void* buffer_, size_t off
     UnpackValueOptional( dst_minion );
     UnpackValueOptional( dst_id );
     UnpackValueOptional( effect_value_type );
-    if ( flags & 1 << effect_value2 ) {
-        UnpackValue( effect_value2 );
-        UnpackValue( was_crit_effect2 );
-    }
+    UnpackValueOptional( effect_value2 );
     UnpackValueOptional( effect_value_type2 );
     UnpackValueOptional( effect_thread );
-    if ( flags & 1 << effect_value ) {
-        UnpackValue( effect_value );
-        UnpackValue( was_crit_effect );
-    }
+    UnpackValueOptional( effect_value );
+    UnpackValueOptional( entry_flags );
 #undef UnpackValue
 #undef UnpackValueOptional
 
@@ -554,6 +552,7 @@ compressed_combat_log_entry compress( const combat_log_entry& e_ ) {
     flags |= ( e_.effect_value_type2 != 0 ) << effect_value_type2;
     flags |= ( e_.effect_thread != 0 ) << effect_thread;
     flags |= ( e_.effect_value != 0 ) << effect_value;
+    flags |= ( e_.entry_flags != 0 ) << entry_flags;
 
     /*
     struct combat_log_entry {
@@ -601,16 +600,11 @@ compressed_combat_log_entry compress( const combat_log_entry& e_ ) {
     PackValueOptional( dst_minion );
     PackValueOptional( dst_id );
     PackValueOptional( effect_value_type );
-    if ( flags & 1 << effect_value2 ) {
-        PackValue( effect_value2 );
-        PackValue( was_crit_effect2 );
-    }
+    PackValueOptional( effect_value2 );
     PackValueOptional( effect_value_type2 );
     PackValueOptional( effect_thread );
-    if ( flags & 1 << effect_value ) {
-        PackValue( effect_value );
-        PackValue( was_crit_effect );
-    }
+    PackValueOptional( effect_value );
+    PackValueOptional( entry_flags );
 #undef PackValue
 #undef PackValueOptional
 

@@ -352,7 +352,7 @@ void app::log_entry_handler(const combat_log_entry& e_) {
             _ui->update_main_player(e_.src);
         }
     }
-#if 1
+#if 0
     auto packed = compress(e_);
     auto& buf = std::get<0>( packed );
     auto unpacked = uncompress(buf.data(), 0);

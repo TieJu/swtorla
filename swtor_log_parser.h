@@ -29,8 +29,12 @@ struct combat_log_entry {
     int                                     effect_value;
     int                                     effect_value2;
     int                                     effect_thread;
-    bool                                    was_crit_effect;
-    bool                                    was_crit_effect2;
+    int                                     entry_flags;
+};
+
+enum log_entry_flags {
+    effect_was_crit = 1 << 0,
+    effect_was_crit2 = 1 << 1,
 };
 
 typedef concurrency::concurrent_unordered_map<string_id, std::wstring>  string_to_id_string_map;
@@ -49,6 +53,7 @@ enum log_entry_optional_elements {
     effect_value_type2,
     effect_thread,
     effect_value,
+    entry_flags,
     max_optional_elements
 };
 
