@@ -98,16 +98,23 @@ public:
             link.write_some(boost::asio::buffer(value_.data(), sizeof(wchar_t)* value_.length()));
         }
     }
-    void send_combat_event(const combat_log_entry& event_) {
+    void send_combat_event(const combat_log_entry_compressed& event_) {
         auto self = static_cast<Derived*>( this );
         auto& link = self->get_link();
         if ( self->is_link_active() ) {
-            auto compressed_event = compress(event_);
-            auto length = ( 7 + std::get<1>( compressed_event ) ) / 8;
-            auto& data = std::get<0>( compressed_event );
-            auto header = gen_packet_header(command::combat_event, length);
-            link.write_some(boost::asio::buffer(&header, sizeof( header )));
-            link.write_some(boost::asio::buffer(data.data(), header.content_length));
+            auto header = gen_packet_header( command::combat_event, event_.size() );
+            link.write_some( boost::asio::buffer( &header, sizeof( header ) ) );
+            link.write_some( boost::asio::buffer( event_.data(), event_.size() ) );
+        }
+    }
+    template<typename U>
+    void send_combat_event( const combat_log_entry_compressed_wrap<U>& event_ ) {
+        auto self = static_cast<Derived*>( this );
+        auto& link = self->get_link();
+        if ( self->is_link_active() ) {
+            auto header = gen_packet_header( command::combat_event, event_.size() );
+            link.write_some( boost::asio::buffer( &header, sizeof( header ) ) );
+            link.write_some( boost::asio::buffer( event_.data(), event_.size() ) );
         }
     }
 };
