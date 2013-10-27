@@ -16,6 +16,20 @@
 
 #include <boost/noncopyable.hpp>
 
+inline std::string GetWindowTextA( HWND hwnd_ ) {
+    std::string text;
+    text.resize( ::GetWindowTextLengthA( hwnd_ ) + 1, ' ' );
+    ::GetWindowTextA( hwnd_, const_cast<char*>( text.data() ), int( text.size() ) );
+    return text;
+}
+
+inline std::wstring GetWindowTextW( HWND hwnd_ ) {
+    std::wstring text;
+    text.resize( ::GetWindowTextLengthW( hwnd_ ) + 1, L' ' );
+    ::GetWindowTextW( hwnd_, const_cast<wchar_t*>( text.data() ), int( text.size() ) );
+    return text;
+}
+
 class window : public common_window_base {
 public:
     typedef std::function<LRESULT(window* wnd, UINT uMsg, WPARAM wParam, LPARAM lParam)>   callback_type;
