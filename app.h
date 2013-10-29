@@ -140,5 +140,9 @@ protected:
     void on_string_info(server_net_link* self_, string_id string_id_, const std::wstring& string_);
     void on_combat_event(server_net_link* self_, const combat_log_entry& event_);
     void on_client_disconnect(server_net_link* self_);
+
+protected:
+    friend class raid_sync_dialog;
+    std::future<bool> connect_to_server( const std::wstring& name_, const std::wstring& port_ );
 };
 

@@ -688,7 +688,7 @@ void main_ui::on_start_solo() {
 }
 
 void main_ui::on_start_raid() {
-    auto res = std::async( std::launch::async, [=]() { raid_sync_dialog sync_dlg( _app.get_config() ); } );
+    auto res = std::async( std::launch::async, [=]() { raid_sync_dialog sync_dlg( _app ); } );
     res.get();
 }
 
