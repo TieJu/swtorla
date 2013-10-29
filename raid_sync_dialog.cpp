@@ -52,8 +52,12 @@ bool raid_sync_dialog::start_server( int mode_ ) {
 }
 
 bool raid_sync_dialog::connect_to_server( const std::wstring& name_, const std::wstring& port_ ) {
-    // display wait dialog...
+    update_dialog dlg;
+    dlg.caption( L"...connecting..." );
+    dlg.info_msg( L"...connecting to server..." );
+    dlg.unknown_progress( true );
     auto state = _app.connect_to_server( name_, port_ );
+    dlg.peek_until( [=, &state]() { return state.wait_for( std::chrono::milliseconds { 100 } ) == std::future_status::ready; } );
     return state.get();
 }
 

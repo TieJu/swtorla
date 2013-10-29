@@ -167,6 +167,6 @@ public:
     void peek_until ( C check ) {
         do {
             peek();
-        } while ( check() );
+        } while ( !check() );
     }
 };

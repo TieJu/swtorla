@@ -921,6 +921,7 @@ void app::on_client_disconnect(server_net_link* self_) {
 
 std::future<bool> app::connect_to_server( const std::wstring& name_, const std::wstring& port_ ) {
     return std::async( std::launch::async, [=]() {
+        std::this_thread::sleep_for( std::chrono::milliseconds( 1000 ) );
         ::MessageBoxW( nullptr, L"Client mode not supported yet", L"Missing feature", MB_OK | MB_ICONSTOP );
         return false;
     } );
