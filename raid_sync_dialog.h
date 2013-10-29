@@ -5,20 +5,42 @@
 
 class raid_sync_dialog
     : public dialog_t<raid_sync_dialog> {
-
+        boost::property_tree::wptree&   _config;
 protected:
+    void update_config() {
+        auto mode = SendMessageW( ::GetDlgItem( native_handle(), IDC_RAID_SYNC_MODE ), CB_GETCURSEL, 0, 0 );
+        auto addr = GetWindowTextW( ::GetDlgItem( native_handle(), IDC_RAID_SYNC_SERVER_ADDRESS ) );
+        auto port = GetWindowTextW( ::GetDlgItem( native_handle(), IDC_RAID_SYNC_SERVER_ADDRESS2 ) );
+
+        switch ( mode ) {
+        default:
+        case 0:
+            _config.put( L"client.server.ip", addr );
+            _config.put( L"client.server.port", port );
+            break;
+        case 1:
+            _config.put( L"server.public.ip", addr );
+            _config.put( L"server.public.port", port );
+            break;
+        case 2:
+            _config.put( L"server.hash.hash", addr );
+            _config.put( L"server.hash.port", port );
+            break;
+        }
+    }
     void start_server( int mode_ ) {
     }
     void start_client( const std::wstring& target_ ) {
     }
-    std::wstring get_public_ip() {
-        return L"<last server>";
+    std::tuple<std::wstring, std::wstring> get_public_ip() {
+        auto locals = get_local_ip_addresses();
+        return std::make_tuple(_config.get<std::wstring>(L"server.public.ip", locals.empty() ? L"" : locals[0]), _config.get<std::wstring>(L"server.public.port", L"67890"));
     }
-    std::wstring get_public_hash() {
-        return L"<public ip>";
+    std::tuple<std::wstring, std::wstring> get_public_hash() {
+        return std::make_tuple( _config.get<std::wstring>( L"server.hash.hash", L"" ), _config.get<std::wstring>( L"server.hash.port", L"67890" ) );
     }
-    std::wstring get_last_server() {
-        return L"<public hash>";
+    std::tuple<std::wstring, std::wstring> get_last_server() {
+        return std::make_tuple( _config.get<std::wstring>( L"client.server.ip", L"" ), _config.get<std::wstring>( L"client.server.port", L"67890" ) );
     }
     void start_raid_sync() {
         auto mode = SendMessageW( ::GetDlgItem( native_handle(), IDC_RAID_SYNC_MODE ), CB_GETCURSEL, 0, 0 );
@@ -36,20 +58,23 @@ protected:
         case IDC_RAID_SYNC_MODE:
             if ( code == CBN_SELCHANGE ) {
                 auto mode = SendMessageW( ::GetDlgItem( native_handle(), IDC_RAID_SYNC_MODE ), CB_GETCURSEL, 0, 0 );
-                std::wstring addr;
+                std::wstring addr, port;
                 if ( mode == 0 ) {
-                    addr = get_last_server();
+                    std::tie(addr, port) = get_last_server();
                 } else if ( mode == 1 ) {
-                    addr = get_public_ip();
+                    std::tie(addr, port) = get_public_ip();
                 } else {
-                    addr = get_public_hash();
+                    std::tie(addr, port) = get_public_hash();
                 }
                 ::SetWindowTextW( ::GetDlgItem( native_handle(), IDC_RAID_SYNC_SERVER_ADDRESS ), addr.c_str() );
+                ::SetWindowTextW( ::GetDlgItem( native_handle(), IDC_RAID_SYNC_SERVER_ADDRESS2 ), port.c_str() );
             }
             break;
         case IDC_RAID_SYNC_SERVER_ADDRESS:
+        case IDC_RAID_SYNC_SERVER_ADDRESS2:
             break;
         case IDC_SERVER_SELECT_OK:
+            update_config();
             start_raid_sync();
         case IDC_SERVER_SELECT_CANCEL:
             ::DestroyWindow( native_handle() );
@@ -80,8 +105,9 @@ protected:
     }
 
 public:
-    raid_sync_dialog()
-        : dialog_t<raid_sync_dialog>( GetModuleHandleW(nullptr), MAKEINTRESOURCEW(IDD_RAID_SYNC), nullptr ) {
+    raid_sync_dialog( boost::property_tree::wptree& cfg_)
+        : dialog_t<raid_sync_dialog>( GetModuleHandleW(nullptr), MAKEINTRESOURCEW(IDD_RAID_SYNC), nullptr )
+        , _config(cfg_) {
         auto icon = ::LoadIconW( GetModuleHandleW( nullptr ), MAKEINTRESOURCEW( IDI_ICON1 ) );
         ::SendMessageW( native_handle(), WM_SETICON, ICON_BIG, (LPARAM)icon );
         ::SendMessageW( native_handle(), WM_SETICON, ICON_SMALL, (LPARAM)icon );
@@ -89,10 +115,14 @@ public:
         auto server_mode = ::GetDlgItem( native_handle(), IDC_RAID_SYNC_MODE );
         ::SendMessageW( server_mode, CB_ADDSTRING, 0, (LPARAM)L"Client" );
         ::SendMessageW( server_mode, CB_ADDSTRING, 0, (LPARAM)L"Server - Public IP4" );
-        ::SendMessageW( server_mode, CB_ADDSTRING, 0, (LPARAM)L"Server - Public Hash" );
+        if ( _config.get<bool>( L"server.enable_hash", false ) ) {
+            ::SendMessageW( server_mode, CB_ADDSTRING, 0, (LPARAM)L"Server - Public Hash" );
+        }
         ::SendMessageW( server_mode, CB_SETCURSEL, 0, 0 );
 
-        ::SetWindowTextW( ::GetDlgItem( native_handle(), IDC_RAID_SYNC_SERVER_ADDRRESS ), get_last_server().c_str() );
+        auto v = get_last_server();
+        ::SetWindowTextW( ::GetDlgItem( native_handle(), IDC_RAID_SYNC_SERVER_ADDRESS ), std::get<0>( v ).c_str() );
+        ::SetWindowTextW( ::GetDlgItem( native_handle(), IDC_RAID_SYNC_SERVER_ADDRESS2 ), std::get<1>( v ).c_str() );
 
         MSG msg{};
         while ( GetMessageW(&msg, nullptr, 0, 0) ) {

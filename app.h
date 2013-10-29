@@ -108,6 +108,7 @@ protected:
     bool start_tracking();
     void stop_tracking();
     std::future<bool> check_for_updates();
+    boost::property_tree::wptree& get_config();
 
 protected:
     friend class dir_watcher;

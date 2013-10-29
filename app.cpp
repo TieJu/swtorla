@@ -529,36 +529,6 @@ std::future<void> app::send_crashreport( const char* path_ ) {
     return {};
 }
 
-void test_int_compress() {
-    using std::begin;
-    using std::end;
-    unsigned char blob[sizeof( unsigned long long )];
-
-#define TestRange(type_,from_,to_)  \
-    for ( size_t i = from_; i <= to_; ++i ) { \
-        pack_int( begin( blob ), end(blob), i ); \
-        type_ v; \
-        unpack_int( begin( blob ), end(blob), v ); \
-        if ( v != i ) BOOST_LOG_TRIVIAL( debug ) << L"test for " << #type_ << L" with value " << i << L" has failed" << L"..."; \
-    }
-
-#define TestRange2(type_,from_,to_)  \
-    for ( size_t i = from_; i <= to_; ++i ) { \
-    bit_pack_int( begin( blob ), 0, i ); \
-    type_ v; \
-    bit_unpack_int( begin( blob ), 0, v ); \
-    if ( v != i ) BOOST_LOG_TRIVIAL( debug ) << L"test for " << #type_ << L" with value " << i << L" has failed" << L"..."; \
-    }
-
-    TestRange( unsigned char, 0, 0xFF );
-    TestRange( unsigned short, 0, 0xFFFF );
-    TestRange( unsigned long, 0, 0xFFFFFFFF );
-
-    TestRange2( unsigned char, 0, 0xFF );
-    TestRange2( unsigned short, 0, 0xFFFF );
-    TestRange2( unsigned long, 0, 0xFFFFFFFF );
-}
-
 app::app(const char* caption_, const char* config_path_)
 : _config_path( config_path_ ) {
 
@@ -591,8 +561,6 @@ app::app(const char* caption_, const char* config_path_)
     _server = net_link_server( *this );
 
     _updater.config( _config );
-
-    //test_int_compress();
 
     //clean_task.get();
     //crash_upload.get();
@@ -681,6 +649,10 @@ void app::stop_tracking() {
 
 std::future<bool> app::check_for_updates() {
     return run_update();
+}
+
+boost::property_tree::wptree& app::get_config() {
+    return _config;
 }
 
 void app::on_new_log_file(const std::wstring& file_) {

@@ -127,7 +127,9 @@ bool upnp::map_tcp(unsigned short public_, unsigned short local_, const std::wst
     auto result = _ports->Add(public_, proto, local_, local, VARIANT_TRUE, name, &map);
     if ( map ) {
         _map.emplace_back(map, false);
-        BOOST_LOG_TRIVIAL(info) << L"New TCP port mapping from " << public_ << L" to " << local_ip_ << L":" << local_;
+        BSTR ext;
+        map->get_ExternalIPAddress( &ext );
+        BOOST_LOG_TRIVIAL(info) << L"New TCP port mapping from " << std::wstring(ext, SysStringLen(ext)) << L":" << public_ << L" to " << local_ip_ << L":" << local_;
     } else {
         BOOST_LOG_TRIVIAL(error) << L"Port mapping from " << public_ << L" to " << local_ip_ << L":" << local_ << L" has been failed, error code was " << result;
     }
@@ -152,8 +154,10 @@ bool upnp::map_udp(unsigned short public_, unsigned short local_, const std::wst
     IStaticPortMapping* map = nullptr;
     auto result = _ports->Add(public_, proto, local_, local, VARIANT_TRUE, name, &map);
     if ( map ) {
-        BOOST_LOG_TRIVIAL(info) << L"New UDP port mapping from " << public_ << L" to " << local_ip_ << L":" << local_;
-        _map.emplace_back(map, false);
+        _map.emplace_back( map, false );
+        BSTR ext;
+        map->get_ExternalIPAddress( &ext );
+        BOOST_LOG_TRIVIAL( info ) << L"New UDP port mapping from " << std::wstring( ext, SysStringLen( ext ) ) << L":" << public_ << L" to " << local_ip_ << L":" << local_;
     } else {
         BOOST_LOG_TRIVIAL(error) << L"Port mapping from " << public_ << L" to " << local_ip_ << L":" << local_ << L" has been failed, error code was " << result;
     }
