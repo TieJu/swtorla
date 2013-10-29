@@ -19,14 +19,14 @@
 inline std::string GetWindowTextA( HWND hwnd_ ) {
     std::string text;
     text.resize( ::GetWindowTextLengthA( hwnd_ ), ' ' );
-    ::GetWindowTextA( hwnd_, const_cast<char*>( text.data() ), int( text.size() ) );
+    ::GetWindowTextA( hwnd_, const_cast<char*>( text.data() ), int( text.size() ) + 1 );
     return text;
 }
 
 inline std::wstring GetWindowTextW( HWND hwnd_ ) {
     std::wstring text;
     text.resize( ::GetWindowTextLengthW( hwnd_ ), L' ' );
-    ::GetWindowTextW( hwnd_, const_cast<wchar_t*>( text.data() ), int( text.size() ) );
+    ::GetWindowTextW( hwnd_, const_cast<wchar_t*>( text.data() ), int( text.size() ) + 1 );
     return text;
 }
 
