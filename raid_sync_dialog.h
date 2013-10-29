@@ -28,9 +28,59 @@ protected:
             break;
         }
     }
-    void start_server( int mode_ ) {
+    bool start_server_at_port( unsigned long port_ ) {
+        ::MessageBoxW( nullptr, L"Server mode not implemented yet", L"Missing feature", MB_OK | MB_ICONSTOP );
+        return false;
     }
-    void start_client( const std::wstring& target_ ) {
+    bool register_at_hash_server( const std::wstring& hash_, unsigned long port_ ) {
+        ::MessageBoxW( nullptr, L"Hash lookup not supported yet", L"Missing feature", MB_OK | MB_ICONSTOP );
+        return false;
+    }
+    bool start_server( int mode_ ) {
+        auto port = GetWindowTextW( ::GetDlgItem( native_handle(), IDC_RAID_SYNC_SERVER_ADDRESS2 ) );
+        auto port_num = std::stoul( port );
+        if ( port.empty() ) {
+            port_num = 67890;
+        }
+        if ( mode_ == 2 ) {
+            auto hash = GetWindowTextW( ::GetDlgItem( native_handle(), IDC_RAID_SYNC_SERVER_ADDRESS ) );
+            if ( !register_at_hash_server( hash, port_num ) ) {
+                // register_at_hash_server will report the error
+                return false;
+            }
+        }
+
+        return start_server_at_port( port_num );
+    }
+    bool connect_to_server( const std::wstring& name_, const std::wstring& port_ ) {
+        ::MessageBoxW( nullptr, L"Client mode not supported yet", L"Missing feature", MB_OK | MB_ICONSTOP );
+        return false;
+    }
+    std::tuple<std::wstring, std::wstring> get_ip_and_port_from_hash( const std::wstring& hash_ ) {
+        ::MessageBoxW( nullptr, L"Hash lookup not supported yet", L"Missing feature", MB_OK | MB_ICONSTOP );
+        return std::make_tuple( L"", L"" );
+    }
+    bool start_client( std::wstring ip_, std::wstring port_ ) {
+        if ( ip_.empty() ) {
+            ::MessageBoxW( nullptr, L"You need to specify a server address", L"Missing server adderss", MB_OK | MB_ICONSTOP);
+            return FALSE;
+        }
+
+        if ( port_.empty() ) {
+            port_ = L"67890";
+        }
+
+        // hash format from hash server
+        // '#'<server_id>'@'<hash>
+        if ( ip_[0] == '#' ) {
+            std::tie( ip_, port_ ) = get_ip_and_port_from_hash( ip_ );
+            if ( ip_.empty() ) {
+                // do nothing here, info window will be displayed by get_ip_and_port_from_hash.
+                return FALSE;
+            }
+        }
+
+        return connect_to_server( ip_, port_ );
     }
     std::tuple<std::wstring, std::wstring> get_public_ip() {
         auto locals = get_local_ip_addresses();
@@ -42,13 +92,14 @@ protected:
     std::tuple<std::wstring, std::wstring> get_last_server() {
         return std::make_tuple( _config.get<std::wstring>( L"client.server.ip", L"" ), _config.get<std::wstring>( L"client.server.port", L"67890" ) );
     }
-    void start_raid_sync() {
+    bool start_raid_sync() {
         auto mode = SendMessageW( ::GetDlgItem( native_handle(), IDC_RAID_SYNC_MODE ), CB_GETCURSEL, 0, 0 );
         if ( mode == 0 ) {
-            start_client( GetWindowTextW( ::GetDlgItem( native_handle(), IDC_RAID_SYNC_SERVER_ADDRESS ) ) );
+            return start_client( GetWindowTextW( ::GetDlgItem( native_handle(), IDC_RAID_SYNC_SERVER_ADDRESS ) ), GetWindowTextW( ::GetDlgItem( native_handle(), IDC_RAID_SYNC_SERVER_ADDRESS2 ) ) );
         } else if ( mode == 1 || mode == 2 ) {
-            start_server( mode );
+            return start_server( mode );
         }
+        return false;
     }
 
     INT_PTR on_command( WPARAM wParam, LPARAM lParam ) {
@@ -75,7 +126,9 @@ protected:
             break;
         case IDC_SERVER_SELECT_OK:
             update_config();
-            start_raid_sync();
+            if ( !start_raid_sync() ) {
+                return TRUE;
+            }
         case IDC_SERVER_SELECT_CANCEL:
             ::DestroyWindow( native_handle() );
             return TRUE;
@@ -115,9 +168,7 @@ public:
         auto server_mode = ::GetDlgItem( native_handle(), IDC_RAID_SYNC_MODE );
         ::SendMessageW( server_mode, CB_ADDSTRING, 0, (LPARAM)L"Client" );
         ::SendMessageW( server_mode, CB_ADDSTRING, 0, (LPARAM)L"Server - Public IP4" );
-        if ( _config.get<bool>( L"server.enable_hash", false ) ) {
-            ::SendMessageW( server_mode, CB_ADDSTRING, 0, (LPARAM)L"Server - Public Hash" );
-        }
+        ::SendMessageW( server_mode, CB_ADDSTRING, 0, (LPARAM)L"Server - Public Hash" );
         ::SendMessageW( server_mode, CB_SETCURSEL, 0, 0 );
 
         auto v = get_last_server();
