@@ -72,8 +72,8 @@ std::tuple<std::wstring, std::wstring> raid_sync_dialog::get_ip_and_port_from_ha
         return std::make_tuple( L"", L"" );
     }
 
-    auto hash = hash_.substr( 1, at );
-    auto server_uri = hash_.substr( at + 1 );
+    auto hash = hash_.substr( 1, at - 1 );
+    auto server_uri = L"http://" + hash_.substr( at + 1 );
     auto dash = server_uri.find( L"/" );
     std::wstring server, path;
     if ( dash ) {
@@ -83,7 +83,7 @@ std::tuple<std::wstring, std::wstring> raid_sync_dialog::get_ip_and_port_from_ha
         server = server_uri;
     }
 
-    web::http::client::http_client client { L"http://" + server };
+    web::http::client::http_client client { server };
     uri_builder uri { path };
     uri.append_path( L"hash.php" );
     uri.append_query( L"m", L"lookup" );
