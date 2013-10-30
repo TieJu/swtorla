@@ -52,18 +52,43 @@ bool raid_sync_dialog::start_server( int mode_ ) {
 }
 
 bool raid_sync_dialog::connect_to_server( const std::wstring& name_, const std::wstring& port_ ) {
+    auto state = _app.connect_to_server( name_, port_ );
     update_dialog dlg;
     dlg.caption( L"...connecting..." );
     dlg.info_msg( L"...connecting to server..." );
     dlg.unknown_progress( true );
-    auto state = _app.connect_to_server( name_, port_ );
     dlg.peek_until( [=, &state]() { return state.wait_for( std::chrono::milliseconds { 100 } ) == std::future_status::ready; } );
     return state.get();
 }
 
-std::tuple<std::wstring, std::wstring> raid_sync_dialog::get_ip_and_port_from_hash( const std::wstring& hash_ ) {
+std::tuple<std::wstring, std::wstring> raid_sync_dialog::get_ip_and_port_from_hash_task_job( const std::wstring& hash_ ) {
+    auto at = hash_.find( L'@' );
+    if ( at == std::wstring::npos ) {
+        ::MessageBoxW( nullptr, L"Invalid hash value, lookup failed", L"Hash error", MB_OK | MB_ICONSTOP );
+        return std::make_tuple( L"", L"" );
+    }
+
+    auto hash = hash_.substr( 1, at );
+    auto server = hash_.substr( at + 1 );
+
+    //TODO: do the lookup here
+
     ::MessageBoxW( nullptr, L"Hash lookup not supported yet", L"Missing feature", MB_OK | MB_ICONSTOP );
     return std::make_tuple( L"", L"" );
+}
+
+std::future<std::tuple<std::wstring, std::wstring>> raid_sync_dialog::get_ip_and_port_from_hash_task( const std::wstring& hash_ ) {
+    return std::async( std::launch::async, [=]() { return get_ip_and_port_from_hash_task_job( hash_ ); } );
+}
+
+std::tuple<std::wstring, std::wstring> raid_sync_dialog::get_ip_and_port_from_hash( const std::wstring& hash_ ) {
+    auto state = get_ip_and_port_from_hash_task( hash_ );
+    update_dialog dlg;
+    dlg.caption( L"...translating hash to ip..." );
+    dlg.info_msg( L"...waiting on hash server..." );
+    dlg.unknown_progress( true );
+    dlg.peek_until( [=, &state]() { return state.wait_for( std::chrono::milliseconds { 100 } ) == std::future_status::ready; } );
+    return state.get();
 }
 
 bool raid_sync_dialog::start_client( std::wstring ip_, std::wstring port_ ) {
@@ -77,7 +102,7 @@ bool raid_sync_dialog::start_client( std::wstring ip_, std::wstring port_ ) {
     }
 
     // hash format from hash server
-    // '#'<server_id>'@'<hash>
+    // '#'<hash>'@'<server>
     if ( ip_[0] == '#' ) {
         std::tie( ip_, port_ ) = get_ip_and_port_from_hash( ip_ );
         if ( ip_.empty() ) {

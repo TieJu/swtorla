@@ -14,6 +14,8 @@ protected:
     bool register_at_hash_server( const std::wstring& hash_, unsigned long port_ );
     bool start_server( int mode_ );
     bool connect_to_server( const std::wstring& name_, const std::wstring& port_ );
+    std::tuple<std::wstring, std::wstring> get_ip_and_port_from_hash_task_job( const std::wstring& hash_ );
+    std::future<std::tuple<std::wstring, std::wstring>> get_ip_and_port_from_hash_task( const std::wstring& hash_ );
     std::tuple<std::wstring, std::wstring> get_ip_and_port_from_hash( const std::wstring& hash_ );
     bool start_client( std::wstring ip_, std::wstring port_ );
     std::tuple<std::wstring, std::wstring> get_public_ip();

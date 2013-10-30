@@ -167,7 +167,7 @@ pplx::task<size_t> updater::download_update( const update_server_info& info_, si
             }
     } ).then( [=]( concurrency::streams::istream stream_ ) {
         auto file = concurrency::streams::fstream::open_ostream( target_, std::ios_base::out | std::ios_base::binary );
-        return file.then( [=, &stream_]( concurrency::streams::ostream file_ ) {
+        return file.then( [=]( concurrency::streams::ostream file_ ) {
             return stream_.read_to_end( file_.streambuf() );
         } );
     } );
