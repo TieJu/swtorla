@@ -1,6 +1,8 @@
 #include "app.h"
 #include "raid_sync_dialog.h"
 
+#include <http_client.h>
+
 
 void raid_sync_dialog::update_config() {
     auto mode = SendMessageW( ::GetDlgItem( native_handle(), IDC_RAID_SYNC_MODE ), CB_GETCURSEL, 0, 0 );
@@ -62,6 +64,8 @@ bool raid_sync_dialog::connect_to_server( const std::wstring& name_, const std::
 }
 
 std::tuple<std::wstring, std::wstring> raid_sync_dialog::get_ip_and_port_from_hash_task_job( const std::wstring& hash_ ) {
+    using namespace web::http;
+
     auto at = hash_.find( L'@' );
     if ( at == std::wstring::npos ) {
         ::MessageBoxW( nullptr, L"Invalid hash value, lookup failed", L"Hash error", MB_OK | MB_ICONSTOP );
@@ -69,16 +73,58 @@ std::tuple<std::wstring, std::wstring> raid_sync_dialog::get_ip_and_port_from_ha
     }
 
     auto hash = hash_.substr( 1, at );
-    auto server = hash_.substr( at + 1 );
+    auto server_uri = hash_.substr( at + 1 );
+    auto dash = server_uri.find( L"/" );
+    std::wstring server, path;
+    if ( dash ) {
+        server = server_uri.substr( 0, dash );
+        path = server_uri.substr( dash + 1 );
+    } else {
+        server = server_uri;
+    }
 
-    //TODO: do the lookup here
+    web::http::client::http_client client { L"http://" + server };
+    uri_builder uri { path };
+    uri.append_path( L"hash.php" );
+    uri.append_query( L"m", L"lookup" );
+    uri.append_query( L"h", hash );
 
-    ::MessageBoxW( nullptr, L"Hash lookup not supported yet", L"Missing feature", MB_OK | MB_ICONSTOP );
-    return std::make_tuple( L"", L"" );
+    auto qs = uri.to_string();
+    BOOST_LOG_TRIVIAL( debug ) << L"...sending request " << qs << L" to server " << server << L"...";
+
+    return client.request( methods::GET, qs ).then( [=]( http_response result_ ) {
+        BOOST_LOG_TRIVIAL( debug ) << L"...server " << server << L" returned " << result_.status_code() << L"...";
+        if ( result_.status_code() == status_codes::OK ) {
+            return result_.extract_json();
+        } else {
+            return pplx::task_from_result( web::json::value() );
+        }
+    } ).then( [=]( pplx::task<web::json::value> json_ ) {
+        auto& set = json_.get();
+        
+        auto ip = set[L"ip"].to_string();
+        auto port = set[L"port"].to_string();
+
+        if ( ip == L"null" ) {
+            ip.clear();
+        }
+        if ( port == L"null" ) {
+            port.clear();
+        }
+        
+        return std::make_tuple( ip, port );
+    } ).get();
 }
 
 std::future<std::tuple<std::wstring, std::wstring>> raid_sync_dialog::get_ip_and_port_from_hash_task( const std::wstring& hash_ ) {
-    return std::async( std::launch::async, [=]() { return get_ip_and_port_from_hash_task_job( hash_ ); } );
+    return std::async( std::launch::async, [=]() {
+        try {
+            return get_ip_and_port_from_hash_task_job( hash_ );
+        } catch ( const std::exception& e_ ) {
+            BOOST_LOG_TRIVIAL( debug ) << L"...error while looking up hash value " << hash_ << L", " << e_.what();
+            return std::make_tuple( std::wstring { L"" }, std::wstring { L"" } );
+        }
+    } );
 }
 
 std::tuple<std::wstring, std::wstring> raid_sync_dialog::get_ip_and_port_from_hash( const std::wstring& hash_ ) {
@@ -88,7 +134,8 @@ std::tuple<std::wstring, std::wstring> raid_sync_dialog::get_ip_and_port_from_ha
     dlg.info_msg( L"...waiting on hash server..." );
     dlg.unknown_progress( true );
     dlg.peek_until( [=, &state]() { return state.wait_for( std::chrono::milliseconds { 100 } ) == std::future_status::ready; } );
-    return state.get();
+    auto value = state.get();
+    return value;
 }
 
 bool raid_sync_dialog::start_client( std::wstring ip_, std::wstring port_ ) {
@@ -97,18 +144,18 @@ bool raid_sync_dialog::start_client( std::wstring ip_, std::wstring port_ ) {
         return FALSE;
     }
 
-    if ( port_.empty() ) {
-        port_ = L"67890";
-    }
-
     // hash format from hash server
     // '#'<hash>'@'<server>
     if ( ip_[0] == '#' ) {
         std::tie( ip_, port_ ) = get_ip_and_port_from_hash( ip_ );
         if ( ip_.empty() ) {
-            // do nothing here, info window will be displayed by get_ip_and_port_from_hash.
+            ::MessageBoxW( nullptr, L"Lookup of hash value failed, see log file for details", L"Hash lookup failed", MB_OK | MB_ICONSTOP );
             return FALSE;
         }
+    }
+
+    if ( port_.empty() ) {
+        port_ = L"67890";
     }
 
     return connect_to_server( ip_, port_ );
