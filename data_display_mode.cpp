@@ -15,6 +15,17 @@ void data_display_entity_dmg_done::update_display(combat_analizer& analizer_, ui
     }
 
     _last_update = encounter.timestamp();
+    /*
+    struct dmg_info { unsigned long long dmg; bool crit;; string_id action, type, ability; };
+    struct ability_info { string_id  ability; unsigned long long dmg; unsigned int crits; unsigned int misses; };
+    auto dmg_select = select_from([](const combat_log_entry& e_) {
+        return dmg_info{ e_.effect_value, e_.entry_flags & effect_was_crit != 0, e_.effect_action, e_.effect_type, e_.abilty; };
+    } encounter.get_data());
+    auto dmg_select_flt = where([](const dmg_info& e_) { return e_.action == ssc_ApplyEffect && e_.type == ssc_Damage && e_.ability != string_id(0) }, dmg_select);
+    auto dmg_group = group_by([](const dmg_info& a_, const dmg_info& b_) { return a_.ability == b_.ability; }
+                             ,[](const dmg_info& a_, const ability_info& b_) { return ability_info{ a_.ability, b_.dmg + a_.dmg, b_.crits + (a_.crit?1:0), b_.misses + (a_.dmg==0?1:0) }; }
+                             ,dmg_select_flt);*/
+
 
     auto player_records = encounter.select<combat_log_entry>( [=](const combat_log_entry& e_) {return e_; } )
         .where([=](const combat_log_entry& e_) {

@@ -55,6 +55,7 @@ class app : boost::noncopyable {
     character_list                                  _char_list;
     combat_analizer                                 _analizer;
     std::wstring                                    _current_log_file;
+    std::wstring                                    _next_log_file;
     client_net_link                                 _client;
     net_link_server                                 _server;
     std::vector<std::unique_ptr<server_net_link>>   _clients;
@@ -62,6 +63,7 @@ class app : boost::noncopyable {
     string_id                                       _current_char;
     name_id_map                                     _id_map;
     updater                                         _updater;
+    HANDLE                                          _main_thread;
 
     std::wstring scan_install_key(HKEY key_,const wchar_t* name_maptch_,bool partial_only_);
     void find_7z_path_registry();
@@ -81,7 +83,10 @@ class app : boost::noncopyable {
     std::future<bool> run_update();
 
     void setup_from_config();
+protected:
+
     void log_entry_handler(const combat_log_entry& e_);
+private:
 
     update_server_info check_update( update_dialog& dlg_ );
     void start_update_process(update_dialog& dlg_);
@@ -112,6 +117,7 @@ protected:
 
 protected:
     friend class dir_watcher;
+    static void NTAPI on_new_log_file_change( DWORD_PTR param_ );
     void on_new_log_file(const std::wstring& file_);
     std::chrono::system_clock::time_point change_log_file( const std::wstring& file_, bool relative_ = true );
     std::wstring get_archive_name_from_log_name(const std::wstring& name_);
@@ -144,5 +150,14 @@ protected:
 protected:
     friend class raid_sync_dialog;
     std::future<bool> connect_to_server( const std::wstring& name_, const std::wstring& port_ );
+    std::future<bool> start_server( unsigned long port_ );
+
+    std::wstring get_current_user_name();
+
+protected:
+    friend class log_processor;
+
+    string_to_id_string_map& get_string_map() { return _string_map; }
+    character_list& get_char_list() { return _char_list; }
 };
 

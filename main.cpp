@@ -36,12 +36,15 @@ INT_PTR CALLBACK DialogProc(
         
         if ( WM_INITDIALOG == uMsg ) {
             auto value = GetWindowLongPtrW(hwndDlg, DWLP_USER);
-            return true;
-        } else if ( WM_CLOSE == uMsg || WM_DESTROY == uMsg ) {
+            return TRUE;
+        } else if ( WM_CLOSE == uMsg ) {
+            ::DestroyWindow( hwndDlg );
+            return TRUE;
+        } else if ( WM_DESTROY == uMsg ) {
             PostQuitMessage(0);
-            return true;
+            return TRUE;
         }
-        return false;
+        return FALSE;
 }
 
 int APIENTRY WinMain(HINSTANCE hInstance
@@ -53,7 +56,7 @@ int APIENTRY WinMain(HINSTANCE hInstance
     //int arg_c;
     //auto arg_v = CommandLineToArgvW(GetCommandLine(), &arg_c);
     auto hMutex = CreateMutexW(nullptr, TRUE, L"swtor_log_analizer_unique");
-    WaitForSingleObject(hMutex, INFINITE);
+    //WaitForSingleObject(hMutex, INFINITE);
     /*
     auto wnd = CreateDialogParamW(hInstance, MAKEINTRESOURCEW(IDD_MAIN_WINDOW), nullptr, DialogProc, 5);
     ShowWindow(wnd,SW_NORMAL);

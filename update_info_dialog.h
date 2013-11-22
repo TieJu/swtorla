@@ -11,8 +11,12 @@ protected:
     friend class dialog_t<update_info_dialog>;
 
     INT_PTR CALLBACK on_window_event( UINT msg_, WPARAM w_param_, LPARAM l_param_ ) {
-        if ( msg_ == WM_CLOSE || msg_ == WM_DESTROY ) {
+        if ( msg_ == WM_CLOSE ) {
+            destroy( false );
+            return TRUE;
+        } else if( msg_ == WM_DESTROY ) {
             ::PostQuitMessage( 0 );
+            return TRUE;
         } else if ( msg_ == WM_COMMAND ) {
             auto id = LOWORD( w_param_ );
             auto code = HIWORD( w_param_ );

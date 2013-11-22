@@ -1,3 +1,4 @@
+#include "app.h"
 #include "log_processor.h"
 #include <algorithm>
 
@@ -44,12 +45,10 @@ char* log_processor::process_bytes(char* from_, char* to_) {
             return std::copy(from_, to_, start);
         }
 
-        if ( _string_map && _char_list ) {
+        if ( _cl ) {
             try {
-                auto entry = parse_combat_log_line(from_, le, *_string_map, *_char_list, _base_time);
-                if ( _entry_processor ) {
-                    _entry_processor(entry);
-                }
+                auto entry = parse_combat_log_line(from_, le, _cl->get_string_map(), _cl->get_char_list(), _base_time);
+                _cl->log_entry_handler( entry );
             } catch ( const std::exception &e ) {
                 BOOST_LOG_TRIVIAL(error) << L"[log_processor] line parsing failed, because " << e.what() << ", line was: " << std::string(from_, le);
             } catch ( ... ) {
@@ -61,64 +60,54 @@ char* log_processor::process_bytes(char* from_, char* to_) {
     return start;
 }
 
-void log_processor::run() {
-    state t_state = state::sleep;
-    auto wait_ms = std::chrono::milliseconds(overlapped_min_wait_ms);
-
-    std::array<char, buffer_size> read_buffer;
-    DWORD bytes_read;
-    char* from = read_buffer.data();
-    char* to = from + read_buffer.size();
-
-    for ( ;; ) {
-        if ( t_state == state::sleep ) {
-            _file_handle.reset();
-            t_state = wait(t_state);
-        } else {
-            t_state = wait_for(t_state, wait_ms);
-            wait_ms = std::min(wait_ms + wait_ms, std::chrono::milliseconds(overlapped_max_wait_ms));
-        }
-
-        if ( t_state == state::shutdown ) {
-            break;
-        }
-
-        if ( t_state == state::init ) {
-            open_log(_path);
-            change_state(state::run);
-            t_state = state::run;
-        }
-
-        if ( t_state == state::run ) {
-            for ( ;; ) {
-                if ( ::ReadFile(*_file_handle, from, to - from, &bytes_read, nullptr) ) {
-                    //BOOST_LOG_TRIVIAL(debug) << L"[log_processor] read compledet, got " << bytes_read << " bytes read";
-                    if ( bytes_read > 0 ) {
-                        wait_ms = std::max(wait_ms / 2, std::chrono::milliseconds(overlapped_min_wait_ms));
-                        from = process_bytes(read_buffer.data(), from + bytes_read);
-                        continue;
-                    }
-                }
-
-                break;
-            }
-        }
-    }
+log_processor::log_processor( ) : log_processor(nullptr) {
 }
 
-log_processor::log_processor() {
-    active<log_processor>::start();
+log_processor::log_processor( app* app_ )
+: _cl( app_ ) {
+    _from = _buffer.data( );
+    _to = _from + _buffer.size( );
 }
 
-log_processor::~log_processor() {
+log_processor::log_processor( log_processor&& other_ )
+: log_processor( ) {
+    *this = std::move( other_ );
+}
+
+log_processor& log_processor::operator=( log_processor&& other_ ) {
+    auto relative_from = other_._from - other_._buffer.data( );
+    auto relative_to = other_._to - other_._buffer.data( );
+
+    _file_handle = std::move( other_._file_handle );
+    _buffer = std::move( other_._buffer );
+    _base_time = std::move( other_._base_time );
+    _from = _buffer.data( ) + relative_from;
+    _to = _buffer.data( ) + relative_to;
+    _cl = std::move( other_._cl );
+    return *this;
 }
 
 void log_processor::start( const std::wstring& path, std::chrono::system_clock::time_point base_time_ ) {
-    _path = path;
     _base_time = base_time_;
-    change_state(state::init);
+    open_log( path );
 }
 
-void log_processor::stop() {
-    change_state(state::sleep);
+void log_processor::stop( ) {
+    _file_handle.reset();
+}
+
+void log_processor::operator()( ) {
+    if ( !_file_handle ) {
+        return;
+    }
+
+    DWORD bytes_read;
+    while ( ::ReadFile( *_file_handle, _from, _to - _from, &bytes_read, nullptr ) ) {
+        //BOOST_LOG_TRIVIAL(debug) << L"[log_processor] read compledet, got " << bytes_read << " bytes read";
+        if ( bytes_read > 0 ) {
+            _from = process_bytes( _buffer.data( ), _from + bytes_read );
+        } else {
+            break;
+        }
+    }
 }

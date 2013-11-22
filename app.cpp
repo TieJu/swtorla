@@ -290,7 +290,7 @@ bool app::run_update_async() {
         return job.wait_for( std::chrono::milliseconds( 100 ) ) == std::future_status::ready;
     } );
 
-    dlg.destroy();
+    //dlg.destroy();
 
     try {
         result = job.get();
@@ -298,7 +298,7 @@ bool app::run_update_async() {
         BOOST_LOG_TRIVIAL(error) << L"run_async_job failed because: " << e_.what();
     }
 
-    dlg.run();
+    //dlg.run();
 
     return result;
 }
@@ -530,7 +530,8 @@ std::future<void> app::send_crashreport( const char* path_ ) {
 }
 
 app::app(const char* caption_, const char* config_path_)
-: _config_path( config_path_ ) {
+: _config_path( config_path_ )
+, _main_thread( ::GetCurrentThread() ){
 
     INITCOMMONCONTROLSEX init =
     { sizeof( INITCOMMONCONTROLSEX ), /*ICC_PROGRESS_CLASS | ICC_TAB_CLASSES | ICC_STANDARD_CLASSES | ICC_WIN95_CLASSES*/ 0xFFFFFFFF };
@@ -553,8 +554,7 @@ app::app(const char* caption_, const char* config_path_)
 
     setup_from_config();
 
-    _log_reader.targets(_string_map, _char_list);
-    _log_reader.processor([=](const combat_log_entry& e_) { log_entry_handler(e_); });
+    _log_reader = log_processor { this };
 
     _dir_watcher = dir_watcher(*this);
 
@@ -562,8 +562,20 @@ app::app(const char* caption_, const char* config_path_)
 
     _updater.config( _config );
 
+    _client = client_net_link( *this );
+
     //clean_task.get();
     //crash_upload.get();
+    /*
+    class upnp_callback_interface_print : public upnp_callback_interface {
+        virtual void on_ip_change(const std::wstring& new_ip_) override {
+            BOOST_LOG_TRIVIAL(info) << L"...new external ip: " << new_ip_;
+        }
+    };
+
+    upnp_callback_interface_print itface{};
+    upnp up{ &itface };
+    up.map_tcp(0xFFF0, 0xFFF0, get_local_ip_addresses()[0]);*/
 }
 
 
@@ -585,6 +597,8 @@ void app::operator()() {
     _ui.reset(new main_ui(get_log_dir(), *this, _analizer, _string_map, _char_list));
 
     while ( _ui->handle_os_events() ) {
+        // read log
+        _log_reader();
     }
 }
 
@@ -655,10 +669,17 @@ boost::property_tree::wptree& app::get_config() {
     return _config;
 }
 
+void NTAPI app::on_new_log_file_change( DWORD_PTR param_ ) {
+    auto self = reinterpret_cast<app*>( param_ );
+    self->_log_reader.stop( );
+    self->_analizer.clear( );
+    auto time = self->change_log_file( self->_next_log_file );
+    self->_log_reader.start( self->_current_log_file, time );
+}
+
 void app::on_new_log_file(const std::wstring& file_) {
-    _log_reader.stop();
-    _analizer.clear();
-    _log_reader.start(_current_log_file, change_log_file(file_));
+    _next_log_file = file_;
+    ::QueueUserAPC( &app::on_new_log_file_change, _main_thread, reinterpret_cast<DWORD_PTR>(this) );
 }
 
 struct tm get_date_from_file_name(const std::wstring& file_) {
@@ -921,8 +942,20 @@ void app::on_client_disconnect(server_net_link* self_) {
 
 std::future<bool> app::connect_to_server( const std::wstring& name_, const std::wstring& port_ ) {
     return std::async( std::launch::async, [=]() {
-        std::this_thread::sleep_for( std::chrono::milliseconds( 1000 ) );
-        ::MessageBoxW( nullptr, L"Client mode not supported yet", L"Missing feature", MB_OK | MB_ICONSTOP );
+        _client.disconnect();
+        _client.connect( std::to_string(name_), std::to_string(port_) );
+        //std::this_thread::sleep_for( std::chrono::milliseconds( 1000 ) );
+        //::MessageBoxW( nullptr, L"Client mode not supported yet", L"Missing feature", MB_OK | MB_ICONSTOP );
+        return false;
+    } );
+}
+
+std::future<bool> app::start_server( unsigned long port_ ) {
+    return std::async( std::launch::async, [=]( ) {
+        _server.stop();
+        _server.start( std::to_string(port_) );
+        //std::this_thread::sleep_for( std::chrono::milliseconds( 1000 ) );
+        //::MessageBoxW( nullptr, L"Server mode not supported yet", L"Missing feature", MB_OK | MB_ICONSTOP );
         return false;
     } );
 }

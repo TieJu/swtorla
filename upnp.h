@@ -9,7 +9,7 @@
 
 class upnp_callback_interface {
 public:
-    virtual void on_ip_change(const std::wstring& new_ip_);
+    virtual void on_ip_change(const std::wstring& new_ip_) = 0;
 };
 
 class upnp {

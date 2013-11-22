@@ -18,16 +18,23 @@ void net_link_server::run() {
 
         if ( state::init == r_state ) {
             _link->open(boost::asio::ip::tcp::v4());
+            _link->bind( boost::asio::ip::tcp::endpoint( boost::asio::ip::tcp::v4(), std::stoul( _port ) ) );
             _link->non_blocking(true);
             _link->listen();
+            r_state = state::run;
+            change_state( state::run );
         }
 
         while ( state::run == r_state ) {
             _link->accept(*socket, error);
             if ( error ) {
-                if ( error != boost::asio::error::would_block ) {
+                if ( error != boost::asio::error::would_block && error != boost::asio::error::try_again ) {
+
                     // error...
-                    break;
+                    //break;
+                    BOOST_LOG_TRIVIAL( error ) << L"...accept failed because, " << error.message();
+                    // wait additional 175 ms to not flood error log
+                    std::this_thread::sleep_for( std::chrono::milliseconds( 175 ) );
                 }
             } else {
                 _ci->new_client(socket.release());
@@ -55,7 +62,8 @@ net_link_server::~net_link_server() {
 }
 
 net_link_server& net_link_server::operator=( net_link_server && other_ ) {
-    active<net_link_server>::operator=( std::move(other_) );
+    active<net_link_server>::operator=( std::move( other_ ) );
+    _ci = std::move( other_._ci );
     _link = std::move(other_._link);
     _port = std::move(other_._port);
     return *this;

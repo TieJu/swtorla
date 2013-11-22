@@ -27,12 +27,18 @@ void raid_sync_dialog::update_config() {
 }
 
 bool raid_sync_dialog::start_server_at_port( unsigned long port_ ) {
-    ::MessageBoxW( nullptr, L"Server mode not implemented yet", L"Missing feature", MB_OK | MB_ICONSTOP );
-    return false;
+    auto state = _app.start_server( port_ );
+    update_dialog dlg;
+    dlg.caption( L"...starting server..." );
+    dlg.info_msg( L"...starting server..." );
+    dlg.unknown_progress( true );
+    dlg.peek_until( [=, &state]() { return state.wait_for( std::chrono::milliseconds { 100 } ) == std::future_status::ready; } );
+    dlg.destroy();
+    dlg.run();
+    return state.get();
 }
 
 bool raid_sync_dialog::register_at_hash_server( const std::wstring& hash_, unsigned long port_ ) {
-    ::MessageBoxW( nullptr, L"Hash lookup not supported yet", L"Missing feature", MB_OK | MB_ICONSTOP );
     return false;
 }
 
@@ -60,30 +66,31 @@ bool raid_sync_dialog::connect_to_server( const std::wstring& name_, const std::
     dlg.info_msg( L"...connecting to server..." );
     dlg.unknown_progress( true );
     dlg.peek_until( [=, &state]() { return state.wait_for( std::chrono::milliseconds { 100 } ) == std::future_status::ready; } );
+    dlg.destroy();
+    dlg.run();
     return state.get();
 }
 
-std::tuple<std::wstring, std::wstring> raid_sync_dialog::get_ip_and_port_from_hash_task_job( const std::wstring& hash_ ) {
+pplx::task<std::tuple<std::wstring, std::wstring>> raid_sync_dialog::get_ip_and_port_from_hash_task_job( const std::wstring& hash_ ) {
     using namespace web::http;
 
     auto at = hash_.find( L'@' );
     if ( at == std::wstring::npos ) {
         ::MessageBoxW( nullptr, L"Invalid hash value, lookup failed", L"Hash error", MB_OK | MB_ICONSTOP );
-        return std::make_tuple( L"", L"" );
+        return pplx::task_from_result( std::make_tuple( std::wstring( L"" ), std::wstring( L"" ) ) );
     }
 
     auto hash = hash_.substr( 1, at - 1 );
-    auto server_uri = L"http://" + hash_.substr( at + 1 );
+    auto server_uri = hash_.substr( at + 1 );
     auto dash = server_uri.find( L"/" );
     std::wstring server, path;
     if ( dash ) {
-        server = server_uri.substr( 0, dash );
+        server = L"http://" + server_uri.substr( 0, dash );
         path = server_uri.substr( dash + 1 );
     } else {
-        server = server_uri;
+        server = L"http://" + server_uri;
     }
 
-    web::http::client::http_client client { server };
     uri_builder uri { path };
     uri.append_path( L"hash.php" );
     uri.append_query( L"m", L"lookup" );
@@ -92,6 +99,7 @@ std::tuple<std::wstring, std::wstring> raid_sync_dialog::get_ip_and_port_from_ha
     auto qs = uri.to_string();
     BOOST_LOG_TRIVIAL( debug ) << L"...sending request " << qs << L" to server " << server << L"...";
 
+    web::http::client::http_client client { server };
     return client.request( methods::GET, qs ).then( [=]( http_response result_ ) {
         BOOST_LOG_TRIVIAL( debug ) << L"...server " << server << L" returned " << result_.status_code() << L"...";
         if ( result_.status_code() == status_codes::OK ) {
@@ -113,15 +121,15 @@ std::tuple<std::wstring, std::wstring> raid_sync_dialog::get_ip_and_port_from_ha
         }
         
         return std::make_tuple( ip, port );
-    } ).get();
+    } );
 }
 
 std::future<std::tuple<std::wstring, std::wstring>> raid_sync_dialog::get_ip_and_port_from_hash_task( const std::wstring& hash_ ) {
     return std::async( std::launch::async, [=]() {
         try {
-            return get_ip_and_port_from_hash_task_job( hash_ );
+            return get_ip_and_port_from_hash_task_job( hash_ ).get();
         } catch ( const std::exception& e_ ) {
-            BOOST_LOG_TRIVIAL( debug ) << L"...error while looking up hash value " << hash_ << L", " << e_.what();
+            BOOST_LOG_TRIVIAL( error ) << L"...error while looking up hash value " << hash_ << L", " << e_.what() << L"...";
             return std::make_tuple( std::wstring { L"" }, std::wstring { L"" } );
         }
     } );
@@ -141,7 +149,7 @@ std::tuple<std::wstring, std::wstring> raid_sync_dialog::get_ip_and_port_from_ha
 bool raid_sync_dialog::start_client( std::wstring ip_, std::wstring port_ ) {
     if ( ip_.empty() ) {
         ::MessageBoxW( nullptr, L"You need to specify a server address", L"Missing server adderss", MB_OK | MB_ICONSTOP );
-        return FALSE;
+        return false;
     }
 
     // hash format from hash server
@@ -149,8 +157,10 @@ bool raid_sync_dialog::start_client( std::wstring ip_, std::wstring port_ ) {
     if ( ip_[0] == '#' ) {
         std::tie( ip_, port_ ) = get_ip_and_port_from_hash( ip_ );
         if ( ip_.empty() ) {
-            ::MessageBoxW( nullptr, L"Lookup of hash value failed, see log file for details", L"Hash lookup failed", MB_OK | MB_ICONSTOP );
-            return FALSE;
+            BOOST_LOG_TRIVIAL( error ) << L"...lookup of hash value failed...";
+            // BUG: error window is not show for some odd reaseon
+            ::MessageBoxW( nullptr, L"Lookup of hash value failed, see log file for details", L"Hash lookup failed", MB_OK | MB_ICONSTOP | MB_SYSTEMMODAL );
+            return false;
         }
     }
 

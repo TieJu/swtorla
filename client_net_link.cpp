@@ -32,11 +32,11 @@ bool client_net_link::init_link(const std::string& peer_, const std::string& por
     auto list = tcp_lookup.resolve(remote_query);
 
     BOOST_LOG_TRIVIAL(debug) << L"connecting to remote server";
-    boost::asio::ip::tcp::socket socket(_ci->get_io_service());
+    _link.reset(new boost::asio::ip::tcp::socket(_ci->get_io_service()));
     boost::system::error_code error;
     boost::asio::ip::tcp::resolver::iterator lend;
     for ( ; lend != list; ++list ) {
-        if ( !socket.connect(*list, error) ) {
+        if ( !_link->connect( *list, error ) ) {
             BOOST_LOG_TRIVIAL(debug) << L"connected to " << list->endpoint();
             break;
         }
@@ -44,6 +44,7 @@ bool client_net_link::init_link(const std::string& peer_, const std::string& por
 
     if ( error ) {
         BOOST_LOG_TRIVIAL(error) << L"unable to connect to remote server";
+        _link.reset();
         return false;
     }
 
@@ -155,7 +156,7 @@ void client_net_link::connect(const std::string& name_, const std::string& port_
     change_state(state::init);
 }
 void client_net_link::disconnect() {
-    change_state(state::sleep);
+    change_state_and_wait(state::sleep);
 }
 
 void client_net_link::register_at_server(const std::wstring& name_) {

@@ -12,7 +12,7 @@ class app;
 
 class net_link_server
     : public active<net_link_server> {
-        app*                                        _ci;
+    app*                                            _ci;
     std::unique_ptr<boost::asio::ip::tcp::acceptor> _link;
     std::string                                     _port;
 

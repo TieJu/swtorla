@@ -77,7 +77,7 @@ void upnp::init_interfaces() {
 }
 
 upnp::upnp()
-: _clb(nullptr) {
+: upnp(nullptr) {
 
 }
 

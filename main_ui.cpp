@@ -101,6 +101,9 @@ program_config main_ui::gather_options_state(dialog* dlg_) {
 INT_PTR main_ui::options_dlg_handler(dialog* dlg_, UINT msg_, WPARAM w_param_, LPARAM l_param_) {
     switch ( msg_ ) {
     case WM_CLOSE:
+        dlg_->destroy( false );
+        return TRUE;
+        break;
     case WM_DESTROY:
         ::PostQuitMessage(0);
         return TRUE;
@@ -160,8 +163,12 @@ void main_ui::show_about_dlg() {
 INT_PTR main_ui::about_dlg_handler(dialog* dlg_, UINT msg_, WPARAM w_param_, LPARAM l_param_) {
     switch ( msg_ ) {
     case WM_CLOSE:
+        dlg_->destroy( false );
+        return TRUE;
+        break;
     case WM_DESTROY:
         ::PostQuitMessage(0);
+        return TRUE;
         break;
     case WM_NOTIFY:
         auto from_info = reinterpret_cast<LPNMHDR>( l_param_ );
@@ -382,7 +389,26 @@ void main_ui::on_event(const any& v_) {
 }
 
 bool main_ui::handle_os_events() {
-    MSG msg
+    MSG msg;
+    for ( ;; ) {
+        switch ( MsgWaitForMultipleObjectsEx( 0, nullptr, INFINITE, QS_ALLINPUT, MWMO_INPUTAVAILABLE ) ) {
+        case WAIT_OBJECT_0:
+            // we have a message - peek and dispatch it
+            while ( PeekMessageW( &msg, NULL, 0, 0, PM_REMOVE ) == TRUE ) {
+                if ( msg.message == WM_QUIT ) {
+                    return false;
+                }
+                TranslateMessage( &msg );
+                DispatchMessageW( &msg );
+            }
+            return true;
+        default:
+        case WAIT_IO_COMPLETION:
+            // dont return, apc was calles
+            break;
+        }
+    }
+    /*MSG msg
     {};
     if ( GetMessageW(&msg, nullptr, 0, 0) > 0 ) {
         TranslateMessage(&msg);
@@ -390,7 +416,7 @@ bool main_ui::handle_os_events() {
         return true;
     } else {
         return false;
-    }
+    }*/
 }
 
 #if defined(USE_CUSTOME_SELECTOR)
@@ -688,8 +714,7 @@ void main_ui::on_start_solo() {
 }
 
 void main_ui::on_start_raid() {
-    auto res = std::async( std::launch::async, [=]() { raid_sync_dialog sync_dlg( _app ); } );
-    res.get();
+    raid_sync_dialog sync_dlg( _app );
 }
 
 void main_ui::on_stop() {

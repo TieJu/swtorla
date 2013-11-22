@@ -23,7 +23,7 @@ protected:
     common_window_base(natvie_handle_value_type handle_) : _handle(handle_) {}
     common_window_base() = default;
     ~common_window_base() {
-        adopt(nullptr);
+        destroy(false);
     }
 
     void adopt(natvie_handle_value_type handle_) {
@@ -34,8 +34,16 @@ protected:
     }
 
 public:
-    void destroy() {
-        adopt( nullptr );
+    void destroy( bool finish_msg_loop_ = false ) {
+        if ( _handle ) {
+            ::DestroyWindow( _handle );
+
+            if ( finish_msg_loop_ ) {
+                run();
+            }
+
+            _handle = nullptr;
+        }
     }
     bool empty() const {
         return _handle == nullptr;

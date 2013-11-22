@@ -58,9 +58,12 @@ protected:
         if ( is_app_event(uMsg) ) {
             invoke_event_handlers(wParam, lParam);
             return 0;
-        } else if ( uMsg == WM_CLOSE || uMsg == WM_DESTROY ) {
+        } else if ( uMsg == WM_CLOSE ) {
+            window_->destroy( false );
+            return TRUE;
+        } else if ( uMsg == WM_DESTROY ) {
             ::PostQuitMessage(0);
-            return 0;
+            return TRUE;
         } else {
             return ::DefWindowProcW(window_->native_window_handle(), uMsg, wParam, lParam);
         }
@@ -70,7 +73,10 @@ protected:
         if ( is_app_event(uMsg) ) {
             invoke_event_handlers(wParam, lParam);
             return TRUE;
-        } else if ( uMsg == WM_CLOSE || uMsg == WM_DESTROY ) {
+        } else if ( uMsg == WM_CLOSE ) {
+            window_->destroy( false );
+            return TRUE;
+        } else if ( uMsg == WM_DESTROY ) {
             ::PostQuitMessage(0);
             return TRUE;
         } else {

@@ -103,6 +103,8 @@ public:/*
         return select_from<DstType>( std::forward<U>( v_ ), _table );
     }
 
+    concurrency::concurrent_vector<combat_log_entry>& get_data() { return _table; }
+
     std::chrono::high_resolution_clock::time_point timestamp() {
         return _last_update;
     }
