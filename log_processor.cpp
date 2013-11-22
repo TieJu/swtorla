@@ -60,13 +60,13 @@ char* log_processor::process_bytes(char* from_, char* to_) {
     return start;
 }
 
-log_processor::log_processor( ) : log_processor(nullptr) {
+log_processor::log_processor( )
+: log_processor( nullptr ) {
 }
 
 log_processor::log_processor( app* app_ )
 : _cl( app_ ) {
     _from = _buffer.data( );
-    _to = _from + _buffer.size( );
 }
 
 log_processor::log_processor( log_processor&& other_ )
@@ -76,13 +76,11 @@ log_processor::log_processor( log_processor&& other_ )
 
 log_processor& log_processor::operator=( log_processor&& other_ ) {
     auto relative_from = other_._from - other_._buffer.data( );
-    auto relative_to = other_._to - other_._buffer.data( );
 
     _file_handle = std::move( other_._file_handle );
     _buffer = std::move( other_._buffer );
     _base_time = std::move( other_._base_time );
     _from = _buffer.data( ) + relative_from;
-    _to = _buffer.data( ) + relative_to;
     _cl = std::move( other_._cl );
     return *this;
 }
@@ -102,7 +100,8 @@ void log_processor::operator()( ) {
     }
 
     DWORD bytes_read;
-    while ( ::ReadFile( *_file_handle, _from, _to - _from, &bytes_read, nullptr ) ) {
+    auto to = _buffer.data() + _buffer.size();
+    while ( ::ReadFile( *_file_handle, _from, to - _from, &bytes_read, nullptr ) ) {
         //BOOST_LOG_TRIVIAL(debug) << L"[log_processor] read compledet, got " << bytes_read << " bytes read";
         if ( bytes_read > 0 ) {
             _from = process_bytes( _buffer.data( ), _from + bytes_read );

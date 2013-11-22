@@ -32,7 +32,6 @@ class log_processor {
     std::array<char, buffer_size>               _buffer;
     std::chrono::system_clock::time_point       _base_time;
     char*                                       _from;
-    char*                                       _to;
     app*                                        _cl;
 
     void open_log(const std::wstring& path_);
