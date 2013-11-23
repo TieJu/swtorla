@@ -597,9 +597,9 @@ void app::operator()() {
     _ui.reset(new main_ui(get_log_dir(), *this, _analizer, _string_map, _char_list));
 
     while ( _ui->handle_os_events() ) {
-        // read log
+        // read combat log
         _log_reader();
-        // read stuff recived from server
+        // read data recived from server
         _client();
         // read data from all server clients
         for ( auto& client : _clients ) {
@@ -848,7 +848,10 @@ boost::asio::io_service& app::get_io_service() {
 
 void app::on_connected_to_server(client_net_link* self_) {
     BOOST_LOG_TRIVIAL(debug) << L"void app::on_connected_to_server(" << self_ << L");";
-    self_->register_at_server(_char_list[_current_char]);
+    if ( _current_char < _char_list.size() ) {
+        // only send name to server if we have one
+        self_->register_at_server( _char_list[_current_char] );
+    }
 }
 
 void app::on_disconnected_from_server(client_net_link* self_) {
