@@ -27,56 +27,12 @@ boost::asio::ip::tcp::socket& server_net_link::get_link() {
 }
 
 bool server_net_link::is_link_active() {
-    return check_state(state::run);
+    return true;
 }
 
-void server_net_link::run() {
-    boost::system::error_code error;
-    boost::array<char, 1024> read_buffer;
-    state r_state = state::sleep;
-
-    for ( ;; ) {
-        r_state = wait(r_state);
-
-        if ( state::sleep == r_state || state::shutdown == r_state ) {
-            _link->shutdown(boost::asio::ip::tcp::socket::shutdown_both);
-            _link->close();
-            _ci->on_client_disconnect(this);
-        }
-
-        if ( state::shutdown == r_state ) {
-            break;
-        }
-
-        if ( state::init == r_state ) {
-            r_state = state::run;
-            change_state(state::run);
-        }
-
-        while ( state::run == r_state ) {
-            auto result = _link->read_some(boost::asio::buffer(read_buffer), error);
-            if ( result > 0 ) {
-                on_net_packet(read_buffer.data(), result);
-                continue; // dont wait, just try to get next data set
-            }
-
-            if ( error ) {
-                if ( error != boost::asio::error::would_block ) {
-                    // error...
-                    break;
-                }
-            }
-            // only block if no data is available
-            r_state = wait_for(r_state, std::chrono::milliseconds(25));
-        }
-    }
-}
-
-
-server_net_link::server_net_link(app& app_, boost::asio::ip::tcp::socket* socket_)
-    : _ci(&app_)
+server_net_link::server_net_link(app* app_, boost::asio::ip::tcp::socket* socket_)
+    : _ci(app_)
     , _link(socket_) {
-    start(state::run);
 }
 
 server_net_link::~server_net_link() {
@@ -88,5 +44,25 @@ void server_net_link::send_set_name(string_id id_, const std::wstring& name_) {
         _link->write_some(boost::asio::buffer(&header, sizeof( header )));
         _link->write_some(boost::asio::buffer(&id_, sizeof( id_ )));
         _link->write_some(boost::asio::buffer(name_.data(), name_.length() * sizeof(wchar_t)));
+    }
+}
+
+void server_net_link::operator()( ) {
+    boost::system::error_code error;
+    for ( ;; ) {
+        auto result = _link->read_some( boost::asio::buffer( _buffer ), error );
+        if ( result > 0 ) {
+            on_net_packet( _buffer.data( ), result );
+            continue;
+        }
+
+        if ( error ) {
+            if ( error != boost::asio::error::would_block ) {
+                // error...
+                break;
+            } else {
+                break;
+            }
+        }
     }
 }

@@ -31,7 +31,7 @@ void log_processor::open_log(const std::wstring& path_) {
                                     , FILE_SHARE_READ | FILE_SHARE_WRITE
                                     , nullptr
                                     , OPEN_EXISTING
-                                    , 0//FILE_FLAG_OVERLAPPED// | FILE_FLAG_SEQUENTIAL_SCAN
+                                    , FILE_FLAG_SEQUENTIAL_SCAN
                                     , nullptr)
                       , [](HANDLE file_) { ::CloseHandle(file_); });
 }

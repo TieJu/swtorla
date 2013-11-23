@@ -558,11 +558,11 @@ app::app(const char* caption_, const char* config_path_)
 
     _dir_watcher = dir_watcher(*this);
 
-    _server = net_link_server( *this );
+    _server = net_link_server( this );
 
     _updater.config( _config );
 
-    _client = client_net_link( *this );
+    _client = client_net_link( this );
 
     //clean_task.get();
     //crash_upload.get();
@@ -599,6 +599,15 @@ void app::operator()() {
     while ( _ui->handle_os_events() ) {
         // read log
         _log_reader();
+        // read stuff recived from server
+        _client();
+        // read data from all server clients
+        for ( auto& client : _clients ) {
+            ( *client )();
+        }
+
+        // accept new clients
+        _server();
     }
 }
 
@@ -883,7 +892,7 @@ void app::on_set_name(client_net_link * self_, string_id name_id_, const std::ws
 void app::new_client(boost::asio::ip::tcp::socket* socket_) {
     BOOST_LOG_TRIVIAL(debug) << L"void app::new_client(" << socket_ << L");";
     std::unique_lock<decltype( _clients_guard )> lock(_clients_guard);
-    _clients.push_back(std::make_unique<server_net_link>( *this, socket_ ));
+    _clients.push_back(std::make_unique<server_net_link>( this, socket_ ));
 }
 
 void app::on_client_register(server_net_link * self_, const std::wstring& name_) {

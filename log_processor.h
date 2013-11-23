@@ -25,7 +25,7 @@ class app;
 
 class log_processor {
     enum {
-        buffer_size             = 1024 * 8
+        buffer_size             = 1024 * 2
     };
 
     handle_wrap<HANDLE, INVALID_HANDLE_VALUE>   _file_handle;

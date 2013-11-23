@@ -12,12 +12,13 @@
 class app;
 
 class client_net_link
-    : public active<client_net_link>
-    , public net_link_base<client_net_link> {
+    : public net_link_base<client_net_link> {
+    enum {
+        buffer_size = 1024 * 2
+    };
     app*                                            _ci;
     std::unique_ptr<boost::asio::ip::tcp::socket>   _link;
-    std::string                                     _peer;
-    std::string                                     _peer_port;
+    std::array<char, buffer_size>                   _buffer;
 
     friend class net_link_base<client_net_link>;
     void on_net_link_command(command command_, const char* data_begin_, const char* data_end_);
@@ -31,7 +32,7 @@ class client_net_link
 
 public:
     client_net_link();
-    client_net_link(app& ci_);
+    client_net_link(app* ci_);
     client_net_link(client_net_link&& other_);
     ~client_net_link();
     client_net_link& operator=( client_net_link && other_ );
@@ -40,4 +41,5 @@ public:
     void disconnect();
 
     void register_at_server(const std::wstring& name_);
+    void operator()();
 };

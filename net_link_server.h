@@ -10,22 +10,19 @@
 
 class app;
 
-class net_link_server
-    : public active<net_link_server> {
+class net_link_server {
     app*                                            _ci;
     std::unique_ptr<boost::asio::ip::tcp::acceptor> _link;
-    std::string                                     _port;
-
-    friend class active<net_link_server>;
-    void run();
+    std::unique_ptr<boost::asio::ip::tcp::socket>   _target;
 
 public:
     net_link_server();
-    net_link_server(app& ci_);
+    explicit net_link_server(app* ci_);
     net_link_server(net_link_server&& other_);
     ~net_link_server();
     net_link_server& operator=(net_link_server&& other_);
 
     void start(const std::string& port_);
     void stop();
+    void operator()();
 };

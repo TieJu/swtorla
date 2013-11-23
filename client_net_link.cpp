@@ -60,6 +60,7 @@ void client_net_link::shutdown_link() {
 
     _link->shutdown(boost::asio::ip::tcp::socket::shutdown_both);
     _link->close();
+    _link.reset();
     _ci->on_disconnected_from_server(this);
 }
 
@@ -68,61 +69,15 @@ boost::asio::ip::tcp::socket& client_net_link::get_link() {
 }
 
 bool client_net_link::is_link_active() {
-    return check_state(state::run);
-}
-
-void client_net_link::run() {
-    boost::system::error_code error;
-    boost::array<char, 1024> read_buffer;
-    state r_state = state::sleep;
-
-    for ( ;; ) {
-        r_state = wait(r_state);
-
-        if ( state::sleep == r_state || state::shutdown == r_state ) {
-            shutdown_link();
-        }
-
-        if ( state::shutdown == r_state ) {
-            break;
-        }
-
-        if ( state::init == r_state ) {
-            if ( !init_link(_peer, _peer_port) ) {
-                change_state(state::sleep);
-                r_state = state::sleep;
-            } else {
-                r_state = state::run;
-                change_state(state::run);
-            }
-        }
-
-        while ( state::run == r_state ) {
-            auto result = _link->read_some(boost::asio::buffer(read_buffer), error);
-            if ( result > 0 ) {
-                on_net_packet(read_buffer.data(), result);
-                continue; // dont wait, just try to get next data set
-            }
-
-            if ( error ) {
-                if ( error != boost::asio::error::would_block ) {
-                    // error...
-                    break;
-                }
-            }
-            // only block if no data is available
-            r_state = wait_for(r_state, std::chrono::milliseconds(25));
-        }
-    }
+    return _link != nullptr;
 }
 
 client_net_link::client_net_link()
     : _ci(nullptr) {
 }
 
-client_net_link::client_net_link(app& ci_)
-    : _ci(&ci_)
-    , _link(new boost::asio::ip::tcp::socket(ci_.get_io_service())) {
+client_net_link::client_net_link(app* ci_)
+    : _ci(ci_) {
 }
 
 client_net_link::client_net_link(client_net_link && other_)
@@ -134,29 +89,20 @@ client_net_link::~client_net_link() {
 }
 
 client_net_link& client_net_link::operator=( client_net_link && other_ ) {
-    active<client_net_link>::operator=( std::move(other_) );
     net_link_base<client_net_link>::operator=( std::move(other_) );
     _ci = other_._ci;
     other_._ci = nullptr;
-    _link = std::move(other_._link);
-    _peer = std::move(other_._peer);
-    _peer_port = std::move(other_._peer_port);
+    _link = std::move( other_._link );
+    _buffer = std::move( other_._buffer );
     return *this;
 }
 
 void client_net_link::connect(const std::string& name_, const std::string& port_) {
-    if ( !_link ) {
-        throw std::runtime_error("tryed to connect with an uninitialized client_net_link instance");
-    }
-    if ( !is_runging() ) {
-        start();
-    }
-    _peer = name_;
-    _peer_port = port_;
-    change_state(state::init);
+    init_link( name_, port_ );
 }
+
 void client_net_link::disconnect() {
-    change_state_and_wait(state::sleep);
+    shutdown_link();
 }
 
 void client_net_link::register_at_server(const std::wstring& name_) {
@@ -164,5 +110,28 @@ void client_net_link::register_at_server(const std::wstring& name_) {
         auto header = gen_packet_header(command::client_register, sizeof(wchar_t)* name_.length());
         _link->write_some(boost::asio::buffer(&header, sizeof( header )));
         _link->write_some(boost::asio::buffer(name_.data(), header.content_length));
+    }
+}
+
+void client_net_link::operator()() {
+    if ( !_link ) {
+        return;
+    }
+    boost::system::error_code error;
+    for ( ;; ) {
+        auto result = _link->read_some( boost::asio::buffer( _buffer ), error );
+        if ( result > 0 ) {
+            on_net_packet( _buffer.data(), result );
+            continue; // read all packets at once
+        }
+
+        if ( error ) {
+            if ( error != boost::asio::error::would_block ) {
+                // error...
+                break;
+            } else {
+                break;
+            }
+        }
     }
 }
