@@ -39,7 +39,7 @@ protected:
 
 public:
     dir_watcher();
-    dir_watcher(app& app_);
+    explicit dir_watcher(app* app_);
     dir_watcher(dir_watcher&& other_);
     dir_watcher& operator=(dir_watcher&& other_);
     ~dir_watcher();

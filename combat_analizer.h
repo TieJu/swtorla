@@ -3,7 +3,9 @@
 #include "swtor_log_parser.h"
 #include "encounter.h"
 
-#include <concurrent_vector.h>
+#include <vector>
+
+class app;
 
 enum swtor_string_constants : unsigned long long {
     ssc_Event = 836045448945472ull,
@@ -26,30 +28,27 @@ struct combat_log_entry_ex : combat_log_entry {
 };
 
 class combat_analizer {
-    concurrency::concurrent_vector<encounter>   _encounters;
-    bool                                        _record;
-
+    std::vector<encounter>  _encounters;
+    bool                    _record = false;
+    app*                    _cl = nullptr;
 
 public:
-    combat_analizer() : _record(false) {}
-    void add_entry(const combat_log_entry& e_) {
-        if ( e_.effect_action == ssc_Event ) {
-            if ( e_.effect_type == ssc_EnterCombat ) {
-                _encounters.push_back(encounter{});
-                _record = true;
-                return;
-            } else if ( e_.effect_type == ssc_ExitCombat ) {
-                _record = false;
-                return;
-            }
-        }
-        if ( _record ) {
-            _encounters.back().insert(e_);
-        }
+    combat_analizer() = default;
+    explicit combat_analizer( app* app_ ) : _cl( app_ ) {}
+    combat_analizer( const combat_analizer& ) = default;
+    combat_analizer& operator=(const combat_analizer&) = default;
+    combat_analizer( combat_analizer&& other_ ) : combat_analizer() { *this = std::move( other_ ); }
+    combat_analizer& operator=( const combat_analizer&& other_ ) {
+        _encounters = std::move( other_._encounters );
+        _record = std::move( other_._record );
+        _cl = std::move( other_._cl );
+        return *this;
     }
+    void add_entry( const combat_log_entry& e_ );
+    void operator()( const combat_log_entry& e_ ) { add_entry( e_ ); }
 
     template<typename DstType, typename U>
-    query_set<concurrency::concurrent_vector<combat_log_entry>, DstType> select_from(size_t index_,U v_) {
+    query_set<std::vector<combat_log_entry>, DstType> select_from(size_t index_,U v_) {
         return _encounters[index_].select<DstType>( std::forward<U>( v_ ) );
     }
 

@@ -159,5 +159,9 @@ protected:
 
     string_to_id_string_map& get_string_map() { return _string_map; }
     character_list& get_char_list() { return _char_list; }
+
+protected:
+    friend class combat_analizer;
+    void player_change( string_id name_ );
 };
 

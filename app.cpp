@@ -340,18 +340,6 @@ void app::setup_from_config() {
 
 void app::log_entry_handler(const combat_log_entry& e_) {
     _analizer.add_entry(e_);
-
-    // TODO: let the analizer call into app with an info about changed char?
-    if ( e_.effect_action == ssc_Event && e_.effect_type == ssc_EnterCombat ) {
-        // update current char, tell the server and the ui that the char has changed
-        if ( _current_char != e_.src ) {
-            _current_char = e_.src;
-
-            _client.register_at_server(_char_list[e_.src]);
-
-            _ui->update_main_player(e_.src);
-        }
-    }
 #if 0
     auto packed = compress(e_);
     auto& buf = std::get<0>( packed );
@@ -554,15 +542,17 @@ app::app(const char* caption_, const char* config_path_)
 
     setup_from_config();
 
+    _analizer = combat_analizer { this };
+
     _log_reader = log_processor { this };
 
-    _dir_watcher = dir_watcher(*this);
+    _dir_watcher = dir_watcher { this };
 
-    _server = net_link_server( this );
+    _server = net_link_server { this };
 
     _updater.config( _config );
 
-    _client = client_net_link( this );
+    _client = client_net_link { this };
 
     //clean_task.get();
     //crash_upload.get();
@@ -970,4 +960,14 @@ std::future<bool> app::start_server( unsigned long port_ ) {
         //::MessageBoxW( nullptr, L"Server mode not supported yet", L"Missing feature", MB_OK | MB_ICONSTOP );
         return false;
     } );
+}
+
+void app::player_change( string_id name_ ) {
+    if ( _current_char != name_ ) {
+        _current_char = name_;
+
+        _client.register_at_server( _char_list[name_] );
+
+        _ui->update_main_player( name_ );
+    }
 }

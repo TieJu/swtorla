@@ -155,19 +155,58 @@ public:
         return reinterpret_cast<HINSTANCE>( GetWindowLongPtrW(_handle, GWLP_HINSTANCE) );
     }
 
+    bool run_once() {
+        MSG msg;
+        for ( ;; ) {
+            switch ( MsgWaitForMultipleObjectsEx( 0, nullptr, INFINITE, QS_ALLINPUT, MWMO_INPUTAVAILABLE ) ) {
+            case WAIT_OBJECT_0:
+                // we have a message - peek and dispatch it
+                while ( PeekMessageW( &msg, NULL, 0, 0, PM_REMOVE ) ) {
+                    if ( msg.message == WM_QUIT ) {
+                        return false;
+                    }
+                    TranslateMessage( &msg );
+                    DispatchMessageW( &msg );
+                }
+                return true;
+            default:
+            case WAIT_IO_COMPLETION:
+                // dont return, apc was calles
+                break;
+            }
+        }
+    }
+
+    bool peek_once( ) {
+        MSG msg;
+        for ( ;; ) {
+            switch ( MsgWaitForMultipleObjectsEx( 0, nullptr, 0, QS_ALLINPUT, MWMO_INPUTAVAILABLE ) ) {
+            case WAIT_OBJECT_0:
+                // we have a message - peek and dispatch it
+                if ( PeekMessageW( &msg, NULL, 0, 0, PM_REMOVE ) == TRUE ) {
+                    if ( msg.message == WM_QUIT ) {
+                        return false;
+                    }
+                    TranslateMessage( &msg );
+                    DispatchMessageW( &msg );
+                    return true;
+                }
+            default:
+                return false;
+            case WAIT_IO_COMPLETION:
+                // dont return, apc was calles
+                break;
+            }
+        }
+    }
+
     void run() {
-        MSG msg {};
-        while ( ::GetMessageW( &msg, native_handle(), 0, 0 ) ) {
-            ::TranslateMessage( &msg );
-            ::DispatchMessageW( &msg );
+        while ( run_once() ) {
         }
     }
 
     void peek() {
-        MSG msg {};
-        while ( ::PeekMessageW( &msg, native_handle(), 0, 0, PM_REMOVE ) ) {
-            ::TranslateMessage( &msg );
-            ::DispatchMessageW( &msg );
+        while ( peek_once() ) {
         }
     }
 

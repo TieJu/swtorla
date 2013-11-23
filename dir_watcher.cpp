@@ -209,8 +209,8 @@ dir_watcher::dir_watcher()
     : _app(nullptr) {
 }
 
-dir_watcher::dir_watcher(app& app_)
-    : _app(&app_) {
+dir_watcher::dir_watcher(app* app_)
+    : _app(app_) {
 }
 
 dir_watcher::dir_watcher(dir_watcher && other_)

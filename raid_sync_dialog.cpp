@@ -267,9 +267,5 @@ raid_sync_dialog::raid_sync_dialog( app& app_ )
     ::SetWindowTextW( ::GetDlgItem( native_handle(), IDC_RAID_SYNC_SERVER_ADDRESS ), std::get<0>( v ).c_str() );
     ::SetWindowTextW( ::GetDlgItem( native_handle(), IDC_RAID_SYNC_SERVER_ADDRESS2 ), std::get<1>( v ).c_str() );
 
-    MSG msg {};
-    while ( GetMessageW( &msg, nullptr, 0, 0 ) ) {
-        TranslateMessage( &msg );
-        DispatchMessage( &msg );
-    }
+    run();
 }
