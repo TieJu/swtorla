@@ -218,6 +218,24 @@ void app::find_compress_software() {
     }*/
 }
 
+struct update_info {
+    enum class state {
+        init,
+        find_server,
+        load_notes,
+        load_update,
+        update_ok,
+        update_none,
+    }                                           _state = state::init;
+    update_server_info                          _info;
+    pplx::task<update_server_info>              _info_task;
+    pplx::task<size_t>                          _download_task;
+    pplx::task<std::wstring>                    _notes_task;
+    app*                                        _this;
+    update_dialog*                              _dlg;
+    update_info_dialog*                         _info_dlg = nullptr;
+};
+
 void NTAPI app::run_update_tick( DWORD_PTR param_ ) {
     auto& _update_state = *reinterpret_cast<update_info*>( param_ );
 
@@ -357,6 +375,11 @@ void app::setup_from_config() {
 
 void app::log_entry_handler(const combat_log_entry& e_) {
     _analizer.add_entry(e_);
+    try {
+        _client.send_combat_event(e_);
+    } catch ( const std::exception& e_ ) {
+        // dont leak net errors to log parser
+    }
 #if 0
     auto packed = compress(e_);
     auto& buf = std::get<0>( packed );
@@ -567,22 +590,12 @@ app::app(const char* caption_, const char* config_path_)
 
     _server = net_link_server { this };
 
-    _updater.config( _config );
+    _updater = updater { _config };
 
     _client = client_net_link { this };
 
     //clean_task.get();
     //crash_upload.get();
-    /*
-    class upnp_callback_interface_print : public upnp_callback_interface {
-        virtual void on_ip_change(const std::wstring& new_ip_) override {
-            BOOST_LOG_TRIVIAL(info) << L"...new external ip: " << new_ip_;
-        }
-    };
-
-    upnp_callback_interface_print itface{};
-    upnp up{ &itface };
-    up.map_tcp(0xFFF0, 0xFFF0, get_local_ip_addresses()[0]);*/
 }
 
 
@@ -596,7 +609,7 @@ app::~app() {
 
 void app::operator()() {
     if ( _config.get<bool>( L"update.auto_check", true ) ) {
-        if ( run_update_async() ) {
+        if ( run_update() ) {
             return;
         }
     }

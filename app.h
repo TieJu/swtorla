@@ -43,8 +43,6 @@
 
 #include "updater.h"
 
-class update_info_dialog;
-
 class app : boost::noncopyable {
     const char*                                     _config_path;
     boost::property_tree::wptree                    _config;
@@ -66,23 +64,6 @@ class app : boost::noncopyable {
     name_id_map                                     _id_map;
     updater                                         _updater;
     HANDLE                                          _main_thread;
-    struct update_info {
-        enum class state {
-            init,
-            find_server,
-            load_notes,
-            load_update,
-            update_ok,
-            update_none,
-        }                                           _state = state::init;
-        update_server_info                          _info;
-        pplx::task<update_server_info>              _info_task;
-        pplx::task<size_t>                          _download_task;
-        pplx::task<std::wstring>                    _notes_task;
-        app*                                        _this;
-        update_dialog*                              _dlg;
-        update_info_dialog*                         _info_dlg = nullptr;
-    };
 
     std::wstring scan_install_key(HKEY key_,const wchar_t* name_maptch_,bool partial_only_);
     void find_7z_path_registry();
