@@ -218,44 +218,6 @@ void app::find_compress_software() {
     }*/
 }
 
-std::future<void> app::show_update_info( update_server_info update_info_ ) {
-    return std::async(std::launch::async, [=]() {
-        if ( !_config.get<bool>( L"update.show_info", true ) ) {
-            return;
-        }
-
-        std::wstring info;
-        
-        try {
-            info = _updater.download_patchnotes( update_info_, _version.build, update_info_.latest_version ).get();
-        } catch ( const std::exception& e_ ) {
-            info = L"Error while loading update informations: ";
-            info += std::to_wstring(e_.what());
-        }
-
-        if ( info.empty() ) {
-            info = L"No update information available";
-        }
-
-        bool do_update = true;
-        bool display_info = true;
-        update_info_dialog dlg(info,do_update,display_info);
-        dlg.run();
-
-        if ( !do_update ) {
-            _config.put( L"update.auto_check", do_update );
-        }
-
-        if ( !display_info ) {
-            _config.put( L"update.show_info", display_info );
-        }
-
-        if ( !display_info || !do_update ) {
-            write_config(_config_path);
-        }
-    });
-}
-
 void NTAPI app::run_update_tick( DWORD_PTR param_ ) {
     auto& _update_state = *reinterpret_cast<update_info*>( param_ );
 
@@ -322,7 +284,7 @@ void NTAPI app::run_update_tick( DWORD_PTR param_ ) {
 }
 
 // returns true if a new version was installed and the app needs to restart
-bool app::run_update_async() {
+bool app::run_update( ) {
     update_dialog dlg;
     bool do_update = true;
     bool display_info = _config.get<bool>( L"update.show_info", true );
@@ -360,10 +322,6 @@ bool app::run_update_async() {
     }
 
     return update_info::state::update_ok == info._state;
-}
-
-bool app::run_update() {
-    return run_update_async();
 }
 
 void app::setup_from_config() {

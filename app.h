@@ -96,9 +96,7 @@ class app : boost::noncopyable {
     void find_compress_software_registry();
     void find_compress_software();
 
-    std::future<void> show_update_info( update_server_info update_info_);
     static void NTAPI run_update_tick( DWORD_PTR param_ );
-    bool run_update_async();
     bool run_update();
 
     void setup_from_config();
