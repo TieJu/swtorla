@@ -256,55 +256,114 @@ std::future<void> app::show_update_info( update_server_info update_info_ ) {
     });
 }
 
-bool app::run_update_async_job(update_dialog& dlg_) {
-    auto server_info = check_update(dlg_);
+void NTAPI app::run_update_tick( DWORD_PTR param_ ) {
+    auto& _update_state = *reinterpret_cast<update_info*>( param_ );
 
-    if ( !server_info.latest_version ) {
-        return false;
+    switch ( _update_state._state ) {
+    case update_info::state::init:
+        _update_state._dlg->unknown_progress( true );
+        _update_state._dlg->caption( L"...updating..." );
+        _update_state._dlg->info_msg( L"...downloading patch list..." );
+        _update_state._info_task = _update_state._this->_updater.get_best_update_server( );
+        _update_state._state = update_info::state::find_server;
+        break;
+    case update_info::state::find_server:
+        if ( _update_state._info_task.is_done() ) {
+            _update_state._info = _update_state._info_task.get();
+            if ( _update_state._info.latest_version <= _update_state._this->get_program_version( ).build ) {
+                _update_state._state = update_info::state::update_none;
+                _update_state._dlg->destroy( );
+                return;
+            }
+            if ( _update_state._info_dlg ) {
+                _update_state._info_dlg->normal();
+                _update_state._info_dlg->info_text( L"...downloading patch notes..." );
+                _update_state._dlg->info_msg( L"...downloading patch notes..." );
+                _update_state._notes_task = _update_state._this->_updater.download_patchnotes( _update_state._info, _update_state._this->get_program_version().build, _update_state._info.latest_version );
+                _update_state._state = update_info::state::load_notes;
+            } else {
+                _update_state._dlg->info_msg( L"...downloading patch file..." );
+                _update_state._download_task = _update_state._this->_updater.download_update( _update_state._info, _update_state._this->get_program_version().build, _update_state._info.latest_version, WPATCH_FILE_NAME );
+                _update_state._state = update_info::state::load_update;
+            }
+        } else {
+            ::Sleep( 16 );
+        }
+        break;
+    case update_info::state::load_notes:
+        if ( _update_state._notes_task.is_done() ) {
+            std::wstring msg;
+            try {
+                msg = _update_state._notes_task.get();
+            } catch ( std::exception& e_ ) {
+                msg = L"...error while downloading patchnotes:\r\n" + std::to_wstring( e_.what() );
+            }
+            _update_state._info_dlg->info_text( msg );
+            _update_state._dlg->info_msg( L"...downloading patch file..." );
+            _update_state._download_task = _update_state._this->_updater.download_update( _update_state._info, _update_state._this->get_program_version( ).build, _update_state._info.latest_version, WPATCH_FILE_NAME );
+            _update_state._state = update_info::state::load_update;
+        } else {
+            ::Sleep( 16 );
+        }
+        break;
+    case update_info::state::load_update:
+        if ( _update_state._download_task.is_done( ) ) {
+            _update_state._dlg->info_msg( L"...installing update..." );
+            _update_state._state = update_info::state::update_ok;
+            _update_state._dlg->destroy( );
+            return;
+        } else {
+            ::Sleep( 16 );
+        }
+        break;
     }
 
-    auto display = show_update_info(server_info);
-
-    _updater.download_update( server_info, _version.build, server_info.latest_version, WPATCH_FILE_NAME ).get();
-
-    start_update_process(dlg_);
-
-    try {
-        display.get();
-    } catch ( const std::exception& e_ ) {
-        BOOST_LOG_TRIVIAL(error) << L"update info diplay failed, because: " << e_.what();
-    }
-
-    return true;
+    ::QueueUserAPC( &app::run_update_tick, ::GetCurrentThread(), param_ );
 }
 
 // returns true if a new version was installed and the app needs to restart
 bool app::run_update_async() {
     update_dialog dlg;
+    bool do_update = true;
+    bool display_info = _config.get<bool>( L"update.show_info", true );
+    update_info_dialog info_dlg { L"", do_update, display_info };
 
-    auto job = std::async(std::launch::async, [=, &dlg]() { return run_update_async_job(dlg); });
-
-    bool result = false;
-
-    dlg.peek_until( [&]() {
-        return job.wait_for( std::chrono::milliseconds( 100 ) ) == std::future_status::ready;
-    } );
-
-    //dlg.destroy();
-
-    try {
-        result = job.get();
-    } catch ( const std::exception& e_ ) {
-        BOOST_LOG_TRIVIAL(error) << L"run_async_job failed because: " << e_.what();
+    update_info info;
+    info._this = this;
+    info._dlg = &dlg;
+    if ( display_info ) {
+       info._info_dlg = &info_dlg;
     }
 
-    //dlg.run();
+    ::QueueUserAPC( &app::run_update_tick, ::GetCurrentThread( ), reinterpret_cast<DWORD_PTR>( &info ) );
 
-    return result;
+    dlg.peek_until( [&]() {
+        return update_info::state::update_ok == info._state
+            || update_info::state::update_none == info._state;
+    } ); 
+
+    if ( !display_info ) {
+        info_dlg.destroy();
+    }
+    info_dlg.run();
+    
+    if ( !do_update ) {
+        _config.put( L"update.auto_check", do_update );
+    }
+
+    if ( !display_info ) {
+        _config.put( L"update.show_info", display_info );
+    }
+
+    if ( !display_info || !do_update ) {
+        write_config( _config_path );
+    }
+
+    return update_info::state::update_ok == info._state;
 }
 
-std::future<bool> app::run_update() {
-    return std::async(std::launch::async, [=]() { return run_update_async(); });
+bool app::run_update() {
+    return run_update_async();
 }
 
 void app::setup_from_config() {
@@ -660,7 +719,7 @@ void app::stop_tracking() {
     _analizer.clear();
 }
 
-std::future<bool> app::check_for_updates() {
+bool app::check_for_updates() {
     return run_update();
 }
 

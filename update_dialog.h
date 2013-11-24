@@ -16,8 +16,8 @@ protected:
             destroy( false );
             return TRUE;
         } else if ( msg_ == WM_DESTROY ) {
-            /*::PostQuitMessage( 0 );
-            return TRUE;*/
+            ::PostQuitMessage( 0 );
+            return TRUE;
         }
         return FALSE;
     }

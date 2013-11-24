@@ -21,7 +21,6 @@ class main_ui
     std::unique_ptr<data_display_mode>              _data_display;
     std::vector<std::unique_ptr<data_display_mode>> _data_display_history;
     std::unique_ptr<dialog>                         _wnd;
-    std::future<bool>                               _update_state;
     UINT_PTR                                        _timer;
     combat_analizer&                                _analizer;
     string_id                                       _player_id;

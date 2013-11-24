@@ -158,7 +158,7 @@ public:
     bool run_once() {
         MSG msg;
         for ( ;; ) {
-            switch ( MsgWaitForMultipleObjectsEx( 0, nullptr, INFINITE, QS_ALLINPUT, MWMO_INPUTAVAILABLE ) ) {
+            switch ( MsgWaitForMultipleObjectsEx( 0, nullptr, INFINITE, QS_ALLINPUT, MWMO_INPUTAVAILABLE | MWMO_ALERTABLE ) ) {
             case WAIT_OBJECT_0:
                 // we have a message - peek and dispatch it
                 while ( PeekMessageW( &msg, NULL, 0, 0, PM_REMOVE ) ) {
@@ -180,7 +180,7 @@ public:
     bool peek_once( ) {
         MSG msg;
         for ( ;; ) {
-            switch ( MsgWaitForMultipleObjectsEx( 0, nullptr, 0, QS_ALLINPUT, MWMO_INPUTAVAILABLE ) ) {
+            switch ( MsgWaitForMultipleObjectsEx( 0, nullptr, 0, QS_ALLINPUT, MWMO_INPUTAVAILABLE | MWMO_ALERTABLE ) ) {
             case WAIT_OBJECT_0:
                 // we have a message - peek and dispatch it
                 if ( PeekMessageW( &msg, NULL, 0, 0, PM_REMOVE ) == TRUE ) {

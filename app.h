@@ -43,6 +43,8 @@
 
 #include "updater.h"
 
+class update_info_dialog;
+
 class app : boost::noncopyable {
     const char*                                     _config_path;
     boost::property_tree::wptree                    _config;
@@ -64,6 +66,23 @@ class app : boost::noncopyable {
     name_id_map                                     _id_map;
     updater                                         _updater;
     HANDLE                                          _main_thread;
+    struct update_info {
+        enum class state {
+            init,
+            find_server,
+            load_notes,
+            load_update,
+            update_ok,
+            update_none,
+        }                                           _state = state::init;
+        update_server_info                          _info;
+        pplx::task<update_server_info>              _info_task;
+        pplx::task<size_t>                          _download_task;
+        pplx::task<std::wstring>                    _notes_task;
+        app*                                        _this;
+        update_dialog*                              _dlg;
+        update_info_dialog*                         _info_dlg = nullptr;
+    };
 
     std::wstring scan_install_key(HKEY key_,const wchar_t* name_maptch_,bool partial_only_);
     void find_7z_path_registry();
@@ -78,9 +97,9 @@ class app : boost::noncopyable {
     void find_compress_software();
 
     std::future<void> show_update_info( update_server_info update_info_);
-    bool run_update_async_job(update_dialog& dlg_);
+    static void NTAPI run_update_tick( DWORD_PTR param_ );
     bool run_update_async();
-    std::future<bool> run_update();
+    bool run_update();
 
     void setup_from_config();
 protected:
@@ -112,7 +131,7 @@ protected:
     program_version get_program_version();
     bool start_tracking();
     void stop_tracking();
-    std::future<bool> check_for_updates();
+    bool check_for_updates();
     boost::property_tree::wptree& get_config();
 
 protected:

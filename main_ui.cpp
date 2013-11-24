@@ -51,29 +51,13 @@ bool main_ui::show_options_dlg() {
     bool do_restart = false;
     MSG msg{};
     for ( ;; ) {
-        if ( _update_state.valid() ) {
-            while ( std::future_status::ready != _update_state.wait_for(std::chrono::milliseconds(100)) ) {
-                while ( ::PeekMessageW(&msg, nullptr, 0, 0, PM_REMOVE) ) {
-                    TranslateMessage(&msg);
-                    DispatchMessageW(&msg);
-                }
-            }
-            try {
-                do_restart = do_restart || _update_state.get();
-            } catch ( const std::exception& e_ ) {
-                BOOST_LOG_TRIVIAL(error) << "update process failed, because: " << e_.what();
-            }
-            BOOST_LOG_TRIVIAL(debug) << "update result was " << do_restart;
-            if ( do_restart ) {
-                ::PostQuitMessage(0);
-            }
+        // FIX ME: don't use SleeEx to process apcs
+        SleepEx( 0, true );
+        if ( GetMessageW(&msg, nullptr, 0, 0) ) {
+            TranslateMessage(&msg);
+            DispatchMessageW(&msg);
         } else {
-            if ( GetMessageW(&msg, nullptr, 0, 0) ) {
-                TranslateMessage(&msg);
-                DispatchMessageW(&msg);
-            } else {
-                break;
-            }
+            break;
         }
     }
     return do_restart;
@@ -117,7 +101,10 @@ INT_PTR main_ui::options_dlg_handler(dialog* dlg_, UINT msg_, WPARAM w_param_, L
                 display_dir_select(::GetDlgItem(dlg_->native_handle(), IDC_OPTIONS_COMBAT_LOG));
                 break;
             case IDC_OPTIONS_UPDATE_NOW:
-                _update_state = _app.check_for_updates();
+                if ( _app.check_for_updates() ) {
+                    ::PostQuitMessage( 0 );
+                }
+                return TRUE;
                 break;
             case IDC_OPTIONS_APPLY:
                 _app.set_program_config(gather_options_state(dlg_));
@@ -157,6 +144,7 @@ void main_ui::show_about_dlg() {
     while ( GetMessageW(&msg, nullptr, 0, 0) ) {
         TranslateMessage(&msg);
         DispatchMessageW(&msg);
+        SleepEx( 0, true );
     }
 }
 
@@ -391,7 +379,7 @@ void main_ui::on_event(const any& v_) {
 bool main_ui::handle_os_events() {
     MSG msg;
     for ( ;; ) {
-        switch ( MsgWaitForMultipleObjectsEx( 0, nullptr, INFINITE, QS_ALLINPUT, MWMO_INPUTAVAILABLE ) ) {
+        switch ( MsgWaitForMultipleObjectsEx( 0, nullptr, INFINITE, QS_ALLINPUT, MWMO_INPUTAVAILABLE | MWMO_ALERTABLE ) ) {
         case WAIT_OBJECT_0:
             // we have a message - peek and dispatch it
             while ( PeekMessageW( &msg, NULL, 0, 0, PM_REMOVE ) == TRUE ) {
