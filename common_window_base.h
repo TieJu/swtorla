@@ -105,6 +105,10 @@ public:
         ShowWindow(_handle, SW_HIDE);
     }
 
+    bool is_visiable() {
+        return ::IsWindowVisible( _handle );
+    }
+
     void enable(bool enable_ = true) {
         ::EnableWindow(_handle, enable_);
     }

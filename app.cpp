@@ -322,7 +322,7 @@ bool app::run_update( ) {
             || update_info::state::update_none == info._state;
     } ); 
 
-    if ( !display_info ) {
+    if ( /*!display_info ||*/ !info_dlg.is_visiable() ) {
         info_dlg.destroy();
     }
     info_dlg.run();
@@ -699,6 +699,7 @@ boost::property_tree::wptree& app::get_config() {
 }
 
 void NTAPI app::on_new_log_file_change( DWORD_PTR param_ ) {
+    BOOST_LOG_TRIVIAL( debug ) << L"app::on_new_log_file_change( " << param_ << L" )";
     auto self = reinterpret_cast<app*>( param_ );
     self->_log_reader.stop( );
     self->_analizer.clear( );
