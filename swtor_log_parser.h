@@ -32,6 +32,28 @@ struct combat_log_entry {
     int                                     entry_flags;
 };
 
+inline std::wstring to_wstring( const combat_log_entry& e_ ) {
+    std::wstring buffer;
+
+    buffer += L"CombatLogEntry {";
+    buffer += L" src: " + std::to_wstring( e_.src );
+    buffer += L" src minion: " + std::to_wstring( e_.src_minion );
+    buffer += L" src id: " + std::to_wstring( e_.src_id );
+    buffer += L" dst: " + std::to_wstring( e_.dst );
+    buffer += L" dst minion: " + std::to_wstring( e_.src_minion );
+    buffer += L" src id: " + std::to_wstring( e_.src_id );
+    buffer += L" effect acrtion: " + std::to_wstring( e_.effect_action );
+    buffer += L" effect type: " + std::to_wstring( e_.effect_value_type );
+    buffer += L" effect type2: " + std::to_wstring( e_.effect_value_type2 );
+    buffer += L" value: " + std::to_wstring( e_.effect_value );
+    buffer += L" value2: " + std::to_wstring( e_.effect_value2 );
+    buffer += L" thread: " + std::to_wstring( e_.effect_thread );
+    buffer += L" flags: " + std::to_wstring( e_.entry_flags );
+    buffer += L" }";
+
+    return buffer;
+}
+
 enum log_entry_flags {
     effect_was_crit = 1 << 0,
     effect_was_crit2 = 1 << 1,

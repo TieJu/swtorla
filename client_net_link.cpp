@@ -1,5 +1,14 @@
 #include "app.h"
 
+#include <boost/log/core.hpp>
+#include <boost/log/trivial.hpp>
+#include <boost/log/expressions.hpp>
+#include <boost/log/sinks/text_file_backend.hpp>
+#include <boost/log/utility/setup/file.hpp>
+#include <boost/log/utility/setup/common_attributes.hpp>
+#include <boost/log/sources/severity_logger.hpp>
+#include <boost/log/sources/record_ostream.hpp>
+
 void client_net_link::on_net_link_command(command command_, const char* data_begin_, const char* data_end_) {
     switch ( command_ ) {
     case command::string_lookup:
@@ -25,7 +34,8 @@ void client_net_link::on_net_link_command(command command_, const char* data_beg
     }
 }
 
-bool client_net_link::init_link(const std::string& peer_, const std::string& port_) {
+bool client_net_link::init_link( const std::string& peer_, const std::string& port_ ) {
+    BOOST_LOG_TRIVIAL( debug ) << L"void client_net_link::shutdown_link(" << peer_ << L", " << port_ << L");";
     BOOST_LOG_TRIVIAL(debug) << L"looking up remote server address for " << peer_ << L" " << port_;
     boost::asio::ip::tcp::resolver tcp_lookup(_ci->get_io_service());
     boost::asio::ip::tcp::resolver::query remote_query(peer_, port_);
@@ -53,7 +63,8 @@ bool client_net_link::init_link(const std::string& peer_, const std::string& por
     return true;
 }
 
-void client_net_link::shutdown_link() {
+void client_net_link::shutdown_link( ) {
+    BOOST_LOG_TRIVIAL( debug ) << L"void client_net_link::shutdown_link();";
     if ( !_link ) {
         return;
     }
@@ -105,7 +116,8 @@ void client_net_link::disconnect() {
     shutdown_link();
 }
 
-void client_net_link::register_at_server(const std::wstring& name_) {
+void client_net_link::register_at_server( const std::wstring& name_ ) {
+    BOOST_LOG_TRIVIAL( debug ) << L"void client_net_link::register_at_server(" << name_ << L");";
     if ( is_link_active() ) {
         auto header = gen_packet_header(command::client_register, sizeof(wchar_t)* name_.length());
         _link->write_some(boost::asio::buffer(&header, sizeof( header )));
@@ -127,7 +139,7 @@ void client_net_link::operator()() {
 
         if ( error ) {
             if ( error != boost::asio::error::would_block ) {
-                // error...
+                disconnect();
                 break;
             } else {
                 break;

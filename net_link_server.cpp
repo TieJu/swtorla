@@ -1,5 +1,14 @@
 #include "app.h"
 
+#include <boost/log/core.hpp>
+#include <boost/log/trivial.hpp>
+#include <boost/log/expressions.hpp>
+#include <boost/log/sinks/text_file_backend.hpp>
+#include <boost/log/utility/setup/file.hpp>
+#include <boost/log/utility/setup/common_attributes.hpp>
+#include <boost/log/sources/severity_logger.hpp>
+#include <boost/log/sources/record_ostream.hpp>
+
 net_link_server::net_link_server()
     : _ci(nullptr) {
 }
@@ -23,7 +32,8 @@ net_link_server& net_link_server::operator=( net_link_server && other_ ) {
     return *this;
 }
 
-void net_link_server::start(const std::string& port_) {
+void net_link_server::start( const std::string& port_ ) {
+    BOOST_LOG_TRIVIAL( debug ) << L"void net_link_server::start(" << port_ <<  L");";
     _link->open( boost::asio::ip::tcp::v4( ) );
     _link->bind( boost::asio::ip::tcp::endpoint( boost::asio::ip::tcp::v4( ), std::stoul( port_ ) ) );
     _link->non_blocking( true );

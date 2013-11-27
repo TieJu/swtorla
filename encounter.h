@@ -6,7 +6,6 @@
 
 #include <utility>
 #include <vector>
-#include <concurrent_vector.h>
 #include <chrono>
 
 template<typename T>
@@ -61,8 +60,8 @@ public:
 };
 
 class encounter {
-    concurrency::concurrent_vector<combat_log_entry>    _table;
-    std::chrono::high_resolution_clock::time_point      _last_update;
+    std::vector<combat_log_entry>                   _table;
+    std::chrono::high_resolution_clock::time_point  _last_update;
 
 public:/*
     template<typename R,typename U,typename V,typename W,typename X>
@@ -99,11 +98,11 @@ public:/*
     }
 
     template<typename DstType,typename U>
-    query_set<concurrency::concurrent_vector<combat_log_entry>, DstType> select(U v_) {
+    query_set<std::vector<combat_log_entry>, DstType> select(U v_) {
         return select_from<DstType>( std::forward<U>( v_ ), _table );
     }
 
-    concurrency::concurrent_vector<combat_log_entry>& get_data() { return _table; }
+    std::vector<combat_log_entry>& get_data() { return _table; }
 
     std::chrono::high_resolution_clock::time_point timestamp() {
         return _last_update;

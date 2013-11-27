@@ -2,6 +2,15 @@
 
 #include <vector>
 
+#include <boost/log/core.hpp>
+#include <boost/log/trivial.hpp>
+#include <boost/log/expressions.hpp>
+#include <boost/log/sinks/text_file_backend.hpp>
+#include <boost/log/utility/setup/file.hpp>
+#include <boost/log/utility/setup/common_attributes.hpp>
+#include <boost/log/sources/severity_logger.hpp>
+#include <boost/log/sources/record_ostream.hpp>
+
 enum class command : char {
     // client connects to server and submits players name (obtained from log)
     client_register,
@@ -60,7 +69,8 @@ class net_link_base {
     }
 
 protected:
-    void on_net_packet(const char* data_, size_t length_) {
+    void on_net_packet( const char* data_, size_t length_ ) {
+        BOOST_LOG_TRIVIAL( debug ) << L"void net_link_base::on_net_packet(" << (void*)data_ << L", " << length_ << L");";
         _data_buffer.insert(_data_buffer.end(), data_, data_ + length_);
 
         process_data();
@@ -81,8 +91,8 @@ protected:
 public:
     void get_string_value(string_id string_id_) {
         auto self = static_cast<Derived*>( this );
-        auto& link = self->get_link();
-        if ( self->is_link_active() ) {
+        if ( self->is_link_active( ) ) {
+            auto& link = self->get_link( );
             auto header = gen_packet_header(command::string_lookup, sizeof( string_id_ ));
             link.write_some(boost::asio::buffer(&header, sizeof( header )));
             link.write_some(boost::asio::buffer(&string_id_, sizeof( string_id_ )));
@@ -90,8 +100,8 @@ public:
     }
     void send_string_value(string_id string_id_, const std::wstring& value_) {
         auto self = static_cast<Derived*>( this );
-        auto& link = self->get_link();
-        if ( self->is_link_active() ) {
+        if ( self->is_link_active( ) ) {
+            auto& link = self->get_link( );
             auto header = gen_packet_header(command::string_info, sizeof( string_id_ ) + sizeof(wchar_t) * value_.length());
             link.write_some(boost::asio::buffer(&header, sizeof( header )));
             link.write_some(boost::asio::buffer(&string_id_, sizeof( string_id_ )));
@@ -100,8 +110,8 @@ public:
     }
     void send_combat_event(const combat_log_entry_compressed& event_) {
         auto self = static_cast<Derived*>( this );
-        auto& link = self->get_link();
-        if ( self->is_link_active() ) {
+        if ( self->is_link_active( ) ) {
+            auto& link = self->get_link( );
             auto header = gen_packet_header( command::combat_event, event_.size() );
             link.write_some( boost::asio::buffer( &header, sizeof( header ) ) );
             link.write_some( boost::asio::buffer( event_.data(), event_.size() ) );
@@ -110,8 +120,8 @@ public:
     template<typename U>
     void send_combat_event( const combat_log_entry_compressed_wrap<U>& event_ ) {
         auto self = static_cast<Derived*>( this );
-        auto& link = self->get_link();
-        if ( self->is_link_active() ) {
+        if ( self->is_link_active( ) ) {
+            auto& link = self->get_link( );
             auto header = gen_packet_header( command::combat_event, event_.size() );
             link.write_some( boost::asio::buffer( &header, sizeof( header ) ) );
             link.write_some( boost::asio::buffer( event_.data(), event_.size() ) );

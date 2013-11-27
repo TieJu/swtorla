@@ -14,7 +14,7 @@ class app;
 class client_net_link
     : public net_link_base<client_net_link> {
     enum {
-        buffer_size = 1024 * 2
+        buffer_size = 1024
     };
     app*                                            _ci;
     std::unique_ptr<boost::asio::ip::tcp::socket>   _link;

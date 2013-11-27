@@ -622,8 +622,17 @@ void app::operator()() {
         // read data recived from server
         _client();
         // read data from all server clients
-        for ( auto& client : _clients ) {
-            ( *client )();
+        auto at = begin( _clients );
+        const auto ed = end( _clients );
+        while ( at != ed ) {
+            auto& client = *at;
+            ++at;
+            try {
+                ( *client )( );
+            } catch ( const std::exception& e_ ) {
+                BOOST_LOG_TRIVIAL( error ) << L"...connection error with client, because " << e_.what();
+                at = _clients.erase( at );
+            }
         }
 
         // accept new clients
@@ -955,8 +964,9 @@ void app::on_string_info(server_net_link* self_, string_id string_id_, const std
 }
 
 void app::on_combat_event(server_net_link* self_, const combat_log_entry& event_) {
-    BOOST_LOG_TRIVIAL(debug) << L"void app::on_combat_event(" << self_ << L", " << &event_ << L");";
+    BOOST_LOG_TRIVIAL(debug) << L"void app::on_combat_event(" << self_ << L", " << to_wstring(event_) << L");";
     // insert into combat table
+    _analizer.add_entry( event_ );
     for ( auto& cl : _clients ) {
         if ( cl.get() != self_ ) {
             cl->send_combat_event(event_);
@@ -994,11 +1004,11 @@ std::future<bool> app::start_server( unsigned long port_ ) {
 }
 
 void app::player_change( string_id name_ ) {
-    if ( _current_char != name_ ) {
+    //if ( _current_char != name_ ) {
         _current_char = name_;
 
-        _client.register_at_server( _char_list[name_] );
+        _client.register_at_server( _char_list[name_ - 1] );
 
         _ui->update_main_player( name_ );
-    }
+    //}
 }

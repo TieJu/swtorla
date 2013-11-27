@@ -7,10 +7,9 @@ void combat_analizer::add_entry( const combat_log_entry& e_ ) {
             _encounters.push_back( encounter {} );
             _record = true;
             _cl->player_change( e_.src );
-            return;
         } else if ( e_.effect_type == ssc_ExitCombat ) {
             _record = false;
-            return;
+            _encounters.back( ).insert( e_ );
         }
     }
     if ( _record ) {

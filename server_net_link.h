@@ -14,7 +14,7 @@ class app;
 class server_net_link
     : public net_link_base<server_net_link> {
     enum {
-        buffer_size = 1024 * 2
+        buffer_size = 1024
     };
     app*                                            _ci;
     std::unique_ptr<boost::asio::ip::tcp::socket>   _link;
@@ -29,5 +29,5 @@ public:
     server_net_link(app* app_, boost::asio::ip::tcp::socket* socket_);
     ~server_net_link();
     void send_set_name(string_id id_, const std::wstring& name_);
-    void operator()();
+    bool operator()();
 };
