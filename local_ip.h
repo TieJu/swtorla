@@ -2,7 +2,8 @@
 
 #include <vector>
 #include <string>
-#include <Ws2tcpip.h>
+#include <WinSock2.h>
+#include <Windows.h>
 
 enum class glipa_flags {
     /**

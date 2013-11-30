@@ -27,15 +27,8 @@ void raid_sync_dialog::update_config() {
 }
 
 bool raid_sync_dialog::start_server_at_port( unsigned long port_ ) {
-    auto state = _app.start_server( port_ );
-    update_dialog dlg;
-    dlg.caption( L"...starting server..." );
-    dlg.info_msg( L"...starting server..." );
-    dlg.unknown_progress( true );
-    dlg.peek_until( [=, &state]() { return state.wait_for( std::chrono::milliseconds { 100 } ) == std::future_status::ready; } );
-    dlg.destroy();
-    dlg.run();
-    return state.get();
+    _app.start_server( port_ );
+    return true;
 }
 
 bool raid_sync_dialog::register_at_hash_server( const std::wstring& hash_, unsigned long port_ ) {
@@ -60,15 +53,23 @@ bool raid_sync_dialog::start_server( int mode_ ) {
 }
 
 bool raid_sync_dialog::connect_to_server( const std::wstring& name_, const std::wstring& port_ ) {
-    auto state = _app.connect_to_server( name_, port_ );
-    update_dialog dlg;
-    dlg.caption( L"...connecting..." );
-    dlg.info_msg( L"...connecting to server..." );
-    dlg.unknown_progress( true );
-    dlg.peek_until( [=, &state]() { return state.wait_for( std::chrono::milliseconds { 100 } ) == std::future_status::ready; } );
-    dlg.destroy();
-    dlg.run();
-    return state.get();
+    auto dlg = std::make_shared<update_dialog>();
+    dlg->caption( L"...connecting..." );
+    dlg->info_msg( L"...connecting to server..." );
+    dlg->unknown_progress( true );
+    _app.connect_to_server( name_, port_, [=]( unsigned error_code_ ) {
+        if ( NOERROR == error_code_ ) {
+            dlg->caption( L"...connected..." );
+            dlg->info_msg( L"...connected..." );
+        } else {
+            socket_api sapi;
+            auto msg = sapi.get_error_meessage( error_code_ );
+            ::MessageBoxA( nullptr, msg.c_str(), "Connect failed", 0 );
+        }
+        dlg->destroy();
+        dlg->run();
+    } );
+    return true;
 }
 
 pplx::task<std::tuple<std::wstring, std::wstring>> raid_sync_dialog::get_ip_and_port_from_hash_task_job( const std::wstring& hash_ ) {

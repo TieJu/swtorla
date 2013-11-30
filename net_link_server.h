@@ -3,17 +3,13 @@
 #include "swtor_log_parser.h"
 #include "int_compress.h"
 #include "active.h"
-
-#include <boost/optional.hpp>
-#include <boost/asio.hpp>
-#include <boost/array.hpp>
+#include "socket.h"
 
 class app;
 
 class net_link_server {
-    app*                                            _ci;
-    std::unique_ptr<boost::asio::ip::tcp::acceptor> _link;
-    std::unique_ptr<boost::asio::ip::tcp::socket>   _target;
+    app*        _ci;
+    c_socket    _link;
 
 public:
     net_link_server();
@@ -23,6 +19,6 @@ public:
     net_link_server& operator=(net_link_server&& other_);
 
     void start(const std::string& port_);
-    void stop();
-    void operator()();
+    void stop( );
+    void on_socket_event( SOCKET socket_, unsigned event_, unsigned error_ );
 };

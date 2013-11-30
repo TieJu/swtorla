@@ -1,5 +1,7 @@
 #pragma once
 
+#include "socket.h"
+
 #include <vector>
 
 #include <boost/log/core.hpp>
@@ -25,6 +27,15 @@ enum class command : char {
     //UPDATE? if name is empty, client has been removed
     server_set_name,
 };
+
+template<typename Type>
+inline void send( c_socket& s_, const Type& value_ ) {
+    s_.send( value_ );
+}
+
+inline void send( c_socket& s_, const void* buf_, size_t length_ ) {
+    s_.send( buf_, length_ );
+}
 
 // base protocol stuff, mostly packet parsing
 template<typename Derived>
@@ -94,8 +105,8 @@ public:
         if ( self->is_link_active( ) ) {
             auto& link = self->get_link( );
             auto header = gen_packet_header(command::string_lookup, sizeof( string_id_ ));
-            link.write_some(boost::asio::buffer(&header, sizeof( header )));
-            link.write_some(boost::asio::buffer(&string_id_, sizeof( string_id_ )));
+            send( link, header );
+            send( link, string_id_ );
         }
     }
     void send_string_value(string_id string_id_, const std::wstring& value_) {
@@ -103,9 +114,9 @@ public:
         if ( self->is_link_active( ) ) {
             auto& link = self->get_link( );
             auto header = gen_packet_header(command::string_info, sizeof( string_id_ ) + sizeof(wchar_t) * value_.length());
-            link.write_some(boost::asio::buffer(&header, sizeof( header )));
-            link.write_some(boost::asio::buffer(&string_id_, sizeof( string_id_ )));
-            link.write_some(boost::asio::buffer(value_.data(), sizeof(wchar_t)* value_.length()));
+            send( link, header );
+            send( link, string_id_ );
+            send( link, value_.data(), sizeof(wchar_t) * value_.length() );
         }
     }
     void send_combat_event(const combat_log_entry_compressed& event_) {
@@ -113,8 +124,8 @@ public:
         if ( self->is_link_active( ) ) {
             auto& link = self->get_link( );
             auto header = gen_packet_header( command::combat_event, event_.size() );
-            link.write_some( boost::asio::buffer( &header, sizeof( header ) ) );
-            link.write_some( boost::asio::buffer( event_.data(), event_.size() ) );
+            send( link, header );
+            send( link, event_.data(), event_.size() );
         }
     }
     template<typename U>
@@ -123,8 +134,8 @@ public:
         if ( self->is_link_active( ) ) {
             auto& link = self->get_link( );
             auto header = gen_packet_header( command::combat_event, event_.size() );
-            link.write_some( boost::asio::buffer( &header, sizeof( header ) ) );
-            link.write_some( boost::asio::buffer( event_.data(), event_.size() ) );
+            send( link, header );
+            send( link, event_.data(), event_.size() );
         }
     }
 };

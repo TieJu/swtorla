@@ -163,7 +163,7 @@ bool net_protocol::connect(const sockaddr& peer_) {
 
 void net_protocol::disconnect() {
     if ( is_open() ) {
-        ::shutdown(_socket, SD_BOTH);
+        ::shutdown(_socket, 2);
         ::closesocket(_socket);
         _socket = INVALID_SOCKET;
     }

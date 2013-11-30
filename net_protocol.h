@@ -1,10 +1,9 @@
 #pragma once
-
+#include <Windows.h>
 #include "swtor_log_parser.h"
 #include "int_compress.h"
 
 #include <boost/optional.hpp>
-#include <boost/asio.hpp>
 #include <boost/array.hpp>
 
 class net_protocol;

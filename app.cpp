@@ -619,24 +619,6 @@ void app::operator()() {
     while ( _ui->handle_os_events() ) {
         // read combat log
         _log_reader();
-        // read data recived from server
-        _client();
-        // read data from all server clients
-        auto at = begin( _clients );
-        const auto ed = end( _clients );
-        while ( at != ed ) {
-            auto& client = *at;
-            ++at;
-            try {
-                ( *client )( );
-            } catch ( const std::exception& e_ ) {
-                BOOST_LOG_TRIVIAL( error ) << L"...connection error with client, because " << e_.what();
-                at = _clients.erase( at );
-            }
-        }
-
-        // accept new clients
-        _server();
     }
 }
 
@@ -705,6 +687,20 @@ bool app::check_for_updates() {
 
 boost::property_tree::wptree& app::get_config() {
     return _config;
+}
+
+void app::on_listen_socket( SOCKET socket_, unsigned event_, unsigned error_ ) {
+    _server.on_socket_event( socket_, event_, error_ );
+}
+
+void app::on_server_socket( SOCKET socket_, unsigned event_, unsigned error_ ) {
+    _client.on_socket_event( socket_, event_, error_ );
+}
+
+void app::on_any_client_socket( SOCKET socket_, unsigned event_, unsigned error_ ) {
+    for ( auto& cl : _clients ) {
+        cl->on_socket_event( socket_, event_, error_ );
+    }
 }
 
 void NTAPI app::on_new_log_file_change( DWORD_PTR param_ ) {
@@ -872,10 +868,6 @@ void app::remove_log(const std::wstring& file_) {
     }
 }
 
-boost::asio::io_service& app::get_io_service() {
-    return _io_service;
-}
-
 void app::on_connected_to_server(client_net_link* self_) {
     BOOST_LOG_TRIVIAL(debug) << L"void app::on_connected_to_server(" << self_ << L");";
     if ( _current_char < _char_list.size() ) {
@@ -917,15 +909,15 @@ void app::on_set_name(client_net_link * self_, string_id name_id_, const std::ws
     // find a free id
     auto local = _id_map.add(name_id_);
     // ensure we have enoug slots at char list
-    _char_list.resize(std::max(local + 1, _char_list.size()));
+    _char_list.resize(max(local + 1, _char_list.size()));
     // store name
     _char_list[local] = name_;
 }
 
-void app::new_client(boost::asio::ip::tcp::socket* socket_) {
-    BOOST_LOG_TRIVIAL(debug) << L"void app::new_client(" << socket_ << L");";
+void app::new_client(c_socket socket_ ) {
+    BOOST_LOG_TRIVIAL(debug) << L"void app::new_client(" << socket_.get() << L");";
     std::unique_lock<decltype( _clients_guard )> lock(_clients_guard);
-    _clients.push_back(std::make_unique<server_net_link>( this, socket_ ));
+    _clients.push_back( std::make_unique<server_net_link>( this, std::move( socket_ ) ) );
 }
 
 void app::on_client_register(server_net_link * self_, const std::wstring& name_) {
@@ -983,24 +975,15 @@ void app::on_client_disconnect(server_net_link* self_) {
     }
 }
 
-std::future<bool> app::connect_to_server( const std::wstring& name_, const std::wstring& port_ ) {
-    return std::async( std::launch::async, [=]() {
-        _client.disconnect();
-        _client.connect( std::to_string(name_), std::to_string(port_) );
-        //std::this_thread::sleep_for( std::chrono::milliseconds( 1000 ) );
-        //::MessageBoxW( nullptr, L"Client mode not supported yet", L"Missing feature", MB_OK | MB_ICONSTOP );
-        return false;
-    } );
+void app::connect_to_server( const std::wstring& name_, const std::wstring& port_, std::function<void( unsigned error_code_ )> on_connect_ ) {
+    _client.disconnect(/* [=]( unsigned error_code_ ) {*/ );
+        _client.connect( std::to_string( name_ ), std::to_string( port_ ), on_connect_ );
+    /*} );*/
 }
 
-std::future<bool> app::start_server( unsigned long port_ ) {
-    return std::async( std::launch::async, [=]( ) {
-        _server.stop();
-        _server.start( std::to_string(port_) );
-        //std::this_thread::sleep_for( std::chrono::milliseconds( 1000 ) );
-        //::MessageBoxW( nullptr, L"Server mode not supported yet", L"Missing feature", MB_OK | MB_ICONSTOP );
-        return false;
-    } );
+void app::start_server( unsigned long port_ ) {
+    _server.stop();
+    _server.start( std::to_string(port_) );
 }
 
 void app::player_change( string_id name_ ) {

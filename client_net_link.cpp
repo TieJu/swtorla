@@ -34,53 +34,28 @@ void client_net_link::on_net_link_command(command command_, const char* data_beg
     }
 }
 
-bool client_net_link::init_link( const std::string& peer_, const std::string& port_ ) {
-    BOOST_LOG_TRIVIAL( debug ) << L"void client_net_link::shutdown_link(" << peer_ << L", " << port_ << L");";
-    BOOST_LOG_TRIVIAL(debug) << L"looking up remote server address for " << peer_ << L" " << port_;
-    boost::asio::ip::tcp::resolver tcp_lookup(_ci->get_io_service());
-    boost::asio::ip::tcp::resolver::query remote_query(peer_, port_);
-    auto list = tcp_lookup.resolve(remote_query);
-
-    BOOST_LOG_TRIVIAL(debug) << L"connecting to remote server";
-    _link.reset(new boost::asio::ip::tcp::socket(_ci->get_io_service()));
-    boost::system::error_code error;
-    boost::asio::ip::tcp::resolver::iterator lend;
-    for ( ; lend != list; ++list ) {
-        if ( !_link->connect( *list, error ) ) {
-            BOOST_LOG_TRIVIAL(debug) << L"connected to " << list->endpoint();
-            break;
-        }
-    }
-
-    if ( error ) {
-        BOOST_LOG_TRIVIAL(error) << L"unable to connect to remote server";
-        _link.reset();
-        return false;
-    }
-
-    _link->non_blocking(true);
-    _ci->on_connected_to_server(this);
-    return true;
+unsigned client_net_link::connect_link( const socket_address_inet& target_ ) {
+    _link = c_socket { _sapi, AF_INET, SOCK_STREAM, 0 };
+    _ci->register_server_link_socket( _link );
+    _link.connect( target_ );
+    return 0;
 }
-
 void client_net_link::shutdown_link( ) {
     BOOST_LOG_TRIVIAL( debug ) << L"void client_net_link::shutdown_link();";
     if ( !_link ) {
         return;
     }
 
-    _link->shutdown(boost::asio::ip::tcp::socket::shutdown_both);
-    _link->close();
     _link.reset();
     _ci->on_disconnected_from_server(this);
 }
 
-boost::asio::ip::tcp::socket& client_net_link::get_link() {
-    return *_link;
+c_socket& client_net_link::get_link() {
+    return _link;
 }
 
 bool client_net_link::is_link_active() {
-    return _link != nullptr;
+    return bool( _link );
 }
 
 client_net_link::client_net_link()
@@ -108,8 +83,27 @@ client_net_link& client_net_link::operator=( client_net_link && other_ ) {
     return *this;
 }
 
-void client_net_link::connect(const std::string& name_, const std::string& port_) {
-    init_link( name_, port_ );
+void client_net_link::connect( const std::string& peer_, const std::string& port_, std::function<void( unsigned error_code_ )> on_connect_ ) {
+    _on_connect = on_connect_;
+    auto addr = _sapi.inet_address( peer_ );
+    if ( addr.is_none( ) ) {
+        _ci->get_host_by_name( peer_, _dns_buff.data( ), _dns_buff.size( ), [=]( unsigned error_code_, unsigned length_ ) {
+            if ( error_code_ == ERROR_SUCCESS ) {
+                unsigned last_error = NOERROR;
+                auto lookup = reinterpret_cast<const hostent*>( _dns_buff.data( ) );
+                auto count = lookup->h_length / sizeof( u_long );
+                socket_address_inet ip;
+                ip.ip( ) = *reinterpret_cast<u_long*>( lookup->h_addr_list[0] );
+                ip.port() = htons( std::stoul( port_ ) );
+                connect_link( ip );
+            } else {
+                on_connect_( error_code_ );
+            }
+        } );
+    } else {
+        addr.port( ) = htons( std::stoul( port_ ) );
+        connect_link( addr );
+    }
 }
 
 void client_net_link::disconnect() {
@@ -120,30 +114,46 @@ void client_net_link::register_at_server( const std::wstring& name_ ) {
     BOOST_LOG_TRIVIAL( debug ) << L"void client_net_link::register_at_server(" << name_ << L");";
     if ( is_link_active() ) {
         auto header = gen_packet_header(command::client_register, sizeof(wchar_t)* name_.length());
-        _link->write_some(boost::asio::buffer(&header, sizeof( header )));
-        _link->write_some(boost::asio::buffer(name_.data(), header.content_length));
+        _link.send( header );
+        _link.send( name_.data(), header.content_length );
     }
 }
 
-void client_net_link::operator()() {
-    if ( !_link ) {
-        return;
-    }
-    boost::system::error_code error;
-    for ( ;; ) {
-        auto result = _link->read_some( boost::asio::buffer( _buffer ), error );
-        if ( result > 0 ) {
-            on_net_packet( _buffer.data(), result );
-            continue; // read all packets at once
-        }
-
-        if ( error ) {
-            if ( error != boost::asio::error::would_block ) {
-                disconnect();
-                break;
-            } else {
-                break;
+void client_net_link::on_socket_event( SOCKET socket_, unsigned event_, unsigned error_ ) {
+    if ( FD_READ == event_ ) {
+        if ( WSAENETDOWN == error_ ) {
+            ::MessageBoxA( nullptr, "Lost connection to server", "Connection error", 0 );
+            _link.reset();
+        } else {
+            int result;
+            while ( ( result = ::recv( socket_, _buffer.data(), _buffer.size(), 0 ) ) > 0 ) {
+                on_net_packet( _buffer.data(), result );
             }
+        }
+    } else if ( FD_WRITE == event_ ) {
+        if ( WSAENETDOWN == error_ ) {
+            ::MessageBoxA( nullptr, "Lost connection to server", "Connection error", 0 );
+            _link.reset();
+        } else {
+        }
+    } else if ( FD_CONNECT == event_ ) {
+        _on_connect( error_ );
+        _on_connect = decltype( _on_connect ){};
+        if ( error_ != NOERROR ) {
+            _link.reset();
+        }
+    } else if ( FD_CLOSE == event_ ) {
+        if ( WSAENETDOWN == error_ ) {
+            ::MessageBoxA( nullptr, "Lost connection to server", "Connection error", 0 );
+            _link.reset( );
+        } else if ( WSAECONNRESET == error_ ) {
+            ::MessageBoxA( nullptr, "Server has closed the connection", "Connection error", 0 );
+            _link.reset( );
+        } else if ( WSAECONNABORTED == error_ ) {
+            ::MessageBoxA( nullptr, "Server timed out", "Connection error", 0 );
+            _link.reset( );
+        } else {
+            _link.reset();
         }
     }
 }

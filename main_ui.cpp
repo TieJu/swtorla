@@ -687,6 +687,19 @@ LRESULT main_ui::os_callback_handler(dialog* window_, UINT uMsg, WPARAM wParam, 
         update_stat_display();
         //}
         return TRUE;
+    } else if ( uMsg == _get_host_by_name ) {
+        auto at = _on_get_host_by_name.find( reinterpret_cast<HANDLE>( wParam ) );
+        if ( at != end( _on_get_host_by_name ) ) {
+            at->second( WSAGETASYNCERROR( lParam ), WSAGETASYNCBUFLEN( lParam ) );
+            _on_get_host_by_name.erase( at );
+        }
+        return TRUE;
+    } else if ( uMsg == _listen_socket ) {
+        _app.on_listen_socket( static_cast<SOCKET>( wParam ), WSAGETSELECTEVENT( lParam ), WSAGETSELECTERROR( lParam ) );
+    } else if ( uMsg == _server_socket ) {
+        _app.on_server_socket( static_cast<SOCKET>( wParam ), WSAGETSELECTEVENT( lParam ), WSAGETSELECTERROR( lParam ) );
+    } else if ( uMsg == _any_client_socket ) {
+        _app.on_any_client_socket( static_cast<SOCKET>( wParam ), WSAGETSELECTEVENT( lParam ), WSAGETSELECTERROR( lParam ) );
     }
     _ui_elements.on_event(uMsg, wParam, lParam);
     return os_callback_handler_default(window_, uMsg, wParam, lParam);
@@ -766,6 +779,11 @@ main_ui::main_ui(const std::wstring& log_path_, app& app_, combat_analizer& c_an
     ::SendMessageW(display_mode, CB_ADDSTRING, 0, (LPARAM)L"Damage Recived");
     ::SendMessageW(display_mode, CB_ADDSTRING, 0, (LPARAM)L"Healing Recived");
     ::SendMessageW(display_mode, CB_SETCURSEL, 0, 0);
+
+    _get_host_by_name = RegisterWindowMessageW( L"swtorla_HOST_BY_NAME" );
+    _listen_socket = RegisterWindowMessageW( L"swtorla_LISTEN_SOCKET" );
+    _server_socket = RegisterWindowMessageW( L"swtorla_SERVER_SOCKET" );
+    _any_client_socket = RegisterWindowMessageW( L"swtorla_ANY_CLIENT_SOCKET" );
 }
 
 main_ui::~main_ui() {
@@ -808,4 +826,22 @@ void main_ui::data_display_mode_go_history_back() {
         change_display_mode(_data_display_history.back().release());
         _data_display_history.pop_back();
     }
+}
+
+void main_ui::get_host_by_name( const std::string& name_, void* buffer_, int buffer_size_, async_get_host_by_name_callback clb_ ) {
+    auto handle = WSAAsyncGetHostByName( _wnd->native_handle(), _get_host_by_name, name_.c_str(), reinterpret_cast<char*>( buffer_ ), buffer_size_ );
+    _on_get_host_by_name.insert( std::make_pair( handle, clb_ ) );
+}
+
+
+void main_ui::register_server_link_socket( c_socket& socket_ ) {
+    socket_.async_select( _wnd->native_handle(), _server_socket, FD_READ | FD_WRITE | FD_CONNECT | FD_CLOSE );
+}
+
+void main_ui::register_listen_socket( c_socket& socket_ ) {
+    socket_.async_select( _wnd->native_handle(), _listen_socket, FD_ACCEPT );
+}
+
+void main_ui::register_client_link_socket( c_socket& socket_ ) {
+    socket_.async_select( _wnd->native_handle( ), _any_client_socket, FD_READ | FD_WRITE | FD_CONNECT | FD_CLOSE );
 }

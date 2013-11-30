@@ -31,33 +31,32 @@ void server_net_link::on_net_link_command(command command_, const char* data_beg
     }
 }
 
-boost::asio::ip::tcp::socket& server_net_link::get_link() {
-    return *_link;
+c_socket& server_net_link::get_link() {
+    return _link;
 }
 
 bool server_net_link::is_link_active() {
     return true;
 }
 
-server_net_link::server_net_link(app* app_, boost::asio::ip::tcp::socket* socket_)
+server_net_link::server_net_link( app* app_, c_socket socket_ )
     : _ci(app_)
-    , _link(socket_) {
-    _link->non_blocking( true );
+    , _link(std::move(socket_)) {
 }
 
 server_net_link::~server_net_link() {
 }
 
 void server_net_link::send_set_name( string_id id_, const std::wstring& name_ ) {
-    BOOST_LOG_TRIVIAL( debug ) << L"void server_net_link::send_set_name(" << id_ << L", " << name_  << L");";
+    BOOST_LOG_TRIVIAL( debug ) << L"void server_net_link::send_set_name(" << id_ << L", " << name_ << L");";
     if ( is_link_active() ) {
-        auto header = gen_packet_header(command::server_set_name, sizeof( id_ ) + name_.length() * sizeof(wchar_t));
-        _link->write_some(boost::asio::buffer(&header, sizeof( header )));
-        _link->write_some(boost::asio::buffer(&id_, sizeof( id_ )));
-        _link->write_some(boost::asio::buffer(name_.data(), name_.length() * sizeof(wchar_t)));
+        auto header = gen_packet_header( command::server_set_name, sizeof(id_)+name_.length() * sizeof( wchar_t ) );
+        _link.send( header );
+        _link.send( id_ );
+        _link.send( name_.data(), name_.length() * sizeof( wchar_t ) );
     }
 }
-
+/*
 bool server_net_link::operator()( ) {
     boost::system::error_code error;
     for ( ;; ) {
@@ -76,4 +75,47 @@ bool server_net_link::operator()( ) {
         }
     }
     return true;
+}
+
+*/
+void server_net_link::on_socket_event( SOCKET socket_, unsigned event_, unsigned error_ ) {
+    if ( _link.get() != socket_ ) {
+        return;
+    }
+    if ( FD_READ == event_ ) {
+        if ( WSAENETDOWN == error_ ) {
+            ::MessageBoxA( nullptr, "Lost connection to server", "Connection error", 0 );
+            _link.reset( );
+        } else {
+            int result;
+            while ( ( result = ::recv( socket_, _buffer.data( ), _buffer.size( ), 0 ) ) > 0 ) {
+                on_net_packet( _buffer.data( ), result );
+            }
+        }
+    } else if ( FD_WRITE == event_ ) {
+        if ( WSAENETDOWN == error_ ) {
+            ::MessageBoxA( nullptr, "Lost connection to server", "Connection error", 0 );
+            _link.reset( );
+        } else {
+        }
+    } else if ( FD_CONNECT == event_ ) {
+        //_on_connect( error_ );
+        //_on_connect = decltype( _on_connect ){};
+        if ( error_ != NOERROR ) {
+            _link.reset( );
+        }
+    } else if ( FD_CLOSE == event_ ) {
+        if ( WSAENETDOWN == error_ ) {
+            ::MessageBoxA( nullptr, "Lost connection to server", "Connection error", 0 );
+            _link.reset( );
+        } else if ( WSAECONNRESET == error_ ) {
+            ::MessageBoxA( nullptr, "Server has closed the connection", "Connection error", 0 );
+            _link.reset( );
+        } else if ( WSAECONNABORTED == error_ ) {
+            ::MessageBoxA( nullptr, "Server timed out", "Connection error", 0 );
+            _link.reset( );
+        } else {
+            _link.reset( );
+        }
+    }
 }

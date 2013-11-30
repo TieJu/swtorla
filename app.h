@@ -14,10 +14,9 @@
 #include <boost/log/sources/severity_logger.hpp>
 #include <boost/log/sources/record_ostream.hpp>
 
-#include <boost/asio.hpp>
-
 #include <boost/noncopyable.hpp>
 
+#include <WinSock2.h>
 #include <Windows.h>
 
 #include "window.h"
@@ -43,10 +42,12 @@
 
 #include "updater.h"
 
+#include "socket_api.h"
+#include "socket.h"
+
 class app : boost::noncopyable {
     const char*                                     _config_path;
     boost::property_tree::wptree                    _config;
-    boost::asio::io_service                         _io_service;
     std::unique_ptr<main_ui>                        _ui;
     program_version                                 _version;
     dir_watcher                                     _dir_watcher;
@@ -64,6 +65,7 @@ class app : boost::noncopyable {
     name_id_map                                     _id_map;
     updater                                         _updater;
     HANDLE                                          _main_thread;
+    socket_api                                      _socket_api;
 
     std::wstring scan_install_key(HKEY key_,const wchar_t* name_maptch_,bool partial_only_);
     void find_7z_path_registry();
@@ -112,6 +114,9 @@ protected:
     void stop_tracking();
     bool check_for_updates();
     boost::property_tree::wptree& get_config();
+    void on_listen_socket( SOCKET socket_, unsigned event_, unsigned error_ );
+    void on_server_socket( SOCKET socket_, unsigned event_, unsigned error_ );
+    void on_any_client_socket( SOCKET socket_, unsigned event_, unsigned error_ );
 
 protected:
     friend class dir_watcher;
@@ -124,7 +129,6 @@ protected:
 
 protected:
     friend class client_net_link;
-    boost::asio::io_service& get_io_service();
     void on_connected_to_server(client_net_link* self_);
     void on_disconnected_from_server(client_net_link* self_);
     void on_string_lookup(client_net_link* self_, string_id string_id_);
@@ -134,7 +138,7 @@ protected:
 
 protected:
     friend class net_link_server;
-    void new_client(boost::asio::ip::tcp::socket* socket_);
+    void new_client(c_socket socket_);
 
 protected:
     friend class server_net_link;
@@ -147,8 +151,8 @@ protected:
 
 protected:
     friend class raid_sync_dialog;
-    std::future<bool> connect_to_server( const std::wstring& name_, const std::wstring& port_ );
-    std::future<bool> start_server( unsigned long port_ );
+    void connect_to_server( const std::wstring& name_, const std::wstring& port_, std::function<void (unsigned error_code_)> on_connect_ );
+    void start_server( unsigned long port_ );
 
     std::wstring get_current_user_name();
 
@@ -161,5 +165,24 @@ protected:
 protected:
     friend class combat_analizer;
     void player_change( string_id name_ );
+
+public:
+    template<typename Callback>
+    void get_host_by_name( const std::string& name_, void* buffer_, int buffer_size_, Callback clb_ ) {
+        _ui->get_host_by_name( name_, buffer_, buffer_size_, std::forward<Callback>( clb_ ) );
+    }
+
+    void register_server_link_socket( c_socket& socket_ ) {
+        _ui->register_server_link_socket( socket_ );
+    }
+
+    void register_listen_socket( c_socket& socket_ ) {
+        _ui->register_listen_socket( socket_ );
+    }
+
+    void register_client_link_socket( c_socket& socket_ ) {
+        _ui->register_client_link_socket( socket_ );
+
+    }
 };
 

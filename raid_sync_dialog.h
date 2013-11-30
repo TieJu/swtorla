@@ -7,7 +7,7 @@ class app;
 
 class raid_sync_dialog
     : public dialog_t<raid_sync_dialog> {
-        app&    _app;
+    app&            _app;
 protected:
     void update_config();
     bool start_server_at_port( unsigned long port_ );

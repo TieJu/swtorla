@@ -1,12 +1,12 @@
 #include "local_ip.h"
-#include <WinSock2.h>
+#include <Ws2tcpip.h>
 
 #include <boost/scope_exit.hpp>
 
 std::vector<std::wstring> get_local_ip_addresses(glipa_flags flags_ /*= glipa_flags::none*/) {
     std::vector<std::wstring> result;
 
-    auto sock = WSASocketW(AF_INET, SOCK_DGRAM, 0, 0, 0, 0);
+    auto sock = WSASocket(AF_INET, SOCK_DGRAM, 0, 0, 0, 0);
     if ( sock == SOCKET_ERROR ) {
         return result;
     }

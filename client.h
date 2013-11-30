@@ -1,6 +1,4 @@
 #pragma once
-#include <boost/asio.hpp>
-
 #include "active.h"
 #include "net_protocol.h"
 #include "swtor_log_parser.h"
