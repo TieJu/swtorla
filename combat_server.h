@@ -140,14 +140,32 @@ public:
         return true;
     }
 
-    void on_net_send( const combat_log_entry_compressed& ce_ ) {
+    void send_combat_log_entry( const combat_log_entry_compressed& ce_ ) {
         ::send( _state->_socket, reinterpret_cast<const char*>( ce_.data() ), ce_.size(), 0 );
     }
 
-    void send_string_result( string_id id_, const std::wstring& str_ );
-    void send_string_query( string_id id_ );
-    void send_player_name( string_id id_, const std::wstring& str_ );
-    void send_player_remove( string_id id_ );
+    void send_string_result( string_id id_, const std::wstring& str_ ) {
+        packet_header hdr { sizeof(id_)+sizeof(wchar_t)* str_.length( ), packet_commands::string_result };
+        ::send( _state->_socket, reinterpret_cast<const char*>( &hdr ), sizeof( hdr ), 0 );
+        ::send( _state->_socket, reinterpret_cast<const char*>( &id_ ), sizeof( id_ ), 0 );
+        ::send( _state->_socket, reinterpret_cast<const char*>( str_.data( ) ), sizeof(wchar_t)* str_.length( ), 0 );
+    }
+    void send_string_query( string_id id_ ) {
+        packet_header hdr { sizeof( id_ ), packet_commands::string_query };
+        ::send( _state->_socket, reinterpret_cast<const char*>( &hdr ), sizeof( hdr ), 0 );
+        ::send( _state->_socket, reinterpret_cast<const char*>( &id_ ), sizeof( id_ ), 0 );
+    }
+    void send_player_name( string_id id_, const std::wstring& str_ ) {
+        packet_header hdr { sizeof(id_) + sizeof(wchar_t) * str_.length(), packet_commands::client_set };
+        ::send( _state->_socket, reinterpret_cast<const char*>( &hdr ), sizeof( hdr ), 0 );
+        ::send( _state->_socket, reinterpret_cast<const char*>( &id_ ), sizeof( id_ ), 0 );
+        ::send( _state->_socket, reinterpret_cast<const char*>( str_.data() ), sizeof(wchar_t) * str_.length(), 0 );
+    }
+    void send_player_remove( string_id id_ ) {
+        packet_header hdr { sizeof( id_ ), packet_commands::client_remove };
+        ::send( _state->_socket, reinterpret_cast<const char*>( &hdr ), sizeof( hdr ), 0 );
+        ::send( _state->_socket, reinterpret_cast<const char*>( &id_ ), sizeof( id_ ), 0 );
+    }
 
     bool is_link_to( const state& state_ ) { return _state->_socket == state_._socket; }
     bool operator ==( const combat_server_client& other_ ) const {
@@ -222,7 +240,7 @@ protected:
             if ( cl_.is_link_to( state ) ) {
                 continue;
             }
-            combat_server_client { state, this }.on_net_send( ce );
+            combat_server_client { state, this }.send_combat_log_entry( ce );
         }
     }
 

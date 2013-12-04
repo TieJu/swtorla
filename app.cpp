@@ -1006,7 +1006,7 @@ void app::start_server( unsigned long port_ ) {
     _ui->register_listen_socket( _server_socket );
 
     socket_address_inet addr;
-    addr.port = htons( port_ );
+    addr.port() = htons( port_ );
     _server_socket.bind( addr );
     _server_socket.listen();
 }
