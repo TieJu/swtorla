@@ -7,15 +7,6 @@
 
 class app;
 
-enum swtor_string_constants : unsigned long long {
-    ssc_Event = 836045448945472ull,
-    ssc_EnterCombat = 836045448945489ull,
-    ssc_ExitCombat = 836045448945490ull,
-    ssc_ApplyEffect = 836045448945477ull,
-    ssc_Damage = 836045448945501ull,
-    ssc_Heal = 836045448945500ull,
-};
-
 struct combat_log_entry_ex : combat_log_entry {
     int     hits;
     int     crits;

@@ -45,6 +45,8 @@
 #include "socket_api.h"
 #include "socket.h"
 
+#include "combat_server.h"
+
 class app : boost::noncopyable {
     const char*                                     _config_path;
     boost::property_tree::wptree                    _config;
@@ -58,14 +60,13 @@ class app : boost::noncopyable {
     std::wstring                                    _current_log_file;
     std::wstring                                    _next_log_file;
     client_net_link                                 _client;
-    net_link_server                                 _server;
-    std::vector<std::unique_ptr<server_net_link>>   _clients;
-    std::mutex                                      _clients_guard;
     string_id                                       _current_char;
     name_id_map                                     _id_map;
     updater                                         _updater;
     HANDLE                                          _main_thread;
     socket_api                                      _socket_api;
+    combat_server                                   _combat_server;
+    c_socket                                        _server_socket;
 
     std::wstring scan_install_key(HKEY key_,const wchar_t* name_maptch_,bool partial_only_);
     void find_7z_path_registry();
@@ -180,9 +181,11 @@ public:
         _ui->register_listen_socket( socket_ );
     }
 
-    void register_client_link_socket( c_socket& socket_ ) {
-        _ui->register_client_link_socket( socket_ );
-
+    string_id map_local_to_server_id( string_id id_ ) {
+        return _id_map.map_to_server( id_ );
+    }
+    string_id map_server_to_local_id( string_id id_ ) {
+        return _id_map.map_to_local( id_ );
     }
 };
 

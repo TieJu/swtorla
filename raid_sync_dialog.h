@@ -10,7 +10,7 @@ class raid_sync_dialog
     app&            _app;
 protected:
     void update_config();
-    bool start_server_at_port( unsigned long port_ );
+    void start_server_at_port( unsigned long port_ );
     bool register_at_hash_server( const std::wstring& hash_, unsigned long port_ );
     bool start_server( int mode_ );
     bool connect_to_server( const std::wstring& name_, const std::wstring& port_ );

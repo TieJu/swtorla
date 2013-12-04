@@ -842,6 +842,10 @@ void main_ui::register_listen_socket( c_socket& socket_ ) {
     socket_.async_select( _wnd->native_handle(), _listen_socket, FD_ACCEPT );
 }
 
-void main_ui::register_client_link_socket( c_socket& socket_ ) {
-    socket_.async_select( _wnd->native_handle( ), _any_client_socket, FD_READ | FD_WRITE | FD_CONNECT | FD_CLOSE );
+void main_ui::register_client_link_socket( SOCKET socket_ ) {
+    WSAAsyncSelect( socket_, _wnd->native_handle( ), _any_client_socket, FD_READ | FD_WRITE | FD_CLOSE );
+}
+
+void main_ui::unregister_client_link_socket( SOCKET socket_ ) {
+    WSAAsyncSelect( socket_, _wnd->native_handle( ), 0, 0 );
 }

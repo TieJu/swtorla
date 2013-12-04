@@ -49,7 +49,11 @@ public:
     }
 
     string_id map_to_server(string_id local_) {
-        return _map[local_];
+        if ( local_ < _map.size() ) {
+            return _map[local_];
+        } else {
+            return local_;
+        }
     }
 
     string_id map_to_local(string_id server_) {
@@ -58,7 +62,7 @@ public:
         using std::end;
         using std::distance;
 
-        auto ref = find_if(begin(_map), end(_map), [=](string_id sid_) {return sid_ == server_; });
+        auto ref = find_if(begin(_map), end(_map), [=](string_id sid_) { return sid_ == server_; });
         if ( ref == end(_map) ) {
             return server_;
         }

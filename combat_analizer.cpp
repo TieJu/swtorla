@@ -10,6 +10,7 @@ void combat_analizer::add_entry( const combat_log_entry& e_ ) {
         } else if ( e_.effect_type == ssc_ExitCombat ) {
             _record = false;
             _encounters.back( ).insert( e_ );
+            _encounters.back().compatct();
         }
     }
     if ( _record ) {

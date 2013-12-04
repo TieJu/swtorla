@@ -588,8 +588,6 @@ app::app(const char* caption_, const char* config_path_)
 
     _dir_watcher = dir_watcher { this };
 
-    _server = net_link_server { this };
-
     _updater = updater { _config };
 
     _client = client_net_link { this };
@@ -600,7 +598,6 @@ app::app(const char* caption_, const char* config_path_)
 
 
 app::~app() {
-    _server.stop();
     _dir_watcher.stop();
     _log_reader.stop();
     write_config(_config_path);
@@ -690,7 +687,19 @@ boost::property_tree::wptree& app::get_config() {
 }
 
 void app::on_listen_socket( SOCKET socket_, unsigned event_, unsigned error_ ) {
-    _server.on_socket_event( socket_, event_, error_ );
+    if ( WSAENETDOWN == error_ ) {
+        // notify user...
+        ::closesocket( socket_ );
+        return;
+    }
+
+    if ( FD_ACCEPT == event_ ) {
+        SOCKET soc = INVALID_SOCKET;
+        while ( INVALID_SOCKET != ( soc = ::accept( socket_, nullptr, nullptr ) ) ) {
+            _combat_server.get_client_from_socket( soc );
+            _ui->register_client_link_socket( soc );
+        }
+    }
 }
 
 void app::on_server_socket( SOCKET socket_, unsigned event_, unsigned error_ ) {
@@ -698,8 +707,21 @@ void app::on_server_socket( SOCKET socket_, unsigned event_, unsigned error_ ) {
 }
 
 void app::on_any_client_socket( SOCKET socket_, unsigned event_, unsigned error_ ) {
-    for ( auto& cl : _clients ) {
-        cl->on_socket_event( socket_, event_, error_ );
+    auto cl = _combat_server.get_client_from_socket( socket_ );
+
+    // if the net is down, or a disconnect was requested, remove the client
+    if ( WSAENETDOWN == error_ || FD_CLOSE == event_ ) {
+        // notify user ...
+        _combat_server.remove_client_by_socket( socket_ );
+        _ui->unregister_client_link_socket( socket_ );
+        // close the socket to free handle
+        ::closesocket( socket_ );
+        return;
+    }
+
+    if ( FD_READ == event_ ) {
+        while ( cl.try_recive() ) {
+        }
     }
 }
 
@@ -916,63 +938,61 @@ void app::on_set_name(client_net_link * self_, string_id name_id_, const std::ws
 
 void app::new_client(c_socket socket_ ) {
     BOOST_LOG_TRIVIAL(debug) << L"void app::new_client(" << socket_.get() << L");";
-    std::unique_lock<decltype( _clients_guard )> lock(_clients_guard);
-    _clients.push_back( std::make_unique<server_net_link>( this, std::move( socket_ ) ) );
+//    _clients.push_back( std::make_unique<server_net_link>( this, std::move( socket_ ) ) );
 }
 
 void app::on_client_register(server_net_link * self_, const std::wstring& name_) {
     BOOST_LOG_TRIVIAL(debug) << L"void app::on_client_register(" << self_ << L", " << name_ << L");";
     auto at = std::find(begin(_char_list), end(_char_list), name_);
     if ( at == end(_char_list) ) {
-        at = _char_list.push_back(name_);
+        at = _char_list.insert( _char_list.end(), name_ );
     }
     auto id = std::distance(begin(_char_list), at);
-    for ( auto& cl : _clients ) {
-        cl->send_set_name(id, name_);
-    }
+    //for ( auto& cl : _clients ) {
+    //    cl->send_set_name(id, name_);
+    //}
 }
 
 void app::on_string_lookup(server_net_link* self_, string_id string_id_) {
     BOOST_LOG_TRIVIAL(debug) << L"void app::on_string_lookup(" << self_ << L", " << string_id_ << L");";
-    auto ref = _string_map.find(string_id_);
-    if ( ref == std::end(_string_map) ) {
-        for ( auto& cl : _clients ) {
-            cl->get_string_value(string_id_);
-        }
-    } else {
-        self_->send_string_value(string_id_, ref->second);
-    }
+    //auto ref = _string_map.find(string_id_);
+    //if ( ref == std::end(_string_map) ) {
+    //    for ( auto& cl : _clients ) {
+    //        cl->get_string_value(string_id_);
+    //    }
+    //} else {
+    //    self_->send_string_value(string_id_, ref->second);
+    //}
 }
 
 void app::on_string_info(server_net_link* self_, string_id string_id_, const std::wstring& string_) {
     BOOST_LOG_TRIVIAL(debug) << L"void app::on_string_lookup(" << self_ << L", " << string_id_ << L", " << string_ << L");";
-    auto at = _string_map.insert(std::make_pair(string_id_, string_)).first;
+    //auto at = _string_map.insert(std::make_pair(string_id_, string_)).first;
 
-    for ( auto& cl : _clients ) {
-        if ( cl.get() != self_ ) {
-            cl->send_string_value(at->first, at->second);
-        }
-    }
+    //for ( auto& cl : _clients ) {
+    //    if ( cl.get() != self_ ) {
+    //        cl->send_string_value(at->first, at->second);
+    //    }
+    //}
 }
 
 void app::on_combat_event(server_net_link* self_, const combat_log_entry& event_) {
     BOOST_LOG_TRIVIAL(debug) << L"void app::on_combat_event(" << self_ << L", " << to_wstring(event_) << L");";
     // insert into combat table
-    _analizer.add_entry( event_ );
-    for ( auto& cl : _clients ) {
-        if ( cl.get() != self_ ) {
-            cl->send_combat_event(event_);
-        }
-    }
+    //_analizer.add_entry( event_ );
+    //for ( auto& cl : _clients ) {
+    //    if ( cl.get() != self_ ) {
+    //        cl->send_combat_event(event_);
+    //    }
+    //}
 }
 
 void app::on_client_disconnect(server_net_link* self_) {
     BOOST_LOG_TRIVIAL(debug) << L"void app::on_client_disconnect(" << self_ << L");";
-    std::unique_lock<decltype( _clients_guard )> lock(_clients_guard);
-    auto ref = find_if(begin(_clients), end(_clients), [=](const std::unique_ptr<server_net_link>& other_) { return self_ == other_.get(); });
-    if ( ref != end(_clients) ) {
-        _clients.erase(ref);
-    }
+    //auto ref = find_if(begin(_clients), end(_clients), [=](const std::unique_ptr<server_net_link>& other_) { return self_ == other_.get(); });
+    //if ( ref != end(_clients) ) {
+    //    _clients.erase(ref);
+    //}
 }
 
 void app::connect_to_server( const std::wstring& name_, const std::wstring& port_, std::function<void( unsigned error_code_ )> on_connect_ ) {
@@ -982,8 +1002,13 @@ void app::connect_to_server( const std::wstring& name_, const std::wstring& port
 }
 
 void app::start_server( unsigned long port_ ) {
-    _server.stop();
-    _server.start( std::to_string(port_) );
+    _server_socket = c_socket { socket_api {}, AF_INET, SOCK_STREAM, 0 };
+    _ui->register_listen_socket( _server_socket );
+
+    socket_address_inet addr;
+    addr.port = htons( port_ );
+    _server_socket.bind( addr );
+    _server_socket.listen();
 }
 
 void app::player_change( string_id name_ ) {

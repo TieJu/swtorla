@@ -81,5 +81,6 @@ public:
     void get_host_by_name( const std::string& name_, void* buffer_, int buffer_size_, async_get_host_by_name_callback clb_ );
     void register_server_link_socket( c_socket& socket_ );
     void register_listen_socket( c_socket& socket_ );
-    void register_client_link_socket( c_socket& socket_ );
+    void register_client_link_socket( SOCKET socket_ );
+    void unregister_client_link_socket( SOCKET socket_ );
 };

@@ -19,10 +19,8 @@ void client_net_link::on_net_link_command(command command_, const char* data_beg
                            ,*reinterpret_cast<const string_id*>( data_begin_ )
                            ,std::wstring(reinterpret_cast<const wchar_t*>( data_begin_ + sizeof( string_id ) ), reinterpret_cast<const wchar_t*>( data_end_ )));
         break;
-    case command::combat_event: {
+    case command::combat_event:
         _ci->on_combat_event( this, wrap_combat_log_entry_compressed( data_begin_, data_end_ ) );
-
-        }
         break;
     case command::server_set_name:
         _ci->on_set_name(this

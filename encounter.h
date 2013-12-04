@@ -118,4 +118,8 @@ public:/*
 
         return std::chrono::duration_cast<std::chrono::milliseconds>( last.time_index - first.time_index );
     }
+
+    void compatct() {
+        _table.shrink_to_fit();
+    }
 };

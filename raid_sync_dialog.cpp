@@ -26,9 +26,8 @@ void raid_sync_dialog::update_config() {
     }
 }
 
-bool raid_sync_dialog::start_server_at_port( unsigned long port_ ) {
+void raid_sync_dialog::start_server_at_port( unsigned long port_ ) {
     _app.start_server( port_ );
-    return true;
 }
 
 bool raid_sync_dialog::register_at_hash_server( const std::wstring& hash_, unsigned long port_ ) {
@@ -49,7 +48,8 @@ bool raid_sync_dialog::start_server( int mode_ ) {
         }
     }
 
-    return start_server_at_port( port_num );
+    start_server_at_port( port_num );
+    return true;
 }
 
 bool raid_sync_dialog::connect_to_server( const std::wstring& name_, const std::wstring& port_ ) {

@@ -7,8 +7,6 @@
 #include <vector>
 #include <array>
 #include <chrono>
-#include <concurrent_unordered_map.h>
-#include <concurrent_vector.h>
 
 typedef unsigned long long string_id;
 typedef unsigned long long entity_id;
@@ -59,8 +57,8 @@ enum log_entry_flags {
     effect_was_crit2 = 1 << 1,
 };
 
-typedef concurrency::concurrent_unordered_map<string_id, std::wstring>  string_to_id_string_map;
-typedef concurrency::concurrent_vector<std::wstring>                    character_list;
+typedef std::unordered_map<string_id, std::wstring>  string_to_id_string_map;
+typedef std::vector<std::wstring>                    character_list;
 
 combat_log_entry parse_combat_log_line( const char* from_, const char* to_, string_to_id_string_map& string_map_, character_list& char_list_, std::chrono::system_clock::time_point time_offset );
 
@@ -161,4 +159,13 @@ public:
         _buffer = std::get<0>( re );
         _length = ( std::get<1>( re ) +7 ) / 8;
     }
+};
+
+enum swtor_string_constants : unsigned long long {
+    ssc_Event = 836045448945472ull,
+    ssc_EnterCombat = 836045448945489ull,
+    ssc_ExitCombat = 836045448945490ull,
+    ssc_ApplyEffect = 836045448945477ull,
+    ssc_Damage = 836045448945501ull,
+    ssc_Heal = 836045448945500ull,
 };
