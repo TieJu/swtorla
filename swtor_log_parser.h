@@ -8,27 +8,8 @@
 #include <array>
 #include <chrono>
 
-typedef unsigned long long string_id;
-typedef unsigned long long entity_id;
-
-struct combat_log_entry {
-    std::chrono::system_clock::time_point   time_index;
-    string_id                               src;
-    string_id                               src_minion;
-    string_id                               dst;
-    string_id                               dst_minion;
-    string_id                               ability;
-    string_id                               effect_action;
-    string_id                               effect_type;
-    string_id                               effect_value_type;
-    string_id                               effect_value_type2;
-    entity_id                               dst_id;
-    entity_id                               src_id;
-    int                                     effect_value;
-    int                                     effect_value2;
-    int                                     effect_thread;
-    int                                     entry_flags;
-};
+#include "string_db.h"
+#include "player_db.h"
 
 inline std::wstring to_wstring( const combat_log_entry& e_ ) {
     std::wstring buffer;
@@ -47,20 +28,12 @@ inline std::wstring to_wstring( const combat_log_entry& e_ ) {
     buffer += L" value2: " + std::to_wstring( e_.effect_value2 );
     buffer += L" thread: " + std::to_wstring( e_.effect_thread );
     buffer += L" flags: " + std::to_wstring( e_.entry_flags );
-    buffer += L" }";
+    buffer += L"}";
 
     return buffer;
 }
 
-enum log_entry_flags {
-    effect_was_crit = 1 << 0,
-    effect_was_crit2 = 1 << 1,
-};
-
-typedef std::unordered_map<string_id, std::wstring>  string_to_id_string_map;
-typedef std::vector<std::wstring>                    character_list;
-
-combat_log_entry parse_combat_log_line( const char* from_, const char* to_, string_to_id_string_map& string_map_, character_list& char_list_, std::chrono::system_clock::time_point time_offset );
+combat_log_entry parse_combat_log_line( const char* from_, const char* to_, string_db& string_map_, player_db& char_list_, std::chrono::system_clock::time_point time_offset );
 
 enum log_entry_optional_elements {
     src_minion,

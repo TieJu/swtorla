@@ -143,6 +143,10 @@ public:
         _event_rcv = hwnd_;
         return 0 == WSAAsyncSelect( _socket, hwnd_, msg_, event_mask_ );
     }
+
+    void shutdown( int mode_ ) {
+        ::shutdown( _socket, mode_ );
+    }
 };
 
 inline void swap( c_socket& l_, c_socket& r_ ) {

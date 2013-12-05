@@ -27,18 +27,18 @@ inline std::wstring get_info_text_default_links(bool enable_solo_, bool enable_r
 }
 
 struct string_id_lookup {
-    string_to_id_string_map*    smap;
-    character_list*             names;
+    string_db*    smap;
+    player_db*    names;
 
     bool is_name(string_id id_) const {
-        return id_ <= names->size() && id_ > 0;
+        return names->is_player_name_set( id_ );
     }
 
-    const std::wstring& operator( )( string_id id_ ) const {
-        if ( is_name(id_) ) {
-            return ( *names )[id_ - 1];
+    std::wstring operator( )( string_id id_ ) const {
+        if ( is_name( id_ ) ) {
+            return names->get_player_name( id_ );
         } else {
-            return ( *smap )[id_];
+            return smap->get( id_ );
         }
     }
 };

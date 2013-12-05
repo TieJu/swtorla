@@ -8,31 +8,7 @@
 
 #include "swtor_log_parser.h"
 
-#pragma pack(push)
-#pragma pack(1)
-struct packet_header {
-    unsigned short  _length;
-    unsigned char   _command;
-};
-#pragma pack(pop)
-
-namespace packet_commands {
-enum type {
-    // cl -> sv
-    client_name,
-
-    // sv -> cl
-    client_set,
-    client_remove,
-
-    // sv -> cl
-    // cl -> sv
-    string_query,
-    string_result,
-
-    combat_event,
-};
-}
+#include "combat_net.h"
 
 
 class combat_server;
@@ -141,6 +117,8 @@ public:
     }
 
     void send_combat_log_entry( const combat_log_entry_compressed& ce_ ) {
+        packet_header hdr { ce_.size( ), packet_commands::combat_event };
+        ::send( _state->_socket, reinterpret_cast<const char*>( &hdr ), sizeof( hdr ), 0 );
         ::send( _state->_socket, reinterpret_cast<const char*>( ce_.data() ), ce_.size(), 0 );
     }
 

@@ -40,34 +40,28 @@ void client::run() {
 
 bool client::on_string_lookup(string_id ident_) {
     // look up string and send it back if we know it
-    auto at = _strings->find(ident_);
-    if ( at != end(*_strings) ) {
-        _link.send_string_info(at->first, at->second);
+    if ( _strings->is_set(ident_) ) {
+        _link.send_string_info(ident_, _strings->get(ident_));
     }
     return true;
 }
 
-bool client::on_string_info(string_id ident_, const wchar_t* string_start_, const wchar_t* string_end_) {
+bool client::on_string_info( string_id ident_, const wchar_t* string_start_, const wchar_t* string_end_ ) {
     // insert it, if we know it, it will not change as for the hash map insert rules
     // TODO: may force update if string is empty?
-    _strings->insert(std::make_pair(ident_, std::wstring(string_start_, string_end_)));
+    _strings->set( ident_, std::wstring { string_start_, string_end_ } );
     return true;
 }
 
-bool client::on_set_name(string_id ident_, const wchar_t* name_start_, const wchar_t* name_end_) {
+bool client::on_set_name( string_id ident_, const wchar_t* name_start_, const wchar_t* name_end_ ) {
     // server tells us to link a name to the selected ident_
-    if ( _chars->size() < ident_ + 1 ) {
-        _chars->resize(ident_ + 1);
-    }
-    ( *_chars )[ident_].assign(name_start_, name_end_);
+    _chars->set_player_name( std::wstring { name_start_, name_end_ }, ident_ );
     return true;
 }
 
 bool client::on_remove_name(string_id ident_) {
     // server tells us to remove the name links to ident_
-    if ( ident_ < _chars->size() ) {
-        ( *_chars )[ident_].clear();
-    }
+    _chars->remove_player_name( ident_ );
     return true;
 }
 
@@ -86,8 +80,8 @@ client::client()
     _link.set_client(this);
 }
 
-client::client(string_to_id_string_map& smap_
-              ,character_list& clist_
+client::client(string_db& smap_
+              ,player_db& clist_
               ,client_core_interface* cli_)
     : _strings(&smap_)
     , _chars(&clist_)

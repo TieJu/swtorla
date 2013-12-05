@@ -15,6 +15,8 @@
 
 #include <Windows.h>
 
+#include "to_string.h"
+
 static void expect_char(const char*& from_, const char* to_,char c_) {
     if ( from_ == to_ ) {
         throw std::runtime_error("unexpected end of log line");
@@ -98,46 +100,19 @@ std::wstring to_wstring(const char* begin_, const char* end_) {
     return str;
 }
 
-static string_id register_string(string_id id, const char* from_, const char* to_, string_to_id_string_map& string_map_) {
-    auto loc = string_map_.find(id);
-    if ( loc == end(string_map_) ) {
-        if ( from_ >= to_ ) {
-            string_map_[id] = L"<missing localisation for " + std::to_wstring(id) + L">";
-        } else {
-            string_map_[id] = to_wstring(from_, to_);
-        }
+static string_id register_string(string_id id, const char* from_, const char* to_, string_db& string_map_) {
+    if ( from_ < to_ ) {
+        string_map_.set( id, std::to_wstring( std::string { from_, to_ } ) );
     }
     return id;
 }
 
-static string_id register_name(const char* from_, const char* to_, character_list& char_list_) {
-    const auto len = to_ - from_;
-    std::wstring str;
-    auto loc = std::find_if(begin(char_list_), end(char_list_), [=,&str](const std::wstring& name_) {
-        if ( name_.length() != len ) {
-            return false;
-        }
-
-        if ( str.empty() ) {
-            str = to_wstring(from_, to_);
-        }
-
-        return str == name_;
-    });
-
-    if ( loc != end(char_list_) ) {
-        return std::distance(begin(char_list_), loc) + 1;
-    }
-
-    if ( str.empty() ) {
-        str = to_wstring(from_, to_);
-    }
-    char_list_.push_back(str);
-
-    return char_list_.size();
+static string_id register_name( const char* from_, const char* to_, player_db& char_list_ ) {
+    auto name = std::to_wstring( std::string { from_, to_ } );
+    return char_list_.get_player_id( name );
 }
 
-static std::tuple<string_id, string_id, unsigned long long> read_entity_name(const char*& from_, const char* to_, string_to_id_string_map& string_map_, character_list& char_list_) {
+static std::tuple<string_id, string_id, unsigned long long> read_entity_name(const char*& from_, const char* to_, string_db& string_map_, player_db& char_list_) {
     expect_char(from_, to_, '[');
     if ( check_char(from_, to_, ']') ) {
         return std::make_tuple(string_id(0), string_id(0), 0);
@@ -183,7 +158,7 @@ static std::tuple<string_id, string_id, unsigned long long> read_entity_name(con
 }
 
 template<typename CharCheck>
-static string_id read_localized_string(const char*& from_, const char* to_, string_to_id_string_map& string_map_, CharCheck char_check_, char start_char_ = '[', char end_char_ = ']') {
+static string_id read_localized_string(const char*& from_, const char* to_, string_db& string_map_, CharCheck char_check_, char start_char_ = '[', char end_char_ = ']') {
     expect_char(from_, to_, start_char_);
     skip_spaces(from_, to_);
     if ( check_char(from_, to_, end_char_) ) {
@@ -206,7 +181,7 @@ static string_id read_localized_string(const char*& from_, const char* to_, stri
     return register_string(id, start, name_end, string_map_);
 }
 
-static std::tuple<int, bool, string_id, int, bool, string_id> parse_effect_value(const char*& from_, const char* to_, string_to_id_string_map& string_map_) {
+static std::tuple<int, bool, string_id, int, bool, string_id> parse_effect_value(const char*& from_, const char* to_, string_db& string_map_) {
     int effect_value = 0, effect_value2 = 0;
     bool effect_crit = false, effect_crit2 = false;
     string_id effect_name = 0, effect_name2 = 0;
@@ -266,7 +241,7 @@ static std::tuple<int, bool, string_id, int, bool, string_id> parse_effect_value
     return std::make_tuple(effect_value, effect_crit, effect_name, effect_value2, effect_crit2, effect_name2);
 }
 
-combat_log_entry parse_combat_log_line( const char* from_, const char* to_, string_to_id_string_map& string_map_, character_list& char_list_, std::chrono::system_clock::time_point time_base_ ) {
+combat_log_entry parse_combat_log_line( const char* from_, const char* to_, string_db& string_map_, player_db& char_list_, std::chrono::system_clock::time_point time_base_ ) {
     using std::find_if;
     combat_log_entry e
     {};

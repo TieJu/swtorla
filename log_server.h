@@ -6,8 +6,8 @@ class log_server
 : public net_protocol_server_interface {
     std::vector<std::unique_ptr<net_protocol>>  _client_links;
     std::unique_ptr<net_protocol>               _server_port;
-    character_list                              _client_list;
-    string_to_id_string_map                     _string_map;
+    player_db                              _client_list;
+    string_db                     _string_map;
 
 public:
     log_server();

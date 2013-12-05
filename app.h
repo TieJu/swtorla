@@ -46,6 +46,10 @@
 #include "socket.h"
 
 #include "combat_server.h"
+#include "combat_client.h"
+
+#include "player_db.h"
+#include "string_db.h"
 
 class app : boost::noncopyable {
     const char*                                     _config_path;
@@ -54,19 +58,17 @@ class app : boost::noncopyable {
     program_version                                 _version;
     dir_watcher                                     _dir_watcher;
     log_processor                                   _log_reader;
-    string_to_id_string_map                         _string_map;
-    character_list                                  _char_list;
     combat_analizer                                 _analizer;
     std::wstring                                    _current_log_file;
     std::wstring                                    _next_log_file;
-    client_net_link                                 _client;
-    string_id                                       _current_char;
-    name_id_map                                     _id_map;
     updater                                         _updater;
     HANDLE                                          _main_thread;
     socket_api                                      _socket_api;
     combat_server                                   _combat_server;
     c_socket                                        _server_socket;
+    combat_client                                   _combat_client;
+    player_db                                       _player_db;
+    string_db                                       _string_db;
 
     std::wstring scan_install_key(HKEY key_,const wchar_t* name_maptch_,bool partial_only_);
     void find_7z_path_registry();
@@ -116,7 +118,7 @@ protected:
     bool check_for_updates();
     boost::property_tree::wptree& get_config();
     void on_listen_socket( SOCKET socket_, unsigned event_, unsigned error_ );
-    void on_server_socket( SOCKET socket_, unsigned event_, unsigned error_ );
+    void on_client_socket( SOCKET socket_, unsigned event_, unsigned error_ );
     void on_any_client_socket( SOCKET socket_, unsigned event_, unsigned error_ );
 
 protected:
@@ -160,8 +162,8 @@ protected:
 protected:
     friend class log_processor;
 
-    string_to_id_string_map& get_string_map() { return _string_map; }
-    character_list& get_char_list() { return _char_list; }
+    string_db& get_string_map() { return _string_db; }
+    player_db& get_char_list() { return _player_db; }
 
 protected:
     friend class combat_analizer;
@@ -182,10 +184,23 @@ public:
     }
 
     string_id map_local_to_server_id( string_id id_ ) {
-        return _id_map.map_to_server( id_ );
+        //return _id_map.map_to_server( id_ );
+        return id_;
     }
     string_id map_server_to_local_id( string_id id_ ) {
-        return _id_map.map_to_local( id_ );
+        //return _id_map.map_to_local( id_ );
+        return id_;
+    }
+
+protected:
+    friend class string_db;
+    void lookup_string( string_id id_ ) {
+        _combat_client.send_string_query( id_ );
+    }
+
+protected:
+    friend class player_db;
+    void remap_player_name( string_id old_, string_id new_ ) {
+        // TODO: run over all combat entrys and change them
     }
 };
-

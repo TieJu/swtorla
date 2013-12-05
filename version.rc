@@ -13,7 +13,7 @@
 #undef APSTUDIO_READONLY_SYMBOLS
 
 /////////////////////////////////////////////////////////////////////////////
-// German (Germany) resources
+// Deutsch (Deutschland) resources
 
 #if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_DEU)
 LANGUAGE LANG_GERMAN, SUBLANG_GERMAN
@@ -51,8 +51,8 @@ END
 //
 
 VS_VERSION_INFO VERSIONINFO
- FILEVERSION 1,0,0,2074
- PRODUCTVERSION 1,0,0,2074
+ FILEVERSION 1,0,0,2096
+ PRODUCTVERSION 1,0,0,2096
  FILEFLAGSMASK 0x3fL
 #ifdef _DEBUG
  FILEFLAGS 0x1L
@@ -67,15 +67,15 @@ BEGIN
     BEGIN
         BLOCK "040704b0"
         BEGIN
-            VALUE "Build", "2074"
-            VALUE "CompanyName", "Tiemo Jung"
+            VALUE "Build", "2096"
+            VALUE "CompanyName", "tiemo.jung@mni.thm.de"
             VALUE "FileDescription", "SW:TOR log analizer"
-            VALUE "FileVersion", "1.0.0.Build 2074"
+            VALUE "FileVersion", "1.0.0.Build 2096"
             VALUE "InternalName", "swtor_lo.exe"
-            VALUE "LegalCopyright", "Copyright (C) 2013"
+            VALUE "LegalCopyright", "Tiemo Jung Copyright (C) 2013"
             VALUE "OriginalFilename", "swtor_lo.exe"
             VALUE "ProductName", "SW:TOR log analizer"
-            VALUE "ProductVersion", "1.0.0.Build 2074"
+            VALUE "ProductVersion", "1.0.0.Build 2096"
         END
     END
     BLOCK "VarFileInfo"
@@ -84,7 +84,7 @@ BEGIN
     END
 END
 
-#endif    // German (Germany) resources
+#endif    // Deutsch (Deutschland) resources
 /////////////////////////////////////////////////////////////////////////////
 
 

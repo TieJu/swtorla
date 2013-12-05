@@ -697,7 +697,7 @@ LRESULT main_ui::os_callback_handler(dialog* window_, UINT uMsg, WPARAM wParam, 
     } else if ( uMsg == _listen_socket ) {
         _app.on_listen_socket( static_cast<SOCKET>( wParam ), WSAGETSELECTEVENT( lParam ), WSAGETSELECTERROR( lParam ) );
     } else if ( uMsg == _server_socket ) {
-        _app.on_server_socket( static_cast<SOCKET>( wParam ), WSAGETSELECTEVENT( lParam ), WSAGETSELECTERROR( lParam ) );
+        _app.on_client_socket( static_cast<SOCKET>( wParam ), WSAGETSELECTEVENT( lParam ), WSAGETSELECTERROR( lParam ) );
     } else if ( uMsg == _any_client_socket ) {
         _app.on_any_client_socket( static_cast<SOCKET>( wParam ), WSAGETSELECTEVENT( lParam ), WSAGETSELECTERROR( lParam ) );
     }
@@ -750,7 +750,7 @@ void main_ui::set_display_mode(unsigned mode_) {
     }
 }
 
-main_ui::main_ui(const std::wstring& log_path_, app& app_, combat_analizer& c_anal_, string_to_id_string_map& s_map_, character_list& c_list_)
+main_ui::main_ui(const std::wstring& log_path_, app& app_, combat_analizer& c_anal_, string_db& s_map_, player_db& c_list_)
     : _app(app_), _analizer(c_anal_) {
     _wnd.reset(new dialog(GetModuleHandleW(nullptr), MAKEINTRESOURCEW(IDD_MAIN_WINDOW), nullptr));
 

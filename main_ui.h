@@ -70,7 +70,7 @@ protected:
     void set_display_mode(unsigned mode_);
 
 public:
-    main_ui(const std::wstring& log_path_, app& app_,combat_analizer& c_anal_,string_to_id_string_map& s_map_,character_list& c_list_);
+    main_ui(const std::wstring& log_path_, app& app_,combat_analizer& c_anal_,string_db& s_map_,player_db& c_list_);
     virtual ~main_ui();
 
     void update_main_player(string_id player_id_);

@@ -375,11 +375,7 @@ void app::setup_from_config() {
 
 void app::log_entry_handler(const combat_log_entry& e_) {
     _analizer.add_entry(e_);
-    try {
-        _client.send_combat_event(e_);
-    } catch ( const std::exception& e_ ) {
-        // dont leak net errors to log parser
-    }
+    _combat_client.on_combat_event( e_ );
 #if 0
     auto packed = compress(e_);
     auto& buf = std::get<0>( packed );
@@ -590,7 +586,10 @@ app::app(const char* caption_, const char* config_path_)
 
     _updater = updater { _config };
 
-    _client = client_net_link { this };
+    _string_db = string_db { *this };
+    _player_db = player_db { *this };
+
+    _combat_client = combat_client { _player_db };
 
     //clean_task.get();
     //crash_upload.get();
@@ -611,7 +610,7 @@ void app::operator()() {
         }
     }
 
-    _ui.reset(new main_ui(get_log_dir(), *this, _analizer, _string_map, _char_list));
+    _ui.reset(new main_ui(get_log_dir(), *this, _analizer, _string_db, _player_db));
 
     while ( _ui->handle_os_events() ) {
         // read combat log
@@ -702,8 +701,15 @@ void app::on_listen_socket( SOCKET socket_, unsigned event_, unsigned error_ ) {
     }
 }
 
-void app::on_server_socket( SOCKET socket_, unsigned event_, unsigned error_ ) {
-    _client.on_socket_event( socket_, event_, error_ );
+void app::on_client_socket( SOCKET socket_, unsigned event_, unsigned error_ ) {
+    if ( WSAENETDOWN == error_ || FD_CLOSE == event_ ) {
+        _combat_client.close_socket();
+    }
+
+    if ( FD_READ == event_ ) {
+        while ( _combat_client.try_recive() ) {
+        }
+    }
 }
 
 void app::on_any_client_socket( SOCKET socket_, unsigned event_, unsigned error_ ) {
@@ -892,10 +898,10 @@ void app::remove_log(const std::wstring& file_) {
 
 void app::on_connected_to_server(client_net_link* self_) {
     BOOST_LOG_TRIVIAL(debug) << L"void app::on_connected_to_server(" << self_ << L");";
-    if ( _current_char < _char_list.size() ) {
+//    if ( _current_char < _char_list.size() ) {
         // only send name to server if we have one
-        self_->register_at_server( _char_list[_current_char] );
-    }
+//        self_->register_at_server( _char_list[_current_char] );
+//    }
 }
 
 void app::on_disconnected_from_server(client_net_link* self_) {
@@ -906,18 +912,18 @@ void app::on_disconnected_from_server(client_net_link* self_) {
 void app::on_string_lookup(client_net_link* self_, string_id string_id_) {
     BOOST_LOG_TRIVIAL(debug) << L"void app::on_string_lookup(" << self_ << L", " << string_id_ << L");";
     // server requested a string look up
-    auto ref = _string_map.find(string_id_);
+//    auto ref = _string_db.find(string_id_);
 
-    if ( ref != end(_string_map) ) {
+//    if ( ref != end(_string_db) ) {
         // send string to server
-        self_->send_string_value(string_id_, ref->second);
-    }
+//        self_->send_string_value(string_id_, ref->second);
+//    }
 }
 
 void app::on_string_info(client_net_link * self_, string_id string_id_, const std::wstring& string_) {
     BOOST_LOG_TRIVIAL(debug) << L"void app::on_string_info(" << self_ << L", " << string_id_ << L", " << string_ << L");";
     // just insert it, if it allready exists the current value is kept
-    _string_map.insert(std::make_pair(string_id_, string_));
+//    _string_db.insert(std::make_pair(string_id_, string_));
 }
 
 void app::on_combat_event(client_net_link * self_, const combat_log_entry& event_) {
@@ -929,11 +935,11 @@ void app::on_combat_event(client_net_link * self_, const combat_log_entry& event
 void app::on_set_name(client_net_link * self_, string_id name_id_, const std::wstring& name_) {
     BOOST_LOG_TRIVIAL(debug) << L"void app::on_set_name(" << self_ << L", " << name_id_ << L", " << name_ << L");";
     // find a free id
-    auto local = _id_map.add(name_id_);
+//    auto local = _id_map.add(name_id_);
     // ensure we have enoug slots at char list
-    _char_list.resize(max(local + 1, _char_list.size()));
+//    _char_list.resize(max(local + 1, _char_list.size()));
     // store name
-    _char_list[local] = name_;
+//    _char_list[local] = name_;
 }
 
 void app::new_client(c_socket socket_ ) {
@@ -943,11 +949,11 @@ void app::new_client(c_socket socket_ ) {
 
 void app::on_client_register(server_net_link * self_, const std::wstring& name_) {
     BOOST_LOG_TRIVIAL(debug) << L"void app::on_client_register(" << self_ << L", " << name_ << L");";
-    auto at = std::find(begin(_char_list), end(_char_list), name_);
-    if ( at == end(_char_list) ) {
-        at = _char_list.insert( _char_list.end(), name_ );
-    }
-    auto id = std::distance(begin(_char_list), at);
+    //auto at = std::find(begin(_player_db), end(_player_db), name_);
+    //if ( at == end(_player_db) ) {
+    //    at = _player_db.insert( _player_db.end(), name_ );
+    //}
+    //auto id = std::distance(begin(_player_db), at);
     //for ( auto& cl : _clients ) {
     //    cl->send_set_name(id, name_);
     //}
@@ -996,8 +1002,8 @@ void app::on_client_disconnect(server_net_link* self_) {
 }
 
 void app::connect_to_server( const std::wstring& name_, const std::wstring& port_, std::function<void( unsigned error_code_ )> on_connect_ ) {
-    _client.disconnect(/* [=]( unsigned error_code_ ) {*/ );
-        _client.connect( std::to_string( name_ ), std::to_string( port_ ), on_connect_ );
+//    _client.disconnect(/* [=]( unsigned error_code_ ) {*/ );
+//        _client.connect( std::to_string( name_ ), std::to_string( port_ ), on_connect_ );
     /*} );*/
 }
 
@@ -1013,9 +1019,9 @@ void app::start_server( unsigned long port_ ) {
 
 void app::player_change( string_id name_ ) {
     //if ( _current_char != name_ ) {
-        _current_char = name_;
+//        _current_char = name_;
 
-        _client.register_at_server( _char_list[name_ - 1] );
+//        _client.register_at_server( _char_list[name_ - 1] );
 
         _ui->update_main_player( name_ );
     //}

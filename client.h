@@ -34,8 +34,8 @@ protected:
 private:
     net_protocol                _link;
     sockaddr                    _peer;
-    string_to_id_string_map*    _strings;
-    character_list*             _chars;
+    string_db*    _strings;
+    player_db*             _chars;
     client_core_interface*      _cli;
 
 protected:
@@ -48,7 +48,7 @@ protected:
 
 public:
     client();
-    client(string_to_id_string_map& smap_, character_list& clist_, client_core_interface* cli_);
+    client(string_db& smap_, player_db& clist_, client_core_interface* cli_);
     client(client&& other_);
     client& operator=(client&& other_);
     void connect(const sockaddr& server_);
