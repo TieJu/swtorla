@@ -12,12 +12,14 @@
 #include "swtor_log_parser.h"
 #include "combat_net.h"
 #include "player_db.h"
+#include "combat_db.h"
 
 class combat_client {
     c_socket                    _server;
     std::vector<unsigned char>  _recive_buffer;
     bool                        _name_send { false };
     player_db*                  _player_db { nullptr };
+    combat_db*                  _combat_db { nullptr };
 
     bool parse_next_packet( size_t at ) { return false; }
     void move_packet_data_to_start( size_t at ) { }
@@ -57,7 +59,7 @@ public:
     combat_client() = default;
     combat_client( const combat_client& ) = delete;
     combat_client( combat_client&& other_ ) { *this = std::move( other_ ); }
-    combat_client( player_db& pdb_ ) : _player_db( &pdb_ ) {}
+    combat_client( player_db& pdb_, combat_db& cdb_ ) : _player_db( &pdb_ ), _combat_db( &cdb_ ) {}
     ~combat_client() = default;
     combat_client& operator=( const combat_client& ) = delete;
     combat_client& operator=( combat_client&& other_ ) {
@@ -65,6 +67,7 @@ public:
         _recive_buffer = std::move( other_._recive_buffer );
         _name_send = std::move( other_._name_send );
         _player_db = std::move( other_._player_db );
+        _combat_db = std::move( other_._combat_db );
         return *this;
     }
     void set_connection( c_socket&& socket_ ) {
@@ -74,6 +77,7 @@ public:
     void close_socket() { _server.reset(); }
 
     void on_combat_event( const combat_log_entry& event_ ) {
+        _combat_db->on_combat_event( event_ );
 
         if ( !skip_combat_event_send( event_ ) ) {
             send_combat_event( event_ );

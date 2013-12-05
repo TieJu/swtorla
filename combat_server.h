@@ -153,10 +153,10 @@ public:
 
 class combat_server {
     friend class combat_server_client;
-    std::vector<combat_server_client::state>    _players;
-    string_id                                   _next_id {1};
-    std::unordered_map<string_id, std::wstring> _string_map;
-    std::unordered_map<string_id, std::wstring> _char_map;
+    std::vector<combat_server_client::state>_players;
+    string_id                               _next_id { 1 };
+    string_db*                              _string_db { nullptr };
+    player_db*                              _player_db { nullptr };
 
     struct encounter {
         std::vector<combat_log_entry>   _entries;
@@ -241,7 +241,7 @@ protected:
     }
 
     void set_client_name( string_id id_, const std::wstring& name_ ) {
-        _char_map[id_] = name_;
+        _player_db->set_player_name( name_, id_ );
 
         for ( auto& cl : _players ) {
             if ( cl._id == id_ ) {
@@ -251,8 +251,9 @@ protected:
         }
     }
     void query_string( string_id id_, combat_server_client target_ ) {
-        auto at = _string_map.find( id_ );
-        if ( end( _string_map ) == at ) {
+        if ( _string_db->is_set( id_ ) ) {
+            target_.send_string_result( id_, _string_db->get( id_ ) );
+        } else {
             for ( auto& cl : _players ) {
                 combat_server_client csc { cl, this };
                 if ( csc == target_ ) {
@@ -260,15 +261,13 @@ protected:
                 }
                 csc.send_string_query( id_ );
             }
-        } else {
-            target_.send_string_result( at->first, at->second );
         }
     }
 
     void result_string( string_id id_, const std::wstring& str_, combat_server_client src_ ) {
-        auto result = _string_map.insert( std::make_pair( id_, str_ ) );
-
-        if ( result.second ) {
+        if ( !_string_db->is_set( id_ ) ) {
+            _string_db->set( id_, str_ );
+            
             for ( auto& cl : _players ) {
                 combat_server_client { cl, this }.send_string_result( id_, str_ );
             }
@@ -277,7 +276,18 @@ protected:
 
 public:
     combat_server() = default;
+    combat_server( player_db& player_db_, string_db& string_db_ ) : _player_db( &player_db_ ), _string_db( &string_db_ ) {}
+    combat_server( const combat_server& ) = default;
+    combat_server( combat_server&& other_ ) { *this = std::move( other_ ); }
     ~combat_server() = default;
+    combat_server& operator=( const combat_server& ) = default;
+    combat_server& operator=( combat_server&& other_ ) {
+        _players = std::move( other_._players );
+        _next_id = std::move( other_._next_id );
+        _string_db = std::move( other_._string_db );
+        _player_db = std::move( other_._player_db );
+        return *this;
+    }
 
     combat_server_client get_client_from_socket( SOCKET socket_ ) {
         auto ref = std::find_if( begin( _players ), end( _players ), [=]( const combat_server_client::state& state_ ) {
@@ -305,7 +315,7 @@ public:
                 continue;
             }
             combat_server_client { cl, this }.send_player_remove( ref->_id );
-            _char_map.erase( ref->_id );
+            _player_db->remove_player_name( ref->_id );
         }
 
         _players.erase( ref );

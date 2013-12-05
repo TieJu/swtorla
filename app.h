@@ -50,6 +50,7 @@
 
 #include "player_db.h"
 #include "string_db.h"
+#include "combat_db.h"
 
 class app : boost::noncopyable {
     const char*                                     _config_path;
@@ -69,6 +70,7 @@ class app : boost::noncopyable {
     combat_client                                   _combat_client;
     player_db                                       _player_db;
     string_db                                       _string_db;
+    combat_db                                       _combat_db;
 
     std::wstring scan_install_key(HKEY key_,const wchar_t* name_maptch_,bool partial_only_);
     void find_7z_path_registry();

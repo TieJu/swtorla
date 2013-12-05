@@ -589,7 +589,8 @@ app::app(const char* caption_, const char* config_path_)
     _string_db = string_db { *this };
     _player_db = player_db { *this };
 
-    _combat_client = combat_client { _player_db };
+    _combat_client = combat_client { _player_db, _combat_db };
+    _combat_server = combat_server { _player_db, _string_db };
 
     //clean_task.get();
     //crash_upload.get();
