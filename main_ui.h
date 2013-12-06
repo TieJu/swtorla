@@ -3,6 +3,7 @@
 #include <future>
 #include <unordered_map>
 
+#include "combat_client.h"
 #include "ui_base.h"
 #include "window.h"
 #include "dialog.h"
@@ -28,7 +29,6 @@ private:
     std::vector<std::unique_ptr<data_display_mode>>             _data_display_history;
     std::unique_ptr<dialog>                                     _wnd;
     UINT_PTR                                                    _timer;
-    combat_analizer&                                            _analizer;
     string_id                                                   _player_id;
     app&                                                        _app;
     UINT                                                        _get_host_by_name;
@@ -70,7 +70,7 @@ protected:
     void set_display_mode(unsigned mode_);
 
 public:
-    main_ui(const std::wstring& log_path_, app& app_,combat_analizer& c_anal_,string_db& s_map_,player_db& c_list_);
+    main_ui(const std::wstring& log_path_, app& app_,string_db& s_map_,player_db& c_list_);
     virtual ~main_ui();
 
     void update_main_player(string_id player_id_);

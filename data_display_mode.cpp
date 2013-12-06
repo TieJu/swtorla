@@ -1,14 +1,14 @@
 #include "main_ui.h"
 
-void data_display_entity_dmg_done::update_display(combat_analizer& analizer_, ui_element_manager<main_ui>& ui_element_manager_, main_ui& ui_) {
+void data_display_entity_dmg_done::update_display(combat_db& combat_db_, ui_element_manager<main_ui>& ui_element_manager_, main_ui& ui_) {
     ui_element_manager_.enable_stop(true);
 
-    if ( analizer_.count_encounters() < _encounter ) {
+    if ( combat_db_.count_encounters() < _encounter ) {
         ui_element_manager_.show_only_num_rows(0);
         return;
     }
 
-    auto& encounter = analizer_.from(_encounter);
+    auto& encounter = combat_db_.from(_encounter);
 
     if ( encounter.timestamp() <= _last_update ) {
         return;
@@ -109,15 +109,15 @@ void data_display_entity_dmg_done::update_display(combat_analizer& analizer_, ui
     });
 }
 
-void data_display_entity_healing_done::update_display(combat_analizer& analizer_, ui_element_manager<main_ui>& ui_element_manager_, main_ui& ui_) {
+void data_display_entity_healing_done::update_display(combat_db& combat_db_, ui_element_manager<main_ui>& ui_element_manager_, main_ui& ui_) {
     ui_element_manager_.enable_stop(true);
 
-    if ( analizer_.count_encounters() < _encounter ) {
+    if ( combat_db_.count_encounters() < _encounter ) {
         ui_element_manager_.show_only_num_rows(0);
         return;
     }
 
-    auto& encounter = analizer_.from(_encounter);
+    auto& encounter = combat_db_.from(_encounter);
 
     if ( encounter.timestamp() <= _last_update ) {
         return;
@@ -212,15 +212,15 @@ void data_display_entity_healing_done::update_display(combat_analizer& analizer_
     });
 }
 
-void data_display_entity_dmg_recived::update_display(combat_analizer& analizer_, ui_element_manager<main_ui>& ui_element_manager_, main_ui& ui_) {
+void data_display_entity_dmg_recived::update_display(combat_db& combat_db_, ui_element_manager<main_ui>& ui_element_manager_, main_ui& ui_) {
     ui_element_manager_.enable_stop(true);
 
-    if ( analizer_.count_encounters() < _encounter ) {
+    if ( combat_db_.count_encounters() < _encounter ) {
         ui_element_manager_.show_only_num_rows(0);
         return;
     }
 
-    auto& encounter = analizer_.from(_encounter);
+    auto& encounter = combat_db_.from(_encounter);
 
     if ( encounter.timestamp() <= _last_update ) {
         return;
@@ -315,15 +315,15 @@ void data_display_entity_dmg_recived::update_display(combat_analizer& analizer_,
     });
 }
 
-void data_display_entity_healing_recived::update_display(combat_analizer& analizer_, ui_element_manager<main_ui>& ui_element_manager_, main_ui& ui_) {
+void data_display_entity_healing_recived::update_display(combat_db& combat_db_, ui_element_manager<main_ui>& ui_element_manager_, main_ui& ui_) {
     ui_element_manager_.enable_stop(true);
 
-    if ( analizer_.count_encounters() < _encounter ) {
+    if ( combat_db_.count_encounters() < _encounter ) {
         ui_element_manager_.show_only_num_rows(0);
         return;
     }
 
-    auto& encounter = analizer_.from(_encounter);
+    auto& encounter = combat_db_.from(_encounter);
 
     if ( encounter.timestamp() <= _last_update ) {
         return;
@@ -418,15 +418,15 @@ void data_display_entity_healing_recived::update_display(combat_analizer& analiz
     });
 }
 
-void data_display_entity_skill_dmg_done::update_display(combat_analizer& analizer_, ui_element_manager<main_ui>& ui_element_manager_, main_ui& ui_) {
+void data_display_entity_skill_dmg_done::update_display(combat_db& combat_db_, ui_element_manager<main_ui>& ui_element_manager_, main_ui& ui_) {
     ui_element_manager_.enable_stop(true);
 
-    if ( analizer_.count_encounters() < _encounter ) {
+    if ( combat_db_.count_encounters() < _encounter ) {
         ui_element_manager_.show_only_num_rows(0);
         return;
     }
 
-    auto& encounter = analizer_.from(_encounter);
+    auto& encounter = combat_db_.from(_encounter);
 
     if ( encounter.timestamp() <= _last_update ) {
         return;
@@ -502,15 +502,15 @@ void data_display_entity_skill_dmg_done::update_display(combat_analizer& analize
     });
 }
 
-void data_display_entity_skill_healing_done::update_display(combat_analizer& analizer_, ui_element_manager<main_ui>& ui_element_manager_, main_ui& ui_) {
+void data_display_entity_skill_healing_done::update_display(combat_db& combat_db_, ui_element_manager<main_ui>& ui_element_manager_, main_ui& ui_) {
     ui_element_manager_.enable_stop(true);
 
-    if ( analizer_.count_encounters() < _encounter ) {
+    if ( combat_db_.count_encounters() < _encounter ) {
         ui_element_manager_.show_only_num_rows(0);
         return;
     }
 
-    auto& encounter = analizer_.from(_encounter);
+    auto& encounter = combat_db_.from(_encounter);
 
     if ( encounter.timestamp() <= _last_update ) {
         return;
@@ -586,15 +586,15 @@ void data_display_entity_skill_healing_done::update_display(combat_analizer& ana
     });
 }
 
-void data_display_entity_skill_dmg_recived::update_display(combat_analizer& analizer_, ui_element_manager<main_ui>& ui_element_manager_, main_ui& ui_) {
+void data_display_entity_skill_dmg_recived::update_display(combat_db& combat_db_, ui_element_manager<main_ui>& ui_element_manager_, main_ui& ui_) {
     ui_element_manager_.enable_stop(true);
 
-    if ( analizer_.count_encounters() < _encounter ) {
+    if ( combat_db_.count_encounters() < _encounter ) {
         ui_element_manager_.show_only_num_rows(0);
         return;
     }
 
-    auto& encounter = analizer_.from(_encounter);
+    auto& encounter = combat_db_.from(_encounter);
 
     if ( encounter.timestamp() <= _last_update ) {
         return;
@@ -670,15 +670,15 @@ void data_display_entity_skill_dmg_recived::update_display(combat_analizer& anal
     });
 }
 
-void data_display_entity_skill_healing_recived::update_display(combat_analizer& analizer_, ui_element_manager<main_ui>& ui_element_manager_, main_ui& ui_) {
+void data_display_entity_skill_healing_recived::update_display(combat_db& combat_db_, ui_element_manager<main_ui>& ui_element_manager_, main_ui& ui_) {
     ui_element_manager_.enable_stop(true);
 
-    if ( analizer_.count_encounters() < _encounter ) {
+    if ( combat_db_.count_encounters() < _encounter ) {
         ui_element_manager_.show_only_num_rows(0);
         return;
     }
 
-    auto& encounter = analizer_.from(_encounter);
+    auto& encounter = combat_db_.from(_encounter);
 
     if ( encounter.timestamp() <= _last_update ) {
         return;

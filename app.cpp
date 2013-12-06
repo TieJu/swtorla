@@ -374,7 +374,6 @@ void app::setup_from_config() {
 }
 
 void app::log_entry_handler(const combat_log_entry& e_) {
-    _analizer.add_entry(e_);
     _combat_client.on_combat_event( e_ );
 #if 0
     auto packed = compress(e_);
@@ -578,8 +577,6 @@ app::app(const char* caption_, const char* config_path_)
 
     setup_from_config();
 
-    _analizer = combat_analizer { this };
-
     _log_reader = log_processor { this };
 
     _dir_watcher = dir_watcher { this };
@@ -589,8 +586,8 @@ app::app(const char* caption_, const char* config_path_)
     _string_db = string_db { *this };
     _player_db = player_db { *this };
 
-    _combat_client = combat_client { _player_db, _combat_db };
     _combat_server = combat_server { _player_db, _string_db };
+    _combat_client = combat_client { _player_db };
 
     //clean_task.get();
     //crash_upload.get();
@@ -611,7 +608,7 @@ void app::operator()() {
         }
     }
 
-    _ui.reset(new main_ui(get_log_dir(), *this, _analizer, _string_db, _player_db));
+    _ui.reset(new main_ui(get_log_dir(), *this, _string_db, _player_db));
 
     while ( _ui->handle_os_events() ) {
         // read combat log
@@ -675,7 +672,7 @@ bool app::start_tracking() {
 void app::stop_tracking() {
     _dir_watcher.stop();
     _log_reader.stop();
-    _analizer.clear();
+    _combat_client.get_db().clear();
 }
 
 bool app::check_for_updates() {
@@ -736,7 +733,7 @@ void NTAPI app::on_new_log_file_change( DWORD_PTR param_ ) {
     BOOST_LOG_TRIVIAL( debug ) << L"app::on_new_log_file_change( " << param_ << L" )";
     auto self = reinterpret_cast<app*>( param_ );
     self->_log_reader.stop( );
-    self->_analizer.clear( );
+//    self->_combat_client.get_db().clear( );
     auto time = self->change_log_file( self->_next_log_file );
     self->_log_reader.start( self->_current_log_file, time );
 }

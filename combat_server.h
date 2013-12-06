@@ -9,6 +9,7 @@
 #include "swtor_log_parser.h"
 
 #include "combat_net.h"
+#include "combat_db.h"
 
 
 class combat_server;
@@ -152,29 +153,25 @@ public:
 };
 
 class combat_server {
+protected:
     friend class combat_server_client;
     std::vector<combat_server_client::state>_players;
-    string_id                               _next_id { 1 };
+    string_id                               _next_id { 2 };
     string_db*                              _string_db { nullptr };
     player_db*                              _player_db { nullptr };
-
-    struct encounter {
-        std::vector<combat_log_entry>   _entries;
-        unsigned                        _begins { 0 };
-        unsigned                        _ends { 0 };
-    };
-
-    std::vector<encounter>  _encounters;
+    combat_db                               _combat_db;
 
     void translate( string_id& id_, combat_server_client src_ ) {
         if ( 0 == id_ ) {
             id_ = src_._state->_id;
         }
     }
+
     void translate( combat_log_entry& cle_, combat_server_client src_ ) {
         translate( cle_.src, src_ );
         translate( cle_.dst, src_ );
     }
+
     bool is_any_player( string_id id_ ) {
         if ( id_ >= _next_id ) {
             return false;
@@ -188,30 +185,10 @@ class combat_server {
     }
 
 protected:
-    static bool is_combat_begin( const combat_log_entry& cle_ ) {
-        return cle_.effect_action == ssc_Event && cle_.effect_type == ssc_EnterCombat;
-    }
-
-    static bool is_combat_end( const combat_log_entry& cle_ ) {
-        return cle_.effect_action == ssc_Event && cle_.effect_type == ssc_ExitCombat;
-    }
-
     void combat_event( combat_server_client cl_, combat_log_entry cle_ ) {
-        if ( _encounters.empty() ) {
-            _encounters.push_back( encounter {} );
-        }
-
         translate( cle_, cl_ );
 
-        auto& target = _encounters.back( );
-        target._begins += is_combat_begin( cle_ );
-        target._ends += is_combat_end( cle_ );
-
-        _encounters.back( )._entries.push_back( cle_ );
-
-        if ( target._begins == target._ends ) {
-            _encounters.push_back( encounter {} );
-        }
+        _combat_db.on_combat_event( cle_ );
 
         combat_log_entry_compressed ce { cle_ };
         for ( auto& state : _players ) {
@@ -230,7 +207,7 @@ protected:
     }
 
     string_id get_next_id() {
-        string_id id_next = 1;
+        string_id id_next = 2;
 
         for ( ; is_id_in_use( id_next ); ++id_next ) {}
 
@@ -250,6 +227,7 @@ protected:
             combat_server_client { cl, this }.send_player_name( id_, name_ );
         }
     }
+
     void query_string( string_id id_, combat_server_client target_ ) {
         if ( _string_db->is_set( id_ ) ) {
             target_.send_string_result( id_, _string_db->get( id_ ) );
@@ -286,6 +264,7 @@ public:
         _next_id = std::move( other_._next_id );
         _string_db = std::move( other_._string_db );
         _player_db = std::move( other_._player_db );
+        _combat_db = std::move( other_._combat_db );
         return *this;
     }
 
@@ -302,6 +281,7 @@ public:
 
         return combat_server_client { *ref, this };
     }
+
     void remove_client_by_socket( SOCKET socket_ ) {
         auto ref = std::find_if( begin( _players ), end( _players ), [=]( const combat_server_client::state& state_ ) {
             return state_._socket == socket_;

@@ -183,8 +183,8 @@ void main_ui::update_stat_display(bool force_ /*= false*/) {
         if ( force_ ) {
             _data_display->_last_update = decltype( _data_display->_last_update ){};
         }
-        _data_display->_encounter = _analizer.count_encounters() - 1;
-        _data_display->update_display(_analizer, _ui_elements, *this);
+        _data_display->_encounter = _app.get_client().get_db().count_encounters() - 1;
+        _data_display->update_display( _app.get_client().get_db(), _ui_elements, *this );
     }
 #if 0
     if ( !_analizer || _analizer->count_encounters() < 1 ) {
@@ -750,8 +750,8 @@ void main_ui::set_display_mode(unsigned mode_) {
     }
 }
 
-main_ui::main_ui(const std::wstring& log_path_, app& app_, combat_analizer& c_anal_, string_db& s_map_, player_db& c_list_)
-    : _app(app_), _analizer(c_anal_) {
+main_ui::main_ui(const std::wstring& log_path_, app& app_, string_db& s_map_, player_db& c_list_)
+    : _app(app_) {
     _wnd.reset(new dialog(GetModuleHandleW(nullptr), MAKEINTRESOURCEW(IDD_MAIN_WINDOW), nullptr));
 
     _ui_elements.lookup_info().smap = &s_map_;

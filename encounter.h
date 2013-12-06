@@ -62,6 +62,18 @@ public:
 class encounter {
     std::vector<combat_log_entry>                   _table;
     std::chrono::high_resolution_clock::time_point  _last_update;
+    size_t                                          _begins { 0 };
+    size_t                                          _ends { 0 };
+
+    bool filter( const combat_log_entry& cle_ ) { return false; }
+    static bool is_combat_begin( const combat_log_entry& cle_ ) {
+        return cle_.effect_action == ssc_Event
+            && cle_.effect_type == ssc_EnterCombat;
+    }
+    static bool is_combat_end( const combat_log_entry& cle_ ) {
+        return cle_.effect_action == ssc_Event
+            && cle_.effect_type == ssc_ExitCombat;
+    }
 
 public:/*
     template<typename R,typename U,typename V,typename W,typename X>
@@ -92,9 +104,18 @@ public:/*
         }
     }
     */
-    void insert(const combat_log_entry& row_) {
-        _table.push_back(row_);
-        _last_update = std::chrono::high_resolution_clock::now();
+    void insert( const combat_log_entry& row_ ) {
+        if ( filter( row_ ) ) {
+            return;
+        }
+
+        _begins += is_combat_begin( row_ ) ? 1 : 0;
+        _ends += is_combat_end( row_ ) ? 1 : 0;
+
+        if ( _begins > 0 ) {
+            _table.push_back( row_ );
+            _last_update = std::chrono::high_resolution_clock::now();
+        }
     }
 
     template<typename DstType,typename U>
@@ -121,5 +142,23 @@ public:/*
 
     void compatct() {
         _table.shrink_to_fit();
+    }
+
+    void remap_player( string_id old_, string_id new_ ) {
+        for ( auto& e : _table ) {
+            if ( e.src == old_ ) {
+                e.src = new_;
+            }
+            if ( e.dst == old_ ) {
+                e.dst = new_;
+            }
+        }
+    }
+
+    bool combat_has_finished( ) {
+        if ( _begins > 0 ) {
+            return _begins == _ends;
+        }
+        return false;
     }
 };

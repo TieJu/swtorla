@@ -59,7 +59,6 @@ class app : boost::noncopyable {
     program_version                                 _version;
     dir_watcher                                     _dir_watcher;
     log_processor                                   _log_reader;
-    combat_analizer                                 _analizer;
     std::wstring                                    _current_log_file;
     std::wstring                                    _next_log_file;
     updater                                         _updater;
@@ -70,7 +69,6 @@ class app : boost::noncopyable {
     combat_client                                   _combat_client;
     player_db                                       _player_db;
     string_db                                       _string_db;
-    combat_db                                       _combat_db;
 
     std::wstring scan_install_key(HKEY key_,const wchar_t* name_maptch_,bool partial_only_);
     void find_7z_path_registry();
@@ -205,4 +203,7 @@ protected:
     void remap_player_name( string_id old_, string_id new_ ) {
         // TODO: run over all combat entrys and change them
     }
+
+public:
+    combat_client& get_client() { return _combat_client; }
 };
