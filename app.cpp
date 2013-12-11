@@ -375,96 +375,6 @@ void app::setup_from_config() {
 
 void app::log_entry_handler(const combat_log_entry& e_) {
     _combat_client.on_combat_event( e_ );
-#if 0
-    auto packed = compress(e_);
-    auto& buf = std::get<0>( packed );
-    auto unpacked = uncompress(buf.data(), 0);
-    BOOST_LOG_TRIVIAL(debug) << L"compressed log entry from "
-                             << ( sizeof( e_ ) * 8 )
-                             << " bits ( "
-                             << sizeof( e_ )
-                             << L" ) down to "
-                             << std::get<1>( packed )
-                             << L" bits ( "
-                             << ((std::get<1>(packed) + 7) / 8)
-                             << L") "
-                             << L"= "
-                             << ( (double( std::get<1>( packed ) ) / ( sizeof(e_)* 8 )  * 100.0 ) );
-    /*if ( memcmp(&std::get<0>( unpacked ), &e_, sizeof( e_ )) ) {
-        BOOST_LOG_TRIVIAL(debug) << L"compress / decompress error!";
-    }*/
-    auto a = std::get<0>( unpacked );
-    auto a_ptr = reinterpret_cast<const unsigned char*>( &a );
-    auto b_ptr = reinterpret_cast<const unsigned char*>( &e_ );
-    for ( size_t i = 0; i < sizeof( e_ ); ++i ) {
-        if ( a_ptr[i] != b_ptr[i] ) {
-            BOOST_LOG_TRIVIAL( debug ) << L"compress / decompress error at byte " << i;
-        }
-    }
-#endif
-    //
-    //// compress test
-    //char buffer[sizeof(e_)];
-    //auto from = std::begin(buffer);
-    //auto to = std::end(buffer);
-
-    //auto get_length_of = [=](char* res_) {
-    //    return std::distance(from, res_);
-    //};
-
-    //long long length = 0;
-    //length += get_length_of(pack_int(from, to, e_.time_index.hours));
-    //length += get_length_of(pack_int(from, to, e_.time_index.minutes));
-    //length += get_length_of(pack_int(from, to, e_.time_index.seconds));
-    //length += get_length_of(pack_int(from, to, e_.time_index.milseconds));
-
-    //length += get_length_of(pack_int(from, to, e_.src));
-    //length += get_length_of(pack_int(from, to, e_.src_minion));
-    //length += get_length_of(pack_int(from, to, e_.src_id));
-
-    //length += get_length_of(pack_int(from, to, e_.dst));
-    //length += get_length_of(pack_int(from, to, e_.dst_minion));
-    //length += get_length_of(pack_int(from, to, e_.dst_id));
-
-    //length += get_length_of(pack_int(from, to, e_.ability));
-
-    //length += get_length_of(pack_int(from, to, e_.effect_action));
-    //length += get_length_of(pack_int(from, to, e_.effect_type));
-    //length += get_length_of(pack_int(from, to, e_.effect_value));
-    //length += get_length_of(pack_int(from, to, e_.was_crit_effect));
-    //length += get_length_of(pack_int(from, to, e_.effect_value_type));
-    //length += get_length_of(pack_int(from, to, e_.effect_value2));
-    //length += get_length_of(pack_int(from, to, e_.was_crit_effect2));
-    //length += get_length_of(pack_int(from, to, e_.effect_value_type2));
-    //length += get_length_of(pack_int(from, to, e_.effect_thread));
-
-    //unsigned bit_length = 0;
-    //bit_length = ( bit_pack_int(from, bit_length, e_.time_index.hours) );
-    //bit_length = ( bit_pack_int(from, bit_length, e_.time_index.minutes) );
-    //bit_length = ( bit_pack_int(from, bit_length, e_.time_index.seconds) );
-    //bit_length = ( bit_pack_int(from, bit_length, e_.time_index.milseconds) );
-
-    //bit_length = ( bit_pack_int(from, bit_length, e_.src) );
-    //bit_length = ( bit_pack_int(from, bit_length, e_.src_minion) );
-    //bit_length = ( bit_pack_int(from, bit_length, e_.src_id) );
-
-    //bit_length = ( bit_pack_int(from, bit_length, e_.dst) );
-    //bit_length = ( bit_pack_int(from, bit_length, e_.dst_minion) );
-    //bit_length = ( bit_pack_int(from, bit_length, e_.dst_id) );
-
-    //bit_length = ( bit_pack_int(from, bit_length, e_.ability) );
-
-    //bit_length = ( bit_pack_int(from, bit_length, e_.effect_action) );
-    //bit_length = ( bit_pack_int(from, bit_length, e_.effect_type) );
-    //bit_length = ( bit_pack_int(from, bit_length, e_.effect_value) );
-    //bit_length = ( bit_pack_int(from, bit_length, e_.was_crit_effect) );
-    //bit_length = ( bit_pack_int(from, bit_length, e_.effect_value_type) );
-    //bit_length = ( bit_pack_int(from, bit_length, e_.effect_value2) );
-    //bit_length = ( bit_pack_int(from, bit_length, e_.was_crit_effect2) );
-    //bit_length = ( bit_pack_int(from, bit_length, e_.effect_value_type2) );
-    //bit_length = ( bit_pack_int(from, bit_length, e_.effect_thread) );
-
-    //BOOST_LOG_TRIVIAL(debug) << L"bit packing " << ( bit_length / 8 ) << " vs byte packing " << length << " vs uncompressed " << sizeof( e_ );
 }
 
 update_server_info app::check_update( update_dialog& dlg_ ) {
@@ -509,22 +419,26 @@ void app::start_update_process(update_dialog& dlg_) {
     CreateProcessW(file_name, L"-update", nullptr, nullptr, FALSE, 0, nullptr, nullptr, &si, &pi);
 }
 
-std::future<void> app::remove_old_file() {
-    return std::async( std::launch::async, [=]() {
-        wchar_t file_name[MAX_PATH];
-        ::GetModuleFileNameW( nullptr, file_name, MAX_PATH );
+void NTAPI app::remove_old_file_tick( DWORD_PTR /*param_*/ ) {
+    wchar_t file_name[MAX_PATH];
+    ::GetModuleFileNameW( nullptr, file_name, MAX_PATH );
 
-        std::wstring temp_name( file_name );
-        temp_name += L".old";
+    std::wstring temp_name( file_name );
+    temp_name += L".old";
 
-        BOOST_LOG_TRIVIAL( debug ) << L"removing old file " << temp_name;
+    BOOST_LOG_TRIVIAL( debug ) << L"removing old file " << temp_name;
 
-        while ( !::DeleteFileW( temp_name.c_str() ) ) {
-            if ( GetLastError() == ERROR_FILE_NOT_FOUND ) {
-                break;
-            }
+    if ( !::DeleteFileW( temp_name.c_str() ) ) {
+        if ( GetLastError() == ERROR_FILE_NOT_FOUND ) {
+            return;
         }
-    } );
+    }
+
+    ::QueueUserAPC( &app::remove_old_file_tick, ::GetCurrentThread( ), 0 );
+}
+
+void app::remove_old_file( ) {
+    ::QueueUserAPC( &app::remove_old_file_tick, ::GetCurrentThread( ), 0 );
 }
 
 void app::read_config(const char* config_path_) {
@@ -546,10 +460,12 @@ void app::write_config(const char* config_path_) {
 
 }
 
-std::future<void> app::send_crashreport( const char* path_ ) {
-    // todo: add crash upload handler here
-    (void)path_;
-    return {};
+void NTAPI app::send_crashreport_tick( DWORD_PTR /*param_*/ ) {
+    // do nothing...
+}
+
+void app::send_crashreport( ) {
+    ::QueueUserAPC( &app::send_crashreport_tick, ::GetCurrentThread( ), 0 );
 }
 
 app::app(const char* caption_, const char* config_path_)
@@ -569,9 +485,10 @@ app::app(const char* caption_, const char* config_path_)
 
     BOOST_LOG_TRIVIAL( info ) << L"SW:ToR log analizer version " << _version.major << L"." << _version.minor << L"." << _version.patch << L" Build " << _version.build;
 
-    /*auto clean_task = */remove_old_file();
+    send_crashreport();
 
-    /*auto crash_upload = */send_crashreport( CRASH_FILE_NAME );
+    remove_old_file();
+
 
     read_config(_config_path);
 
@@ -582,9 +499,6 @@ app::app(const char* caption_, const char* config_path_)
     _dir_watcher = dir_watcher { this };
 
     _updater = updater { _config };
-
-    //clean_task.get();
-    //crash_upload.get();
 }
 
 

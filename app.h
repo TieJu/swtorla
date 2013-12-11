@@ -91,12 +91,14 @@ private:
 
     update_server_info check_update( update_dialog& dlg_ );
     void start_update_process(update_dialog& dlg_);
-    std::future<void> remove_old_file();
+    static void NTAPI remove_old_file_tick( DWORD_PTR param_ );
+    void remove_old_file();
 
     void read_config(const char* config_path_);
     void write_config(const char* config_path_);
 
-    std::future<void> send_crashreport(const char* path_);
+    static void NTAPI send_crashreport_tick( DWORD_PTR param_ );
+    void send_crashreport();
 
 public:
     app(const char* caption_, const char* config_path_);
