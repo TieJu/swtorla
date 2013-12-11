@@ -246,6 +246,8 @@ combat_log_entry parse_combat_log_line( const char* from_, const char* to_, stri
     combat_log_entry e
     {};
 
+    //BOOST_LOG_TRIVIAL( debug ) << std::string( from_, to_ );
+
     skip_spaces(from_, to_);
 
     // timestamp block
@@ -343,6 +345,9 @@ combat_log_entry parse_combat_log_line( const char* from_, const char* to_, stri
         e.effect_thread = parse_number<decltype( e.effect_thread )>( from_, to_ );
         expect_char(from_, to_, '>');
     }
+
+
+    //BOOST_LOG_TRIVIAL( debug ) << to_wstring( e );
 
     return e;
 }

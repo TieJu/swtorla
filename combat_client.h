@@ -18,7 +18,9 @@ class combat_client {
     c_socket                    _server;
     std::vector<unsigned char>  _recive_buffer;
     bool                        _name_send { false };
-    player_db*                  _player_db { nullptr };
+    bool                        _update_ui { false };
+    player_db                   _player_db;
+    string_db                   _string_db;
     combat_db                   _combat_db;
 
     bool parse_next_packet( size_t at ) { return false; }
@@ -28,7 +30,7 @@ class combat_client {
         return id_ == 0;
     }
     bool is_any_player( string_id id_ ) { 
-        return _player_db->is_player_name_set( id_ );
+        return _player_db.is_player_name_set( id_ );
     }
 
     bool skip_combat_event_send( const combat_log_entry& event_ ) {
@@ -48,18 +50,21 @@ class combat_client {
         _server.send( compressed.data(), compressed.size() );
     }
     void send_player_name() {
-        auto name = _player_db->get_player_name();
+        auto name = _player_db.get_player_name();
         packet_header hdr { name.length() * sizeof( wchar_t ), packet_commands::client_name };
         _server.send( hdr );
         _server.send( name.data(), name.length() * sizeof( wchar_t ) );
         _name_send = true;
     }
 
+    void update_ui() {
+        _update_ui = true;
+    }
+
 public:
     combat_client() = default;
     combat_client( const combat_client& ) = delete;
     combat_client( combat_client&& other_ ) { *this = std::move( other_ ); }
-    combat_client( player_db& pdb_ ) : _player_db( &pdb_ ) {}
     ~combat_client() = default;
     combat_client& operator=( const combat_client& ) = delete;
     combat_client& operator=( combat_client&& other_ ) {
@@ -67,6 +72,7 @@ public:
         _recive_buffer = std::move( other_._recive_buffer );
         _name_send = std::move( other_._name_send );
         _player_db = std::move( other_._player_db );
+        _string_db = std::move( other_._string_db );
         _combat_db = std::move( other_._combat_db );
         return *this;
     }
@@ -77,7 +83,9 @@ public:
     void close_socket() { _server.reset(); }
 
     void on_combat_event( const combat_log_entry& event_ ) {
-        _combat_db.on_combat_event( event_ );
+        if ( _combat_db.on_combat_event( event_ ) ) {
+            update_ui();
+        }
 
         if ( !skip_combat_event_send( event_ ) ) {
             send_combat_event( event_ );
@@ -110,5 +118,17 @@ public:
 
     void send_string_query( string_id id_ ) {}
 
+    bool ui_needs_update_and_reset() {
+        bool r = _update_ui;
+        _update_ui = false;
+        return r;
+    }
+
     combat_db& get_db() { return _combat_db; }
+    player_db& get_players() { return _player_db; }
+    string_db& get_strings() { return _string_db; }
+
+    void new_log() {
+        _player_db.remove_player_name( 0 );
+    }
 };

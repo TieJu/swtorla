@@ -62,7 +62,10 @@ public:
     string_id get_player_id( const std::wstring& name_ ) {
         auto ref = std::find( begin( _players ), end( _players ), name_ );
         if ( ref == end( _players ) ) {
-            auto id = _players.size();
+            size_t id = 0;
+            if ( _players.empty( ) || !_players[0].empty( ) ) {
+                id = _players.size( );
+            }
             set_player_name( name_, id );
             return id;
         }

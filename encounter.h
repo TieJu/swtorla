@@ -8,6 +8,15 @@
 #include <vector>
 #include <chrono>
 
+#include <boost/log/core.hpp>
+#include <boost/log/trivial.hpp>
+#include <boost/log/expressions.hpp>
+#include <boost/log/sinks/text_file_backend.hpp>
+#include <boost/log/utility/setup/file.hpp>
+#include <boost/log/utility/setup/common_attributes.hpp>
+#include <boost/log/sources/severity_logger.hpp>
+#include <boost/log/sources/record_ostream.hpp>
+
 template<typename T>
 class query_result {
     std::vector<T>  _rows;
@@ -61,11 +70,9 @@ public:
 
 class encounter {
     std::vector<combat_log_entry>                   _table;
-    std::chrono::high_resolution_clock::time_point  _last_update;
     size_t                                          _begins { 0 };
     size_t                                          _ends { 0 };
 
-    bool filter( const combat_log_entry& cle_ ) { return false; }
     static bool is_combat_begin( const combat_log_entry& cle_ ) {
         return cle_.effect_action == ssc_Event
             && cle_.effect_type == ssc_EnterCombat;
@@ -104,30 +111,30 @@ public:/*
         }
     }
     */
-    void insert( const combat_log_entry& row_ ) {
-        if ( filter( row_ ) ) {
-            return;
-        }
-
+    bool insert( const combat_log_entry& row_ ) {
         _begins += is_combat_begin( row_ ) ? 1 : 0;
         _ends += is_combat_end( row_ ) ? 1 : 0;
 
         if ( _begins > 0 ) {
+            //BOOST_LOG_TRIVIAL( debug ) << to_wstring( row_ );
             _table.push_back( row_ );
-            _last_update = std::chrono::high_resolution_clock::now();
+            return true;
         }
+        return false;
     }
 
     template<typename DstType,typename U>
-    query_set<std::vector<combat_log_entry>, DstType> select(U v_) {
+    query_set<std::vector<combat_log_entry>, DstType> select( U v_ ) {/*
+        BOOST_LOG_TRIVIAL( debug ) << "select from { ";
+        for ( const auto& e : _table ) {
+            BOOST_LOG_TRIVIAL( debug ) << to_wstring( e );
+        }
+        BOOST_LOG_TRIVIAL( debug ) << "} ";
+        BOOST_LOG_TRIVIAL( debug ) << _table.size() << " records listed";*/
         return select_from<DstType>( std::forward<U>( v_ ), _table );
     }
 
     std::vector<combat_log_entry>& get_data() { return _table; }
-
-    std::chrono::high_resolution_clock::time_point timestamp() {
-        return _last_update;
-    }
 
     std::chrono::milliseconds get_combat_length() {
         if ( _table.size() < 2 ) {
@@ -156,6 +163,7 @@ public:/*
     }
 
     bool combat_has_finished( ) {
+        //BOOST_LOG_TRIVIAL( debug ) << L"combat_has_finished() = " << ( ( _begins > 0 ) ? ( _begins == _ends ) : false );
         if ( _begins > 0 ) {
             return _begins == _ends;
         }

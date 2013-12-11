@@ -67,8 +67,6 @@ class app : boost::noncopyable {
     combat_server                                   _combat_server;
     c_socket                                        _server_socket;
     combat_client                                   _combat_client;
-    player_db                                       _player_db;
-    string_db                                       _string_db;
 
     std::wstring scan_install_key(HKEY key_,const wchar_t* name_maptch_,bool partial_only_);
     void find_7z_path_registry();
@@ -162,8 +160,8 @@ protected:
 protected:
     friend class log_processor;
 
-    string_db& get_string_map() { return _string_db; }
-    player_db& get_char_list() { return _player_db; }
+    string_db& get_string_map() { return _combat_client.get_strings(); }
+    player_db& get_char_list() { return _combat_client.get_players(); }
 
 protected:
     friend class combat_analizer;

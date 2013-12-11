@@ -583,12 +583,6 @@ app::app(const char* caption_, const char* config_path_)
 
     _updater = updater { _config };
 
-    _string_db = string_db { *this };
-    _player_db = player_db { *this };
-
-    _combat_server = combat_server { _player_db, _string_db };
-    _combat_client = combat_client { _player_db };
-
     //clean_task.get();
     //crash_upload.get();
 }
@@ -608,11 +602,15 @@ void app::operator()() {
         }
     }
 
-    _ui.reset(new main_ui(get_log_dir(), *this, _string_db, _player_db));
+    _ui.reset(new main_ui(get_log_dir(), *this, _combat_client.get_strings(), _combat_client.get_players()));
 
     while ( _ui->handle_os_events() ) {
         // read combat log
         _log_reader();
+
+        if ( _combat_client.ui_needs_update_and_reset() ) {
+            _ui->update_stat_display( true );
+        }
     }
 }
 
@@ -666,6 +664,7 @@ bool app::start_tracking() {
     _dir_watcher.watch(log_path);
     auto file = find_path_for_lates_log_file(log_path);
     _log_reader.start(_current_log_file, change_log_file(file, false));
+    _combat_client.new_log();
     return true;
 }
 
@@ -736,6 +735,7 @@ void NTAPI app::on_new_log_file_change( DWORD_PTR param_ ) {
 //    self->_combat_client.get_db().clear( );
     auto time = self->change_log_file( self->_next_log_file );
     self->_log_reader.start( self->_current_log_file, time );
+    self->_combat_client.new_log();
 }
 
 void app::on_new_log_file(const std::wstring& file_) {

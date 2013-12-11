@@ -15,20 +15,22 @@ inline std::wstring to_wstring( const combat_log_entry& e_ ) {
     std::wstring buffer;
 
     buffer += L"CombatLogEntry {";
-    buffer += L" src: " + std::to_wstring( e_.src );
-    buffer += L" src minion: " + std::to_wstring( e_.src_minion );
-    buffer += L" src id: " + std::to_wstring( e_.src_id );
-    buffer += L" dst: " + std::to_wstring( e_.dst );
-    buffer += L" dst minion: " + std::to_wstring( e_.src_minion );
-    buffer += L" src id: " + std::to_wstring( e_.src_id );
-    buffer += L" effect acrtion: " + std::to_wstring( e_.effect_action );
-    buffer += L" effect type: " + std::to_wstring( e_.effect_value_type );
-    buffer += L" effect type2: " + std::to_wstring( e_.effect_value_type2 );
-    buffer += L" value: " + std::to_wstring( e_.effect_value );
-    buffer += L" value2: " + std::to_wstring( e_.effect_value2 );
-    buffer += L" thread: " + std::to_wstring( e_.effect_thread );
-    buffer += L" flags: " + std::to_wstring( e_.entry_flags );
-    buffer += L"}";
+    buffer += L"\r\n src: " + std::to_wstring( e_.src );
+    buffer += L"\r\n src minion: " + std::to_wstring( e_.src_minion );
+    buffer += L"\r\n src id: " + std::to_wstring( e_.src_id );
+    buffer += L"\r\n dst: " + std::to_wstring( e_.dst );
+    buffer += L"\r\n dst minion: " + std::to_wstring( e_.src_minion );
+    buffer += L"\r\n dst id: " + std::to_wstring( e_.dst_id );
+    buffer += L"\r\n ability: " + std::to_wstring( e_.ability );
+    buffer += L"\r\n effect action: " + std::to_wstring( e_.effect_action );
+    buffer += L"\r\n effect type: " + std::to_wstring( e_.effect_type );
+    buffer += L"\r\n effect value type: " + std::to_wstring( e_.effect_value_type );
+    buffer += L"\r\n effect value type2: " + std::to_wstring( e_.effect_value_type2 );
+    buffer += L"\r\n value: " + std::to_wstring( e_.effect_value );
+    buffer += L"\r\n value2: " + std::to_wstring( e_.effect_value2 );
+    buffer += L"\r\n thread: " + std::to_wstring( e_.effect_thread );
+    buffer += L"\r\n flags: " + std::to_wstring( e_.entry_flags );
+    buffer += L"\r\n}\r\n";
 
     return buffer;
 }
@@ -141,4 +143,25 @@ enum swtor_string_constants : unsigned long long {
     ssc_ApplyEffect = 836045448945477ull,
     ssc_Damage = 836045448945501ull,
     ssc_Heal = 836045448945500ull,
+
+    ssc_SafeLogin = 973870949466112ull,
 };
+
+inline bool is_safe_login( const combat_log_entry& cle_ ) {
+    return cle_.ability == ssc_SafeLogin;
+}
+
+inline bool is_damage_effect( const combat_log_entry& cle_ ) {
+    return cle_.effect_action == ssc_ApplyEffect
+        && cle_.effect_type == ssc_Damage;
+}
+
+inline bool is_heal_effect( const combat_log_entry& cle_ ) {
+    return cle_.effect_action == ssc_ApplyEffect
+        && cle_.effect_type == ssc_Heal;
+}
+
+inline bool is_heal_or_damabe_effect( const combat_log_entry& cle_ ) {
+    return cle_.effect_action == ssc_ApplyEffect
+        && ( cle_.effect_type == ssc_Damage || cle_.effect_type == ssc_Heal );
+}

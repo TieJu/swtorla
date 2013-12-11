@@ -1,5 +1,14 @@
 #include "main_ui.h"
 
+#include <boost/log/core.hpp>
+#include <boost/log/trivial.hpp>
+#include <boost/log/expressions.hpp>
+#include <boost/log/sinks/text_file_backend.hpp>
+#include <boost/log/utility/setup/file.hpp>
+#include <boost/log/utility/setup/common_attributes.hpp>
+#include <boost/log/sources/severity_logger.hpp>
+#include <boost/log/sources/record_ostream.hpp>
+
 void data_display_entity_dmg_done::update_display(combat_db& combat_db_, ui_element_manager<main_ui>& ui_element_manager_, main_ui& ui_) {
     ui_element_manager_.enable_stop(true);
 
@@ -9,12 +18,6 @@ void data_display_entity_dmg_done::update_display(combat_db& combat_db_, ui_elem
     }
 
     auto& encounter = combat_db_.from(_encounter);
-
-    if ( encounter.timestamp() <= _last_update ) {
-        return;
-    }
-
-    _last_update = encounter.timestamp();
     /*
     struct dmg_info { unsigned long long dmg; bool crit;; string_id action, type, ability; };
     struct ability_info { string_id  ability; unsigned long long dmg; unsigned int crits; unsigned int misses; };
@@ -25,7 +28,6 @@ void data_display_entity_dmg_done::update_display(combat_db& combat_db_, ui_elem
     auto dmg_group = group_by([](const dmg_info& a_, const dmg_info& b_) { return a_.ability == b_.ability; }
                              ,[](const dmg_info& a_, const ability_info& b_) { return ability_info{ a_.ability, b_.dmg + a_.dmg, b_.crits + (a_.crit?1:0), b_.misses + (a_.dmg==0?1:0) }; }
                              ,dmg_select_flt);*/
-
 
     auto player_records = encounter.select<combat_log_entry>( [=](const combat_log_entry& e_) {return e_; } )
         .where([=](const combat_log_entry& e_) {
@@ -62,7 +64,8 @@ void data_display_entity_dmg_done::update_display(combat_db& combat_db_, ui_elem
         return res;
     }).order_by([=](const combat_log_entry_ex& lhs_, const combat_log_entry_ex& rhs_) {
         return lhs_.effect_value > rhs_.effect_value;
-    }).commit < std::vector < combat_log_entry_ex >> ( );
+    } ).commit < std::vector < combat_log_entry_ex >>( );
+    //BOOST_LOG_TRIVIAL( debug ) << L"nuber of player damage records: " << player_damage.size( );
 
     while ( ui_element_manager_.rows() < player_damage.size() ) {
         ui_element_manager_.new_data_row();
@@ -118,12 +121,6 @@ void data_display_entity_healing_done::update_display(combat_db& combat_db_, ui_
     }
 
     auto& encounter = combat_db_.from(_encounter);
-
-    if ( encounter.timestamp() <= _last_update ) {
-        return;
-    }
-
-    _last_update = encounter.timestamp();
 
     auto player_records = encounter.select<combat_log_entry>( [=](const combat_log_entry& e_) {return e_; } )
         .where([=](const combat_log_entry& e_) {
@@ -222,12 +219,6 @@ void data_display_entity_dmg_recived::update_display(combat_db& combat_db_, ui_e
 
     auto& encounter = combat_db_.from(_encounter);
 
-    if ( encounter.timestamp() <= _last_update ) {
-        return;
-    }
-
-    _last_update = encounter.timestamp();
-
     auto player_records = encounter.select<combat_log_entry>( [=](const combat_log_entry& e_) {return e_; } )
         .where([=](const combat_log_entry& e_) {
             return e_.dst == _entity_name && e_.dst_minion == _minion_name;
@@ -324,12 +315,6 @@ void data_display_entity_healing_recived::update_display(combat_db& combat_db_, 
     }
 
     auto& encounter = combat_db_.from(_encounter);
-
-    if ( encounter.timestamp() <= _last_update ) {
-        return;
-    }
-
-    _last_update = encounter.timestamp();
 
     auto player_records = encounter.select<combat_log_entry>( [=](const combat_log_entry& e_) {return e_; } )
         .where([=](const combat_log_entry& e_) {
@@ -428,12 +413,6 @@ void data_display_entity_skill_dmg_done::update_display(combat_db& combat_db_, u
 
     auto& encounter = combat_db_.from(_encounter);
 
-    if ( encounter.timestamp() <= _last_update ) {
-        return;
-    }
-
-    _last_update = encounter.timestamp();
-
     auto player_records = encounter.select<combat_log_entry>( [=](const combat_log_entry& e_) {return e_; } )
         .where([=](const combat_log_entry& e_) {
             return e_.src == _entity_name && e_.src_minion == _minion_name && e_.ability == _ability_name;
@@ -511,12 +490,6 @@ void data_display_entity_skill_healing_done::update_display(combat_db& combat_db
     }
 
     auto& encounter = combat_db_.from(_encounter);
-
-    if ( encounter.timestamp() <= _last_update ) {
-        return;
-    }
-
-    _last_update = encounter.timestamp();
 
     auto player_records = encounter.select<combat_log_entry>( [=](const combat_log_entry& e_) {return e_; } )
         .where([=](const combat_log_entry& e_) {
@@ -596,12 +569,6 @@ void data_display_entity_skill_dmg_recived::update_display(combat_db& combat_db_
 
     auto& encounter = combat_db_.from(_encounter);
 
-    if ( encounter.timestamp() <= _last_update ) {
-        return;
-    }
-
-    _last_update = encounter.timestamp();
-
     auto player_records = encounter.select<combat_log_entry>( [=](const combat_log_entry& e_) {return e_; } )
         .where([=](const combat_log_entry& e_) {
             return e_.dst == _entity_name && e_.dst_minion == _minion_name && e_.ability == _ability_name;
@@ -679,12 +646,6 @@ void data_display_entity_skill_healing_recived::update_display(combat_db& combat
     }
 
     auto& encounter = combat_db_.from(_encounter);
-
-    if ( encounter.timestamp() <= _last_update ) {
-        return;
-    }
-
-    _last_update = encounter.timestamp();
 
     auto player_records = encounter.select<combat_log_entry>( [=](const combat_log_entry& e_) {return e_; } )
         .where([=](const combat_log_entry& e_) {

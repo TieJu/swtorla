@@ -28,8 +28,7 @@ private:
     std::unique_ptr<data_display_mode>                          _data_display;
     std::vector<std::unique_ptr<data_display_mode>>             _data_display_history;
     std::unique_ptr<dialog>                                     _wnd;
-    UINT_PTR                                                    _timer;
-    string_id                                                   _player_id;
+    string_id                                                   _player_id { 0 };
     app&                                                        _app;
     UINT                                                        _get_host_by_name;
     std::unordered_map<HANDLE,async_get_host_by_name_callback>  _on_get_host_by_name;
@@ -47,7 +46,9 @@ private:
     void show_about_dlg();
     INT_PTR about_dlg_handler(dialog* dlg_, UINT msg_, WPARAM w_param_, LPARAM l_param_);
 
+public:
     void update_stat_display(bool force_ = false);
+private:
     virtual void on_event(const any& v_);
 public:
     virtual bool handle_os_events();

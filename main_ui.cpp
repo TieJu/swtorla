@@ -180,9 +180,6 @@ INT_PTR main_ui::about_dlg_handler(dialog* dlg_, UINT msg_, WPARAM w_param_, LPA
 
 void main_ui::update_stat_display(bool force_ /*= false*/) {
     if ( _data_display ) {
-        if ( force_ ) {
-            _data_display->_last_update = decltype( _data_display->_last_update ){};
-        }
         _data_display->_encounter = _app.get_client().get_db().count_encounters() - 1;
         _data_display->update_display( _app.get_client().get_db(), _ui_elements, *this );
     }
@@ -682,11 +679,6 @@ LRESULT main_ui::os_callback_handler(dialog* window_, UINT uMsg, WPARAM wParam, 
             }
             return TRUE;
         }
-    } else if ( uMsg == WM_TIMER ) {
-        //if ( wParam == _timer ) {
-        update_stat_display();
-        //}
-        return TRUE;
     } else if ( uMsg == _get_host_by_name ) {
         auto at = _on_get_host_by_name.find( reinterpret_cast<HANDLE>( wParam ) );
         if ( at != end( _on_get_host_by_name ) ) {
@@ -708,7 +700,6 @@ LRESULT main_ui::os_callback_handler(dialog* window_, UINT uMsg, WPARAM wParam, 
 void main_ui::on_start_solo() {
     auto ok = _app.start_tracking();
     if ( ok ) {
-        _timer = SetTimer(_wnd->native_window_handle(), _timer, 1000, nullptr);
         auto index = ::SendMessageW(::GetDlgItem(_wnd->native_handle(), IDC_MAIN_DISPLAY_MODE), CB_GETCURSEL, 0, 0);
         set_display_mode(index);
     }
@@ -720,7 +711,6 @@ void main_ui::on_start_raid() {
 
 void main_ui::on_stop() {
     _app.stop_tracking();
-    KillTimer(_wnd->native_window_handle(), _timer);
     _ui_elements.enable_stop(false);
     _ui_elements.clear();
     _data_display.reset();
@@ -787,11 +777,11 @@ main_ui::main_ui(const std::wstring& log_path_, app& app_, string_db& s_map_, pl
 }
 
 main_ui::~main_ui() {
-    KillTimer(_wnd->native_window_handle(), _timer);
 }
 
 
 void main_ui::update_main_player(string_id player_id_) {
+    BOOST_LOG_TRIVIAL( debug ) << L"update_main_player( " << player_id_ << L" )";
     if ( _player_id == player_id_ ) {
         return;
     }

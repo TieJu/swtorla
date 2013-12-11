@@ -156,9 +156,9 @@ class combat_server {
 protected:
     friend class combat_server_client;
     std::vector<combat_server_client::state>_players;
-    string_id                               _next_id { 2 };
-    string_db*                              _string_db { nullptr };
-    player_db*                              _player_db { nullptr };
+    string_id                               _next_id { 1 };
+    string_db                               _string_db;
+    player_db                               _player_db;
     combat_db                               _combat_db;
 
     void translate( string_id& id_, combat_server_client src_ ) {
@@ -207,7 +207,7 @@ protected:
     }
 
     string_id get_next_id() {
-        string_id id_next = 2;
+        string_id id_next = 1;
 
         for ( ; is_id_in_use( id_next ); ++id_next ) {}
 
@@ -218,7 +218,7 @@ protected:
     }
 
     void set_client_name( string_id id_, const std::wstring& name_ ) {
-        _player_db->set_player_name( name_, id_ );
+        _player_db.set_player_name( name_, id_ );
 
         for ( auto& cl : _players ) {
             if ( cl._id == id_ ) {
@@ -229,8 +229,8 @@ protected:
     }
 
     void query_string( string_id id_, combat_server_client target_ ) {
-        if ( _string_db->is_set( id_ ) ) {
-            target_.send_string_result( id_, _string_db->get( id_ ) );
+        if ( _string_db.is_set( id_ ) ) {
+            target_.send_string_result( id_, _string_db.get( id_ ) );
         } else {
             for ( auto& cl : _players ) {
                 combat_server_client csc { cl, this };
@@ -243,8 +243,8 @@ protected:
     }
 
     void result_string( string_id id_, const std::wstring& str_, combat_server_client src_ ) {
-        if ( !_string_db->is_set( id_ ) ) {
-            _string_db->set( id_, str_ );
+        if ( !_string_db.is_set( id_ ) ) {
+            _string_db.set( id_, str_ );
             
             for ( auto& cl : _players ) {
                 combat_server_client { cl, this }.send_string_result( id_, str_ );
@@ -254,7 +254,6 @@ protected:
 
 public:
     combat_server() = default;
-    combat_server( player_db& player_db_, string_db& string_db_ ) : _player_db( &player_db_ ), _string_db( &string_db_ ) {}
     combat_server( const combat_server& ) = default;
     combat_server( combat_server&& other_ ) { *this = std::move( other_ ); }
     ~combat_server() = default;
@@ -295,7 +294,7 @@ public:
                 continue;
             }
             combat_server_client { cl, this }.send_player_remove( ref->_id );
-            _player_db->remove_player_name( ref->_id );
+            _player_db.remove_player_name( ref->_id );
         }
 
         _players.erase( ref );

@@ -8,7 +8,6 @@ class main_ui;
 struct data_display_mode {
     typedef std::function<void (data_display_mode*)> change_display_mode_callback;
     size_t                                          _encounter;
-    std::chrono::high_resolution_clock::time_point  _last_update;
 
     data_display_mode() : _encounter(size_t(-1)) {}
     virtual void update_display(combat_db& combat_db_, ui_element_manager<main_ui>& ui_element_manager_, main_ui& ui_) = 0;
