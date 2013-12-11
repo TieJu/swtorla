@@ -51,8 +51,8 @@ END
 //
 
 VS_VERSION_INFO VERSIONINFO
- FILEVERSION 1,0,0,2179
- PRODUCTVERSION 1,0,0,2179
+ FILEVERSION 1,0,0,2181
+ PRODUCTVERSION 1,0,0,2181
  FILEFLAGSMASK 0x3fL
 #ifdef _DEBUG
  FILEFLAGS 0x1L
@@ -67,15 +67,15 @@ BEGIN
     BEGIN
         BLOCK "040704b0"
         BEGIN
-            VALUE "Build", "2179"
+            VALUE "Build", "2181"
             VALUE "CompanyName", "tiemo.jung@mni.thm.de"
             VALUE "FileDescription", "SW:TOR log analizer"
-            VALUE "FileVersion", "1.0.0.Build 2179"
+            VALUE "FileVersion", "1.0.0.Build 2181"
             VALUE "InternalName", "swtor_lo.exe"
             VALUE "LegalCopyright", "Tiemo Jung Copyright (C) 2013"
             VALUE "OriginalFilename", "swtor_lo.exe"
             VALUE "ProductName", "SW:TOR log analizer"
-            VALUE "ProductVersion", "1.0.0.Build 2179"
+            VALUE "ProductVersion", "1.0.0.Build 2181"
         END
     END
     BLOCK "VarFileInfo"

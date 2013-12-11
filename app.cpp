@@ -489,7 +489,6 @@ app::app(const char* caption_, const char* config_path_)
 
     remove_old_file();
 
-
     read_config(_config_path);
 
     setup_from_config();
@@ -711,55 +710,6 @@ std::wstring app::get_archive_name_from_log_name(const std::wstring& name_) {
 }
 
 bool app::archive_log(const std::wstring& file_) {
-#if 0
-    if ( !_config.get<bool>( L"log.archive", false ) ) {
-        return true;
-    }
-
-    bool archive_per_file = _config.get<bool>( L"log.archive_file_seperate", false );
-
-    std::wstring arch_name;
-    bool append = !archive_per_file;
-    if ( archive_per_file ) {
-        arch_name = get_archive_name_from_log_name(file_);
-    } else {
-        arch_name = _config.get<std::wstring>( L"log.archive_name", L"logs.zip" );
-    }
-
-    archive_zip zip(arch_name, archive_zip::open_mode::write, append);
-    if ( !zip.is_open() ) {
-        zip.open(arch_name, archive_zip::open_mode::write, false);
-        if ( !zip.is_open() ) {
-            BOOST_LOG_TRIVIAL(debug) << L"can not open archive " << arch_name << " for writing";
-            return false;
-        }
-    }
-    auto length = ::WideCharToMultiByte(CP_UTF8, 0, file_.c_str(), file_.length(), nullptr, 0, nullptr, nullptr);
-    std::string mbname(length, ' ');
-    ::WideCharToMultiByte(CP_UTF8, 0, file_.c_str(), file_.length(), const_cast<char*>( mbname.c_str() ), mbname.length(), nullptr, nullptr);
-
-    auto last_slash = mbname.find_last_of('\\');
-    std::string local_name;
-    if ( last_slash != std::wstring::npos ) {
-        local_name = mbname.substr(last_slash + 1);
-    } else {
-        local_name = mbname;
-    }
-    // TODO: get actual file time
-    if ( !zip.create_file(local_name.c_str(), std::chrono::system_clock::now()) ) {
-        BOOST_LOG_TRIVIAL(debug) << L"can not add log file " << local_name << L" (" << file_ << L") to archive " << arch_name;
-        return false;
-    }
-
-    std::ifstream file(mbname, std::ios_base::in | std::ios_base::binary);
-    std::array<char, 1024 * 4> buffer;
-    while ( file.read(buffer.data(), buffer.size()) ) {
-        zip.write_file(buffer.data(), buffer.size());
-    }
-    zip.write_file(buffer.data(), file.gcount());
-    zip.close_file();
-    return true;
-#endif
     if ( !_config.get<bool>( L"log.archive", false ) ) {
         return true;
     }

@@ -294,8 +294,8 @@ public:
                 continue;
             }
             combat_server_client { cl, this }.send_player_remove( ref->_id );
-            _player_db.remove_player_name( ref->_id );
         }
+        _player_db.remove_player_name( ref->_id );
 
         _players.erase( ref );
     }
