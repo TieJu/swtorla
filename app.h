@@ -28,17 +28,8 @@
 #include "combat_analizer.h"
 #include "update_dialog.h"
 
-#include "client.h"
-
 #include "upnp.h"
 #include "local_ip.h"
-
-#include "client_net_link.h"
-
-#include "net_link_server.h"
-#include "client_net_link.h"
-#include "server_net_link.h"
-#include "name_id_map.h"
 
 #include "updater.h"
 
@@ -67,18 +58,6 @@ class app : boost::noncopyable {
     combat_server                                   _combat_server;
     c_socket                                        _server_socket;
     combat_client                                   _combat_client;
-
-    std::wstring scan_install_key(HKEY key_,const wchar_t* name_maptch_,bool partial_only_);
-    void find_7z_path_registry();
-    void find_7z_program_path_guess();
-    void find_7z_start_menu();
-    void find_rar_path_registry();
-    void find_rar_program_path_guess();
-    void find_rar_start_menue();
-    void find_compress_software_start_menu();
-    void find_compress_software_path_guess();
-    void find_compress_software_registry();
-    void find_compress_software();
 
     static void NTAPI run_update_tick( DWORD_PTR param_ );
     bool run_update();
@@ -126,9 +105,6 @@ protected:
     static void NTAPI on_new_log_file_change( DWORD_PTR param_ );
     void on_new_log_file(const std::wstring& file_);
     std::chrono::system_clock::time_point change_log_file( const std::wstring& file_, bool relative_ = true );
-    std::wstring get_archive_name_from_log_name(const std::wstring& name_);
-    bool archive_log(const std::wstring& file_);
-    void remove_log(const std::wstring& file_);
 
 protected:
     friend class client_net_link;
