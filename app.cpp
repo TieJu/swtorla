@@ -474,7 +474,6 @@ void NTAPI app::on_new_log_file_change( DWORD_PTR param_ ) {
     BOOST_LOG_TRIVIAL( debug ) << L"app::on_new_log_file_change( " << param_ << L" )";
     auto self = reinterpret_cast<app*>( param_ );
     self->_log_reader.stop( );
-//    self->_combat_client.get_db().clear( );
     auto time = self->change_log_file( self->_next_log_file );
     self->_log_reader.start( self->_current_log_file, time );
     self->_combat_client.new_log();
@@ -528,111 +527,6 @@ std::chrono::system_clock::time_point app::change_log_file( const std::wstring& 
     //BOOST_LOG_TRIVIAL(debug) << L"log file " << _current_log_file << " parsed into " << info.year << "." << info.month << "." << info.day << " " << info.hour << ":" << info.minute << ":" << info.second;
 }
 
-void app::on_connected_to_server(client_net_link* self_) {
-    BOOST_LOG_TRIVIAL(debug) << L"void app::on_connected_to_server(" << self_ << L");";
-//    if ( _current_char < _char_list.size() ) {
-        // only send name to server if we have one
-//        self_->register_at_server( _char_list[_current_char] );
-//    }
-}
-
-void app::on_disconnected_from_server(client_net_link* self_) {
-    BOOST_LOG_TRIVIAL(debug) << L"void app::on_connected_to_server(" << self_ << L");";
-    // UPDATE ui?
-}
-
-void app::on_string_lookup(client_net_link* self_, string_id string_id_) {
-    BOOST_LOG_TRIVIAL(debug) << L"void app::on_string_lookup(" << self_ << L", " << string_id_ << L");";
-    // server requested a string look up
-//    auto ref = _string_db.find(string_id_);
-
-//    if ( ref != end(_string_db) ) {
-        // send string to server
-//        self_->send_string_value(string_id_, ref->second);
-//    }
-}
-
-void app::on_string_info(client_net_link * self_, string_id string_id_, const std::wstring& string_) {
-    BOOST_LOG_TRIVIAL(debug) << L"void app::on_string_info(" << self_ << L", " << string_id_ << L", " << string_ << L");";
-    // just insert it, if it allready exists the current value is kept
-//    _string_db.insert(std::make_pair(string_id_, string_));
-}
-
-void app::on_combat_event(client_net_link * self_, const combat_log_entry& event_) {
-    BOOST_LOG_TRIVIAL(debug) << L"void app::on_combat_event(" << self_ << L", " << &event_ << L");";
-    // use s specialaized version of log_entry_handler to translate server name ids to local name ids
-    //log_entry_handler(event_);
-}
-
-void app::on_set_name(client_net_link * self_, string_id name_id_, const std::wstring& name_) {
-    BOOST_LOG_TRIVIAL(debug) << L"void app::on_set_name(" << self_ << L", " << name_id_ << L", " << name_ << L");";
-    // find a free id
-//    auto local = _id_map.add(name_id_);
-    // ensure we have enoug slots at char list
-//    _char_list.resize(max(local + 1, _char_list.size()));
-    // store name
-//    _char_list[local] = name_;
-}
-
-void app::new_client(c_socket socket_ ) {
-    BOOST_LOG_TRIVIAL(debug) << L"void app::new_client(" << socket_.get() << L");";
-//    _clients.push_back( std::make_unique<server_net_link>( this, std::move( socket_ ) ) );
-}
-
-void app::on_client_register(server_net_link * self_, const std::wstring& name_) {
-    BOOST_LOG_TRIVIAL(debug) << L"void app::on_client_register(" << self_ << L", " << name_ << L");";
-    //auto at = std::find(begin(_player_db), end(_player_db), name_);
-    //if ( at == end(_player_db) ) {
-    //    at = _player_db.insert( _player_db.end(), name_ );
-    //}
-    //auto id = std::distance(begin(_player_db), at);
-    //for ( auto& cl : _clients ) {
-    //    cl->send_set_name(id, name_);
-    //}
-}
-
-void app::on_string_lookup(server_net_link* self_, string_id string_id_) {
-    BOOST_LOG_TRIVIAL(debug) << L"void app::on_string_lookup(" << self_ << L", " << string_id_ << L");";
-    //auto ref = _string_map.find(string_id_);
-    //if ( ref == std::end(_string_map) ) {
-    //    for ( auto& cl : _clients ) {
-    //        cl->get_string_value(string_id_);
-    //    }
-    //} else {
-    //    self_->send_string_value(string_id_, ref->second);
-    //}
-}
-
-void app::on_string_info(server_net_link* self_, string_id string_id_, const std::wstring& string_) {
-    BOOST_LOG_TRIVIAL(debug) << L"void app::on_string_lookup(" << self_ << L", " << string_id_ << L", " << string_ << L");";
-    //auto at = _string_map.insert(std::make_pair(string_id_, string_)).first;
-
-    //for ( auto& cl : _clients ) {
-    //    if ( cl.get() != self_ ) {
-    //        cl->send_string_value(at->first, at->second);
-    //    }
-    //}
-}
-
-void app::on_combat_event(server_net_link* self_, const combat_log_entry& event_) {
-    BOOST_LOG_TRIVIAL(debug) << L"void app::on_combat_event(" << self_ << L", " << to_wstring(event_) << L");";
-    // insert into combat table
-    //_analizer.add_entry( event_ );
-    //for ( auto& cl : _clients ) {
-    //    if ( cl.get() != self_ ) {
-    //        cl->send_combat_event(event_);
-    //    }
-    //}
-}
-
-void app::on_client_disconnect(server_net_link* self_) {
-    BOOST_LOG_TRIVIAL(debug) << L"void app::on_client_disconnect(" << self_ << L");";
-    //auto ref = find_if(begin(_clients), end(_clients), [=](const std::unique_ptr<server_net_link>& other_) { return self_ == other_.get(); });
-    //if ( ref != end(_clients) ) {
-    //    _clients.erase(ref);
-    //}
-}
-
 void app::connect_to_server( const std::wstring& name_, const std::wstring& port_, std::function<void( unsigned error_code_ )> on_connect_ ) {
 //    _client.disconnect(/* [=]( unsigned error_code_ ) {*/ );
 //        _client.connect( std::to_string( name_ ), std::to_string( port_ ), on_connect_ );
@@ -650,11 +544,5 @@ void app::start_server( unsigned long port_ ) {
 }
 
 void app::player_change( string_id name_ ) {
-    //if ( _current_char != name_ ) {
-//        _current_char = name_;
-
-//        _client.register_at_server( _char_list[name_ - 1] );
-
-        _ui->update_main_player( name_ );
-    //}
+    _ui->update_main_player( name_ );
 }

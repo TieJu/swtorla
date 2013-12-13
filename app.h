@@ -107,28 +107,6 @@ protected:
     std::chrono::system_clock::time_point change_log_file( const std::wstring& file_, bool relative_ = true );
 
 protected:
-    friend class client_net_link;
-    void on_connected_to_server(client_net_link* self_);
-    void on_disconnected_from_server(client_net_link* self_);
-    void on_string_lookup(client_net_link* self_, string_id string_id_);
-    void on_string_info(client_net_link* self_, string_id string_id_, const std::wstring& string_);
-    void on_combat_event(client_net_link* self_, const combat_log_entry& event_);
-    void on_set_name(client_net_link* self_, string_id name_id_, const std::wstring& name_);
-
-protected:
-    friend class net_link_server;
-    void new_client(c_socket socket_);
-
-protected:
-    friend class server_net_link;
-    void on_client_register(server_net_link* self_, const std::wstring& name_);
-    void on_client_unregister(server_net_link* self_, string_id id_);
-    void on_string_lookup(server_net_link* self_, string_id string_id_);
-    void on_string_info(server_net_link* self_, string_id string_id_, const std::wstring& string_);
-    void on_combat_event(server_net_link* self_, const combat_log_entry& event_);
-    void on_client_disconnect(server_net_link* self_);
-
-protected:
     friend class raid_sync_dialog;
     void connect_to_server( const std::wstring& name_, const std::wstring& port_, std::function<void (unsigned error_code_)> on_connect_ );
     void start_server( unsigned long port_ );
@@ -157,15 +135,6 @@ public:
 
     void register_listen_socket( c_socket& socket_ ) {
         _ui->register_listen_socket( socket_ );
-    }
-
-    string_id map_local_to_server_id( string_id id_ ) {
-        //return _id_map.map_to_server( id_ );
-        return id_;
-    }
-    string_id map_server_to_local_id( string_id id_ ) {
-        //return _id_map.map_to_local( id_ );
-        return id_;
     }
 
 protected:
